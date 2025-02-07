@@ -7,6 +7,7 @@ use pingora_http::{RequestHeader, ResponseHeader};
 use pingora_proxy::{ProxyHttp, Session};
 use std::any::type_name;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 
 #[allow(dead_code)]
 pub fn typeoff<T>(_: T) -> &'static str {
@@ -23,13 +24,14 @@ pub struct LB {
     // pub upstreams_map: Arc<Mutex<HashMap<String, Vec<(String, u16)>>>>,
     // upstreams: DashMap<String, (Vec<(&'static str, u16)>, AtomicUsize)>,
     // pub upstreams_map: DashMap<String, Vec<(String, u16)>>,
-    pub upstreams_map: DashMap<String, (Vec<(String, u16)>, AtomicUsize)>,
     // pub upstreams_maps: DashMap<String, Arc<LoadBalancer<RoundRobin>>>,
+    pub upstreams_map: DashMap<String, (Vec<(String, u16)>, AtomicUsize)>,
 }
 
 pub trait GetHost {
     fn get_host(&self, peer: &str) -> Option<(String, u16)>;
     fn set_host(&mut self, peer: &str, host: &str, port: u16);
+    fn discover_hosts(&mut self);
 }
 
 impl GetHost for LB {
@@ -82,6 +84,15 @@ impl GetHost for LB {
         // self.get_host(peer);
         // let elapsed = now.elapsed();
         // println!("Elapsed: {:.2?}", elapsed);
+    }
+
+    fn discover_hosts(&mut self) {
+        self.set_host("myip.netangels.net", "192.168.1.1", 8000);
+        self.set_host("myip.netangels.net", "127.0.0.1", 8000);
+        self.set_host("myip.netangels.net", "127.0.0.2", 8000);
+        self.set_host("polo.netangels.net", "192.168.1.1", 8000);
+        self.set_host("polo.netangels.net", "192.168.1.10", 8000);
+        self.set_host("glop.netangels.net", "192.168.1.20", 8000);
     }
 }
 
@@ -173,56 +184,3 @@ impl ProxyHttp for LB {
     //     info!("{}, response code: {response_code}", self.request_summary(session, ctx));
     // }
 }
-
-/*
-pub struct SD;
-
-#[async_trait]
-impl ServiceDiscovery for SD {
-    async fn discover(&self) -> Result<(BTreeSet<Backend>, HashMap<u64, bool>)> {
-        let addrs = read_upstreams_from_file()?;
-
-        /*
-        let addr2 = read_upstreams_from_file_d()?;
-        let mut hmn = HashMap::new();
-        for (k, v) in addr2 {
-            let vl = v
-                .into_iter()
-                .map(|addr| Backend {
-                    addr,
-                    weight: 1,
-                    ext: Default::default(),
-                })
-                .collect::<BTreeSet<_>>();
-            hmn.insert(k, vl);
-        }
-        println!("{:?}", hmn);
-        println!("================== {:?}", addrs);
-        */
-
-        let backends = addrs
-            .into_iter()
-            .map(|addr| Backend {
-                addr,
-                weight: 1,
-                ext: Default::default(),
-            })
-            .collect::<BTreeSet<_>>();
-        Ok((backends, HashMap::new()))
-    }
-}
-
-fn read_upstreams_from_file() -> Result<Vec<SocketAddr>> {
-    let contents = std::fs::read_to_string("upstreams.txt").map_err(|e| Error::because(ErrorType::InternalError, "reading upstreams file", e))?;
-    let addrs = contents
-        .lines()
-        .filter(|line| !line.trim().is_empty())
-        .map(|line| {
-            line.trim()
-                .parse::<SocketAddr>()
-                .map_err(|e| Error::because(ErrorType::InternalError, "parsing upstream address", e))
-        })
-        .collect::<Result<Vec<_>>>()?;
-    Ok(addrs)
-}
-*/

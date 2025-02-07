@@ -1,5 +1,6 @@
 use crate::web::proxyhttp::{GetHost, LB};
 use dashmap::DashMap;
+use pingora_core::prelude::background_service;
 use pingora_core::server::Server;
 use std::sync::atomic::AtomicUsize;
 /*
@@ -45,22 +46,15 @@ pub fn run() {
         upstreams_map,
         // upstreams_maps: DashMap::new(),
     };
-    add_hosts(&mut ll);
+
+    let background = background_service("load balancer", ll.discover_hosts());
+    background.task();
 
     let mut lb = pingora_proxy::http_proxy_service(&server.configuration, ll);
 
     lb.add_tcp("0.0.0.0:6193");
-    server.add_service(lb);
-    // server.add_service(background);
+    // server.add_service(lb);
+    // server.add_service(background.task());
 
     server.run_forever();
-}
-
-fn add_hosts(lb: &mut LB) {
-    lb.set_host("myip.netangels.net", "192.168.1.1", 8000);
-    lb.set_host("myip.netangels.net", "127.0.0.1", 8000);
-    lb.set_host("myip.netangels.net", "127.0.0.2", 8000);
-    lb.set_host("polo.netangels.net", "192.168.1.1", 8000);
-    lb.set_host("polo.netangels.net", "192.168.1.10", 8000);
-    lb.set_host("glop.netangels.net", "192.168.1.20", 8000);
 }
