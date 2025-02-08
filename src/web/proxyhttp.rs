@@ -1,3 +1,4 @@
+use crate::utils::compare;
 use async_trait::async_trait;
 use dashmap::DashMap;
 use log::{info, warn};
@@ -9,7 +10,9 @@ use pingora_http::{RequestHeader, ResponseHeader};
 use pingora_proxy::{ProxyHttp, Session};
 use std::any::type_name;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 use std::time::Duration;
+use tokio::sync::RwLock;
 use tokio::time::interval;
 
 #[allow(dead_code)]
@@ -18,80 +21,85 @@ pub fn typeoff<T>(_: T) {
     println!("{:?}", to);
 }
 
-#[allow(dead_code)]
 pub struct LB {
-    pub upstreams_map: DashMap<String, (Vec<(String, u16)>, AtomicUsize)>,
+    pub upstreams_map: Arc<RwLock<DashMap<String, (Vec<(String, u16)>, AtomicUsize)>>>,
+}
+pub struct BGService {
+    pub upstreams_map: Arc<RwLock<DashMap<String, (Vec<(String, u16)>, AtomicUsize)>>>,
 }
 
-pub struct BGService;
 #[async_trait]
 impl BackgroundService for BGService {
     async fn start(&self, mut shutdown: ShutdownWatch) {
         println!("Starting example background service");
-        let mut period = interval(Duration::from_secs(1));
+        let mut period = interval(Duration::from_secs(10));
         loop {
             tokio::select! {
                 _ = shutdown.changed() => {
-                    // shutdown
                     break;
                 }
                 _ = period.tick() => {
-                    println!("= = = = = = = = = = = = = = = = = = = = = = = = = =")
+                    let map_write = self.upstreams_map.write().await;
+                    let newmap = discover();
+                    if compare::dashmaps(&map_write, &newmap) {
+                        println!("DashMaps are equal. Chilling out.");
+                    } else {
+                        println!("DashMaps are different. Syncing !!!!!");
+                        for (k,v) in newmap {
+                            println!("{} -> {:?}", k, v);
+                            map_write.insert(k,v);
+                        }
+                    }
+                    drop(map_write); // Important: Release the lock
                 }
             }
         }
     }
+}
+
+fn discover() -> DashMap<String, (Vec<(String, u16)>, AtomicUsize)> {
+    let upstreams_map: DashMap<String, (Vec<(String, u16)>, AtomicUsize)> = DashMap::new();
+    let mut toreturn = vec![];
+    toreturn.push(("192.168.1.1".to_string(), 8000.to_owned()));
+    toreturn.push(("192.168.1.10".to_string(), 8000.to_owned()));
+    toreturn.push(("127.0.0.1".to_string(), 8000.to_owned()));
+    toreturn.push(("127.0.0.2".to_string(), 8000.to_owned()));
+    toreturn.push(("127.0.0.3".to_string(), 8000.to_owned()));
+    toreturn.push(("127.0.0.4".to_string(), 8000.to_owned()));
+    toreturn.push(("127.0.0.5".to_string(), 8000.to_owned()));
+    toreturn.push(("127.0.0.6".to_string(), 8000.to_owned()));
+    upstreams_map.insert("myip.netangels.net".to_string(), (toreturn, AtomicUsize::new(0)));
+    let mut toreturn = vec![];
+    toreturn.push(("192.168.1.1".to_string(), 8000.to_owned()));
+    toreturn.push(("192.168.1.10".to_string(), 8000.to_owned()));
+    upstreams_map.insert("polo.netangels.net".to_string(), (toreturn, AtomicUsize::new(0)));
+    let mut toreturn = vec![];
+    toreturn.push(("192.168.1.20".to_string(), 8000.to_owned()));
+    upstreams_map.insert("glop.netangels.net".to_string(), (toreturn, AtomicUsize::new(0)));
+    upstreams_map
 }
 
 #[async_trait]
 pub trait GetHost {
     async fn get_host(&self, peer: &str) -> Option<(String, u16)>;
-    fn set_host(&mut self, peer: &str, host: &str, port: u16);
-    fn discover_hosts(&mut self);
 }
 #[async_trait]
 impl GetHost for LB {
     async fn get_host(&self, peer: &str) -> Option<(String, u16)> {
-        let entry = self.upstreams_map.get(peer)?;
-        let (servers, index) = entry.value();
+        let map_read = self.upstreams_map.read().await;
+        let x = if let Some(entry) = map_read.get(peer) {
+            let (servers, index) = entry.value(); // No clone here
 
-        if servers.is_empty() {
-            return None;
-        }
-
-        let idx = index.fetch_add(1, Ordering::Relaxed) % servers.len();
-        println!("{} {:?} => len: {}, idx: {}", peer, servers[idx], servers.len(), idx);
-        Some(servers[idx].clone())
-    }
-
-    fn set_host(&mut self, peer: &str, host: &str, port: u16) {
-        let exists = self.upstreams_map.get(peer);
-        let mut toreturn = vec![];
-        match exists {
-            Some(e) => {
-                let (ko, _) = e.value();
-                let new_value = vec![(host.to_string(), port)];
-                for (k, v) in ko.clone().iter() {
-                    toreturn.push((k.to_string(), v.to_owned()));
-                }
-                toreturn.push(new_value[0].clone());
+            if servers.is_empty() {
+                return None;
             }
-            None => {
-                toreturn.push((host.to_string(), port));
-            }
-        }
-
-        println!(" ==> Updating peer list: name => {} | value => {:?}", peer.to_string(), toreturn);
-        self.upstreams_map.insert(peer.to_string(), (toreturn, AtomicUsize::new(0)));
-    }
-
-    fn discover_hosts(&mut self) {
-        self.set_host("myip.netangels.net", "192.168.1.1", 8000);
-        self.set_host("myip.netangels.net", "127.0.0.1", 8000);
-        self.set_host("myip.netangels.net", "127.0.0.2", 8000);
-        self.set_host("polo.netangels.net", "192.168.1.1", 8000);
-        self.set_host("polo.netangels.net", "192.168.1.10", 8000);
-        self.set_host("glop.netangels.net", "192.168.1.20", 8000);
+            let idx = index.fetch_add(1, Ordering::Relaxed) % servers.len();
+            println!("{} {:?} => len: {}, idx: {}", peer, servers[idx], servers.len(), idx);
+            Some(servers[idx].clone()) // Clone the server address
+        } else {
+            None
+        };
+        x
     }
 }
 
