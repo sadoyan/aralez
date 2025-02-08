@@ -1,4 +1,4 @@
-use crate::web::proxyhttp::{GetHost, LB};
+use crate::web::proxyhttp::{BGService, GetHost, LB};
 use dashmap::DashMap;
 use pingora_core::prelude::background_service;
 use pingora_core::server::Server;
@@ -33,7 +33,6 @@ pub fn run() {
 
     // let backends = Backends::new(Box::new(SD));
     // let load_balancer = LoadBalancer::from_backends(backends);
-
     // load_balancer.set_health_check(TcpHealthCheck::new());
     // load_balancer.health_check_frequency = Some(Duration::from_secs(1));
     // load_balancer.update_frequency = Some(Duration::from_secs(1));
@@ -42,11 +41,9 @@ pub fn run() {
 
     let upstreams_map: DashMap<String, (Vec<(String, u16)>, AtomicUsize)> = DashMap::new();
 
-    let mut ll = LB {
-        upstreams_map,
-        // upstreams_maps: DashMap::new(),
-    };
+    let mut ll = LB { upstreams_map };
 
+    let bg_service = background_service("bgsrvc", BGService {});
     let background = background_service("load balancer", ll.discover_hosts());
     background.task();
 
@@ -54,7 +51,7 @@ pub fn run() {
 
     lb.add_tcp("0.0.0.0:6193");
     server.add_service(lb);
-    // server.add_service(background.task());
+    server.add_service(bg_service);
 
     server.run_forever();
 }
