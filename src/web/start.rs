@@ -53,7 +53,7 @@ pub fn run() {
     let mut lb = pingora_proxy::http_proxy_service(&server.configuration, ll);
 
     lb.add_tcp("0.0.0.0:6193");
-    // server.add_service(lb);
+    server.add_service(lb);
     // server.add_service(background.task());
 
     server.run_forever();

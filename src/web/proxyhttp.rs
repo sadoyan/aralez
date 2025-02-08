@@ -7,13 +7,11 @@ use pingora_http::{RequestHeader, ResponseHeader};
 use pingora_proxy::{ProxyHttp, Session};
 use std::any::type_name;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Arc;
 
 #[allow(dead_code)]
-pub fn typeoff<T>(_: T) -> &'static str {
+pub fn typeoff<T>(_: T) {
     let to = type_name::<T>();
     println!("{:?}", to);
-    to
 }
 
 // pub struct LB(pub Arc<LoadBalancer<RoundRobin>>);
@@ -28,14 +26,15 @@ pub struct LB {
     pub upstreams_map: DashMap<String, (Vec<(String, u16)>, AtomicUsize)>,
 }
 
+#[async_trait]
 pub trait GetHost {
-    fn get_host(&self, peer: &str) -> Option<(String, u16)>;
+    async fn get_host(&self, peer: &str) -> Option<(String, u16)>;
     fn set_host(&mut self, peer: &str, host: &str, port: u16);
     fn discover_hosts(&mut self);
 }
-
+#[async_trait]
 impl GetHost for LB {
-    fn get_host(&self, peer: &str) -> Option<(String, u16)> {
+    async fn get_host(&self, peer: &str) -> Option<(String, u16)> {
         // println!("{:?}", self.upstreams_map);
         // let entry = self.upstreams_map.get(peer)?;
         // let first = entry.value().first()?;
@@ -114,7 +113,7 @@ impl ProxyHttp for LB {
     async fn upstream_peer(&self, session: &mut Session, _ctx: &mut Self::CTX) -> Result<Box<HttpPeer>> {
         let host_name = session.req_header().headers.get("host");
         let ddr = self.get_host(host_name.unwrap().to_str().unwrap());
-        match ddr {
+        match ddr.await {
             Some((host, port)) => {
                 let peer = Box::new(HttpPeer::new((host, port), false, "".to_string()));
                 Ok(peer)
