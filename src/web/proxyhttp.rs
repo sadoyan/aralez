@@ -1,4 +1,5 @@
 use crate::utils::compare;
+// use crate::utils::tools::*;
 use async_trait::async_trait;
 use dashmap::DashMap;
 use log::{info, warn};
@@ -8,18 +9,11 @@ use pingora_core::server::ShutdownWatch;
 use pingora_core::services::background::BackgroundService;
 use pingora_http::{RequestHeader, ResponseHeader};
 use pingora_proxy::{ProxyHttp, Session};
-use std::any::type_name;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::RwLock;
 use tokio::time::interval;
-
-#[allow(dead_code)]
-pub fn typeoff<T>(_: T) {
-    let to = type_name::<T>();
-    println!("{:?}", to);
-}
 
 pub struct LB {
     pub upstreams_map: Arc<RwLock<DashMap<String, (Vec<(String, u16)>, AtomicUsize)>>>,

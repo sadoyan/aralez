@@ -1,6 +1,7 @@
 use dashmap::DashMap;
 use std::sync::atomic::AtomicUsize;
 
+#[allow(dead_code)]
 pub fn dashmaps(map1: &DashMap<String, (Vec<(String, u16)>, AtomicUsize)>, map2: &DashMap<String, (Vec<(String, u16)>, AtomicUsize)>) -> bool {
     if map1.len() != map2.len() {
         return false; // Different number of keys
