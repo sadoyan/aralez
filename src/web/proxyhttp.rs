@@ -19,13 +19,13 @@ pub struct LB {
     pub upstreams: Arc<RwLock<DashMap<String, (Vec<(String, u16)>, AtomicUsize)>>>,
     // pub umap_full: Arc<RwLock<DashMap<String, (Vec<(String, u16)>, AtomicUsize)>>>,
 }
-pub struct BGService {
-    pub upstreams: Arc<RwLock<DashMap<String, (Vec<(String, u16)>, AtomicUsize)>>>,
-    // pub umap_full: Arc<RwLock<DashMap<String, (Vec<(String, u16)>, AtomicUsize)>>>,
-}
+// pub struct BGService {
+//     pub upstreams: Arc<RwLock<DashMap<String, (Vec<(String, u16)>, AtomicUsize)>>>,
+//     pub umap_full: Arc<RwLock<DashMap<String, (Vec<(String, u16)>, AtomicUsize)>>>,
+// }
 
 #[async_trait]
-impl BackgroundService for BGService {
+impl BackgroundService for LB {
     async fn start(&self, mut shutdown: ShutdownWatch) {
         println!("Starting example background service");
         let mut period = interval(Duration::from_secs(10));

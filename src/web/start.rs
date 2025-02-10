@@ -1,4 +1,4 @@
-use crate::web::proxyhttp::{BGService, LB};
+use crate::web::proxyhttp::LB;
 use dashmap::DashMap;
 use pingora_core::prelude::background_service;
 use pingora_core::server::Server;
@@ -16,17 +16,15 @@ pub fn run() {
     let config = Arc::new(RwLock::new(upstreams_map));
 
     let lb = LB {
-        upstreams: config.clone(),
-        // umap_full: config.clone(),
+        upstreams: config.clone(), // umap_full: config.clone()
     };
-    let bg_service = BGService {
-        upstreams: config.clone(),
-        // umap_full: config.clone(),
+    let bg = LB {
+        upstreams: config.clone(), // umap_full: config.clone()
     };
 
-    let bg_srvc = background_service("bgsrvc", bg_service);
-
+    let bg_srvc = background_service("bgsrvc", bg);
     let mut proxy = pingora_proxy::http_proxy_service(&server.configuration, lb);
+
     proxy.add_tcp("0.0.0.0:6193");
     server.add_service(proxy);
     server.add_service(bg_srvc);
