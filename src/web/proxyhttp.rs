@@ -16,10 +16,12 @@ use tokio::sync::RwLock;
 use tokio::time::interval;
 
 pub struct LB {
-    pub upstreams_map: Arc<RwLock<DashMap<String, (Vec<(String, u16)>, AtomicUsize)>>>,
+    pub upstreams: Arc<RwLock<DashMap<String, (Vec<(String, u16)>, AtomicUsize)>>>,
+    // pub umap_full: Arc<RwLock<DashMap<String, (Vec<(String, u16)>, AtomicUsize)>>>,
 }
 pub struct BGService {
-    pub upstreams_map: Arc<RwLock<DashMap<String, (Vec<(String, u16)>, AtomicUsize)>>>,
+    pub upstreams: Arc<RwLock<DashMap<String, (Vec<(String, u16)>, AtomicUsize)>>>,
+    // pub umap_full: Arc<RwLock<DashMap<String, (Vec<(String, u16)>, AtomicUsize)>>>,
 }
 
 #[async_trait]
@@ -33,7 +35,8 @@ impl BackgroundService for BGService {
                     break;
                 }
                 _ = period.tick() => {
-                    let map_write = self.upstreams_map.write().await;
+                    let map_write = self.upstreams.write().await;
+                    // let newups : DashMap<String, (Vec<(String, u16)>, AtomicUsize)> = DashMap::new();
                     let newmap = discover();
                     if compare::dashmaps(&map_write, &newmap) {
                         println!("DashMaps are equal. Chilling out.");
@@ -44,7 +47,7 @@ impl BackgroundService for BGService {
                             map_write.insert(k,v);
                         }
                     }
-                    drop(map_write); // Important: Release the lock
+                    drop(map_write);
                 }
             }
         }
@@ -52,7 +55,7 @@ impl BackgroundService for BGService {
 }
 
 fn discover() -> DashMap<String, (Vec<(String, u16)>, AtomicUsize)> {
-    let upstreams_map: DashMap<String, (Vec<(String, u16)>, AtomicUsize)> = DashMap::new();
+    let upstreams: DashMap<String, (Vec<(String, u16)>, AtomicUsize)> = DashMap::new();
     let mut toreturn = vec![];
     toreturn.push(("192.168.1.1".to_string(), 8000.to_owned()));
     toreturn.push(("192.168.1.10".to_string(), 8000.to_owned()));
@@ -62,15 +65,15 @@ fn discover() -> DashMap<String, (Vec<(String, u16)>, AtomicUsize)> {
     toreturn.push(("127.0.0.4".to_string(), 8000.to_owned()));
     toreturn.push(("127.0.0.5".to_string(), 8000.to_owned()));
     toreturn.push(("127.0.0.6".to_string(), 8000.to_owned()));
-    upstreams_map.insert("myip.netangels.net".to_string(), (toreturn, AtomicUsize::new(0)));
+    upstreams.insert("myip.netangels.net".to_string(), (toreturn, AtomicUsize::new(0)));
     let mut toreturn = vec![];
     toreturn.push(("192.168.1.1".to_string(), 8000.to_owned()));
     toreturn.push(("192.168.1.10".to_string(), 8000.to_owned()));
-    upstreams_map.insert("polo.netangels.net".to_string(), (toreturn, AtomicUsize::new(0)));
+    upstreams.insert("polo.netangels.net".to_string(), (toreturn, AtomicUsize::new(0)));
     let mut toreturn = vec![];
     toreturn.push(("192.168.1.20".to_string(), 8000.to_owned()));
-    upstreams_map.insert("glop.netangels.net".to_string(), (toreturn, AtomicUsize::new(0)));
-    upstreams_map
+    upstreams.insert("glop.netangels.net".to_string(), (toreturn, AtomicUsize::new(0)));
+    upstreams
 }
 
 #[async_trait]
@@ -80,7 +83,7 @@ pub trait GetHost {
 #[async_trait]
 impl GetHost for LB {
     async fn get_host(&self, peer: &str) -> Option<(String, u16)> {
-        let map_read = self.upstreams_map.read().await;
+        let map_read = self.upstreams.read().await;
         let x = if let Some(entry) = map_read.get(peer) {
             let (servers, index) = entry.value(); // No clone here
 
@@ -89,7 +92,7 @@ impl GetHost for LB {
             }
             let idx = index.fetch_add(1, Ordering::Relaxed) % servers.len();
             println!("{} {:?} => len: {}, idx: {}", peer, servers[idx], servers.len(), idx);
-            Some(servers[idx].clone()) // Clone the server address
+            Some(servers[idx].clone())
         } else {
             None
         };
