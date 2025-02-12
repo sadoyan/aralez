@@ -15,11 +15,16 @@ pub fn run() {
     let upstreams_map: DashMap<String, (Vec<(String, u16)>, AtomicUsize)> = DashMap::new();
     let config = Arc::new(RwLock::new(upstreams_map));
 
+    let umap_full: DashMap<String, (Vec<(String, u16)>, AtomicUsize)> = DashMap::new();
+    let fconfig = Arc::new(RwLock::new(umap_full));
+
     let lb = LB {
-        upstreams: config.clone(), // umap_full: config.clone()
+        upstreams: config.clone(),
+        umap_full: fconfig.clone(),
     };
     let bg = LB {
-        upstreams: config.clone(), // umap_full: config.clone()
+        upstreams: config.clone(),
+        umap_full: fconfig.clone(),
     };
 
     let bg_srvc = background_service("bgsrvc", bg);

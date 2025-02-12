@@ -1,5 +1,6 @@
-use crate::utils::compare;
-// use crate::utils::tools::*;
+// use crate::utils::compare;
+// use crate::utils::discovery;
+use crate::utils::*;
 use async_trait::async_trait;
 use dashmap::DashMap;
 use log::{info, warn};
@@ -17,7 +18,7 @@ use tokio::time::interval;
 
 pub struct LB {
     pub upstreams: Arc<RwLock<DashMap<String, (Vec<(String, u16)>, AtomicUsize)>>>,
-    // pub umap_full: Arc<RwLock<DashMap<String, (Vec<(String, u16)>, AtomicUsize)>>>,
+    pub umap_full: Arc<RwLock<DashMap<String, (Vec<(String, u16)>, AtomicUsize)>>>,
 }
 // pub struct BGService {
 //     pub upstreams: Arc<RwLock<DashMap<String, (Vec<(String, u16)>, AtomicUsize)>>>,
@@ -27,6 +28,8 @@ pub struct LB {
 #[async_trait]
 impl BackgroundService for LB {
     async fn start(&self, mut shutdown: ShutdownWatch) {
+        tokio::spawn(healthcheck::hc(self.upstreams.clone(), self.umap_full.clone()));
+
         println!("Starting example background service");
         let mut period = interval(Duration::from_secs(10));
         loop {
@@ -35,45 +38,27 @@ impl BackgroundService for LB {
                     break;
                 }
                 _ = period.tick() => {
-                    let map_write = self.upstreams.write().await;
-                    // let newups : DashMap<String, (Vec<(String, u16)>, AtomicUsize)> = DashMap::new();
-                    let newmap = discover();
-                    if compare::dashmaps(&map_write, &newmap) {
-                        println!("DashMaps are equal. Chilling out.");
-                    } else {
+                    let umap_work = self.upstreams.write().await;
+                    let umap_full = self.umap_full.write().await;
+                    let newmap = discovery::discover();
+                    if !compare::dashmaps(&umap_full, &newmap) {
                         println!("DashMaps are different. Syncing !!!!!");
                         for (k,v) in newmap {
+                            let mut o= Vec::new();
                             println!("{} -> {:?}", k, v);
-                            map_write.insert(k,v);
+                            for k in v.0.clone() {
+                                o.push(k);
+                            }
+                            umap_work.insert(k.clone(),v);
+                            umap_full.insert(k,(o,AtomicUsize::new(0)));
                         }
                     }
-                    drop(map_write);
+                    drop(umap_full);
+                    drop(umap_work);
                 }
             }
         }
     }
-}
-
-fn discover() -> DashMap<String, (Vec<(String, u16)>, AtomicUsize)> {
-    let upstreams: DashMap<String, (Vec<(String, u16)>, AtomicUsize)> = DashMap::new();
-    let mut toreturn = vec![];
-    toreturn.push(("192.168.1.1".to_string(), 8000.to_owned()));
-    toreturn.push(("192.168.1.10".to_string(), 8000.to_owned()));
-    toreturn.push(("127.0.0.1".to_string(), 8000.to_owned()));
-    toreturn.push(("127.0.0.2".to_string(), 8000.to_owned()));
-    toreturn.push(("127.0.0.3".to_string(), 8000.to_owned()));
-    toreturn.push(("127.0.0.4".to_string(), 8000.to_owned()));
-    toreturn.push(("127.0.0.5".to_string(), 8000.to_owned()));
-    toreturn.push(("127.0.0.6".to_string(), 8000.to_owned()));
-    upstreams.insert("myip.netangels.net".to_string(), (toreturn, AtomicUsize::new(0)));
-    let mut toreturn = vec![];
-    toreturn.push(("192.168.1.1".to_string(), 8000.to_owned()));
-    toreturn.push(("192.168.1.10".to_string(), 8000.to_owned()));
-    upstreams.insert("polo.netangels.net".to_string(), (toreturn, AtomicUsize::new(0)));
-    let mut toreturn = vec![];
-    toreturn.push(("192.168.1.20".to_string(), 8000.to_owned()));
-    upstreams.insert("glop.netangels.net".to_string(), (toreturn, AtomicUsize::new(0)));
-    upstreams
 }
 
 #[async_trait]
@@ -84,6 +69,9 @@ pub trait GetHost {
 impl GetHost for LB {
     async fn get_host(&self, peer: &str) -> Option<(String, u16)> {
         let map_read = self.upstreams.read().await;
+        // let ful_read = self.umap_full.read().await;
+        println!("DN ==> {:?}", map_read);
+        // println!("FU ==> {:?}", ful_read);
         let x = if let Some(entry) = map_read.get(peer) {
             let (servers, index) = entry.value(); // No clone here
 
@@ -91,11 +79,12 @@ impl GetHost for LB {
                 return None;
             }
             let idx = index.fetch_add(1, Ordering::Relaxed) % servers.len();
-            println!("{} {:?} => len: {}, idx: {}", peer, servers[idx], servers.len(), idx);
+            // println!("{} {:?} => len: {}, idx: {}", peer, servers[idx], servers.len(), idx);
             Some(servers[idx].clone())
         } else {
             None
         };
+        drop(map_read);
         x
     }
 }

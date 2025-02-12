@@ -1,8 +1,9 @@
 use dashmap::DashMap;
 use std::sync::atomic::AtomicUsize;
+use tokio::sync::RwLockWriteGuard;
 
 #[allow(dead_code)]
-pub fn dashmaps(map1: &DashMap<String, (Vec<(String, u16)>, AtomicUsize)>, map2: &DashMap<String, (Vec<(String, u16)>, AtomicUsize)>) -> bool {
+pub fn dashmaps(map1: &RwLockWriteGuard<DashMap<String, (Vec<(String, u16)>, AtomicUsize)>>, map2: &DashMap<String, (Vec<(String, u16)>, AtomicUsize)>) -> bool {
     if map1.len() != map2.len() {
         return false; // Different number of keys
     }
