@@ -3,6 +3,8 @@
 use crate::utils::*;
 use async_trait::async_trait;
 use dashmap::DashMap;
+use futures::channel::mpsc;
+use futures::StreamExt;
 use log::{info, warn};
 use pingora::prelude::*;
 use pingora_core::prelude::HttpPeer;
@@ -12,9 +14,7 @@ use pingora_http::{RequestHeader, ResponseHeader};
 use pingora_proxy::{ProxyHttp, Session};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
-use std::time::Duration;
 use tokio::sync::RwLock;
-use tokio::time::interval;
 
 pub struct LB {
     pub upstreams: Arc<RwLock<DashMap<String, (Vec<(String, u16)>, AtomicUsize)>>>,
@@ -29,32 +29,40 @@ pub struct LB {
 impl BackgroundService for LB {
     async fn start(&self, mut shutdown: ShutdownWatch) {
         tokio::spawn(healthcheck::hc(self.upstreams.clone(), self.umap_full.clone()));
-
         println!("Starting example background service");
-        let mut period = interval(Duration::from_secs(10));
+        let (tx, mut rx) = mpsc::channel::<DashMap<String, (Vec<(String, u16)>, AtomicUsize)>>(0);
+        let _ = tokio::spawn(async move { discovery::dsc(tx.clone()).await });
+
         loop {
             tokio::select! {
                 _ = shutdown.changed() => {
                     break;
                 }
-                _ = period.tick() => {
-                    let umap_work = self.upstreams.write().await;
-                    let umap_full = self.umap_full.write().await;
-                    let newmap = discovery::discover();
-                    if !compare::dashmaps(&umap_full, &newmap) {
-                        println!("DashMaps are different. Syncing !!!!!");
-                        for (k,v) in newmap {
-                            let mut o= Vec::new();
-                            println!("{} -> {:?}", k, v);
-                            for k in v.0.clone() {
-                                o.push(k);
+                // _ = period.tick() => {
+                val = rx.next() => {
+                    match val {
+                        Some(newmap) => {
+                            let umap_work = self.upstreams.write().await;
+                            let umap_full = self.umap_full.write().await;
+                            if !compare::dashmaps(&umap_full, &newmap) {
+                                println!("DashMaps are different. Syncing !!!!!");
+                                umap_work.clear();
+                                umap_full.clear();
+                                for (k,v) in newmap {
+                                    println!("Host: {}", k);
+                                    for vv in v.0.clone() {
+                                        println!("  Upstreams: {:?}", vv);
+                                    }
+                                    // println!("{} -> {:?}", k, v);
+                                    umap_work.insert(k.clone(), (v.0.clone(), AtomicUsize::new(0))); // No need for extra vec!
+                                    umap_full.insert(k, (v.0, AtomicUsize::new(0))); // Use `value.0` directly
+                                }
                             }
-                            umap_work.insert(k.clone(),v);
-                            umap_full.insert(k,(o,AtomicUsize::new(0)));
+                        drop(umap_full);
+                        drop(umap_work);
                         }
+                        None => {}
                     }
-                    drop(umap_full);
-                    drop(umap_work);
                 }
             }
         }
@@ -70,7 +78,7 @@ impl GetHost for LB {
     async fn get_host(&self, peer: &str) -> Option<(String, u16)> {
         let map_read = self.upstreams.read().await;
         // let ful_read = self.umap_full.read().await;
-        println!("DN ==> {:?}", map_read);
+        // println!("DN ==> {:?}", map_read);
         // println!("FU ==> {:?}", ful_read);
         let x = if let Some(entry) = map_read.get(peer) {
             let (servers, index) = entry.value(); // No clone here
@@ -79,7 +87,7 @@ impl GetHost for LB {
                 return None;
             }
             let idx = index.fetch_add(1, Ordering::Relaxed) % servers.len();
-            // println!("{} {:?} => len: {}, idx: {}", peer, servers[idx], servers.len(), idx);
+            println!("{} {:?} => len: {}, idx: {}", peer, servers[idx], servers.len(), idx);
             Some(servers[idx].clone())
         } else {
             None

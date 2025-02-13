@@ -19,10 +19,9 @@ pub async fn hc(upslist: Arc<RwLock<DashMap<String, (Vec<(String, u16)>, AtomicU
                        "glop.netangels.net" => ups.remove("glop.netangels.net"),
                         _ => ups.remove(""),
                     };
-                    // println!("Iter full: {} -> {:?}", val.key(), val.value());
                 }
 
-                println!("UPS: {:?}", ups);
+                // println!("UPS: {:?}", ups);
                 drop(ups);
                 drop(full);
             }
