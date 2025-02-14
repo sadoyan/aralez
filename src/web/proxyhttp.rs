@@ -1,5 +1,6 @@
 // use crate::utils::compare;
 // use crate::utils::discovery;
+use crate::utils::discovery::Discovery;
 use crate::utils::*;
 use async_trait::async_trait;
 use dashmap::DashMap;
@@ -31,7 +32,8 @@ impl BackgroundService for LB {
         tokio::spawn(healthcheck::hc(self.upstreams.clone(), self.umap_full.clone()));
         println!("Starting example background service");
         let (tx, mut rx) = mpsc::channel::<DashMap<String, (Vec<(String, u16)>, AtomicUsize)>>(0);
-        let _ = tokio::spawn(async move { discovery::dsc(tx.clone()).await });
+        // let _ = tokio::spawn(async move { discovery::dsc(tx.clone()).await });
+        let _ = tokio::spawn(async move { discovery::DSC.discover(tx.clone()).await });
 
         loop {
             tokio::select! {

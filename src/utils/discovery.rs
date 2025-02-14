@@ -3,25 +3,87 @@ use futures::channel::mpsc::Sender;
 use futures::SinkExt;
 use std::fs;
 use std::sync::atomic::AtomicUsize;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
-// pub fn discover() -> DashMap<String, (Vec<(String, u16)>, AtomicUsize)> {
-//     read_upstreams_from_file()
-// }
+use async_trait::async_trait;
+use notify::event::ModifyKind;
+use notify::{Config, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
+use std::path::Path;
+use tokio::sync::mpsc;
+use tokio::task;
 
-pub async fn dsc(mut tx: Sender<DashMap<String, (Vec<(String, u16)>, AtomicUsize)>>) {
-    loop {
-        let snd = read_upstreams_from_file();
-        let _ = tx.send(snd).await.unwrap();
-        tokio::time::sleep(Duration::from_secs(2)).await;
+pub struct DSC;
+#[async_trait]
+pub trait Discovery {
+    async fn discover(&self, tx: Sender<DashMap<String, (Vec<(String, u16)>, AtomicUsize)>>);
+}
+
+#[async_trait]
+impl Discovery for DSC {
+    async fn discover(&self, tx: Sender<DashMap<String, (Vec<(String, u16)>, AtomicUsize)>>) {
+        let file_path = "etc/upstreams.conf";
+        tokio::spawn(watch_file(file_path, tx));
     }
 }
 
-fn read_upstreams_from_file() -> DashMap<String, (Vec<(String, u16)>, AtomicUsize)> {
-    let upstreams = DashMap::new();
+// pub async fn dsc(tx: Sender<DashMap<String, (Vec<(String, u16)>, AtomicUsize)>>) {
+//     let file_path = "etc/upstreams.conf";
+//     tokio::spawn(watch_file(file_path, tx));
+// }
 
-    // Read file contents
-    let contents = match fs::read_to_string("etc/upstreams.txt") {
+pub async fn watch_file(file_path: &str, mut toreturn: Sender<DashMap<String, (Vec<(String, u16)>, AtomicUsize)>>) {
+    let parent_dir = Path::new(file_path).parent().unwrap(); // Watch directory, not file
+    let (tx, mut rx) = mpsc::channel::<notify::Result<Event>>(10);
+
+    println!("Watching for changes in {:?}", parent_dir);
+    let paths = fs::read_dir(parent_dir).unwrap();
+    for path in paths {
+        println!("  {}", path.unwrap().path().display())
+    }
+
+    let snd = read_upstreams_from_file(file_path);
+    let _ = toreturn.send(snd).await.unwrap();
+
+    let _watcher_handle = task::spawn_blocking({
+        let parent_dir = parent_dir.to_path_buf(); // Move directory path into the closure
+        move || {
+            let mut watcher = RecommendedWatcher::new(
+                move |res| {
+                    let _ = tx.blocking_send(res);
+                },
+                Config::default(),
+            )
+            .unwrap();
+            watcher.watch(&parent_dir, RecursiveMode::Recursive).unwrap();
+
+            loop {
+                std::thread::sleep(Duration::from_secs(50));
+            }
+        }
+    });
+    let mut start = Instant::now();
+    while let Some(event) = rx.recv().await {
+        match event {
+            Ok(e) => match e.kind {
+                EventKind::Modify(ModifyKind::Data(_)) | EventKind::Create(..) | EventKind::Remove(..) => {
+                    if e.paths[0].to_str().unwrap().ends_with("conf") {
+                        if start.elapsed() > Duration::from_secs(10) {
+                            start = Instant::now();
+                            println!("Config File changed :=> {:?}", e);
+                            let snd = read_upstreams_from_file(file_path);
+                            let _ = toreturn.send(snd).await.unwrap();
+                        }
+                    }
+                }
+                _ => (),
+            },
+            Err(e) => println!("Watch error: {:?}", e),
+        }
+    }
+}
+fn read_upstreams_from_file(path: &str) -> DashMap<String, (Vec<(String, u16)>, AtomicUsize)> {
+    let upstreams = DashMap::new();
+    let contents = match fs::read_to_string(path) {
         Ok(data) => data,
         Err(e) => {
             eprintln!("Error reading file: {:?}", e);
@@ -29,7 +91,6 @@ fn read_upstreams_from_file() -> DashMap<String, (Vec<(String, u16)>, AtomicUsiz
         }
     };
 
-    // Process each non-empty line
     for line in contents.lines().filter(|line| !line.trim().is_empty()) {
         let mut parts = line.split_whitespace();
 
@@ -51,8 +112,6 @@ fn read_upstreams_from_file() -> DashMap<String, (Vec<(String, u16)>, AtomicUsiz
         let Ok(port) = port_str.parse::<u16>() else {
             continue;
         };
-        // println!("Hostname {}, Address: {}, Port: {}", hostname, ip, port);
-        // Insert into DashMap using `entry()` for efficiency
         upstreams
             .entry(hostname.to_string()) // Step 1: Find or create entry
             .or_insert_with(|| (Vec::new(), AtomicUsize::new(0))) // Step 2: Insert if missing
@@ -62,35 +121,3 @@ fn read_upstreams_from_file() -> DashMap<String, (Vec<(String, u16)>, AtomicUsiz
 
     upstreams
 }
-
-/*
-fn read_upstreams_from_file1() -> DashMap<String, (Vec<(String, u16)>, AtomicUsize)> {
-    let contents = std::fs::read_to_string("etc/upstreams.txt");
-    let upstreams: DashMap<String, (Vec<(String, u16)>, AtomicUsize)> = DashMap::new();
-    match contents {
-        Ok(contents) => {
-            let t = contents.lines().filter(|line| !line.trim().is_empty()).map(|x| x.to_string()).collect::<Vec<String>>();
-            for x in t {
-                let vc = x.split(" ").map(|x| x.to_string()).collect::<Vec<String>>();
-                let hostname = vc[0].trim().to_string();
-                let contents = vc[1].clone().split(":").map(|x| x.to_string()).collect::<Vec<String>>();
-                let ip = contents[0].trim().to_string();
-                let port = contents[1].trim().parse::<u16>().unwrap().to_owned();
-
-                if upstreams.contains_key(&hostname) {
-                    let mut upstream = upstreams.get_mut(&hostname).unwrap();
-                    upstream.0.push((ip, port));
-                } else {
-                    let mut second = vec![];
-                    second.push((ip, port));
-                    upstreams.insert(hostname, (second.clone(), AtomicUsize::new(0)));
-                }
-            }
-        }
-        Err(e) => {
-            println!("{:?}", e)
-        }
-    };
-    upstreams
-}
-*/
