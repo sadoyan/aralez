@@ -9,31 +9,46 @@ use async_trait::async_trait;
 use notify::event::ModifyKind;
 use notify::{Config, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use std::path::Path;
-use tokio::sync::mpsc;
 use tokio::task;
 
-pub struct DSC;
+pub struct FromFileProvider {
+    pub path: String,
+}
+pub struct APIUpstreamProvider {
+    pub api_url: String,
+}
 #[async_trait]
 pub trait Discovery {
-    async fn discover(&self, tx: Sender<DashMap<String, (Vec<(String, u16)>, AtomicUsize)>>);
+    async fn run(&self, tx: Sender<DashMap<String, (Vec<(String, u16)>, AtomicUsize)>>);
 }
 
 #[async_trait]
-impl Discovery for DSC {
-    async fn discover(&self, tx: Sender<DashMap<String, (Vec<(String, u16)>, AtomicUsize)>>) {
-        let file_path = "etc/upstreams.conf";
-        tokio::spawn(watch_file(file_path, tx));
+impl Discovery for APIUpstreamProvider {
+    async fn run(&self, mut toreturn: Sender<DashMap<String, (Vec<(String, u16)>, AtomicUsize)>>) {
+        loop {
+            let dm: DashMap<String, (Vec<(String, u16)>, AtomicUsize)> = DashMap::new();
+            dm.insert(
+                self.api_url.to_string(),
+                (vec![("192.168.1.1".parse().unwrap(), 8000), ("192.168.1.10".parse().unwrap(), 8000)], AtomicUsize::new(0)),
+            );
+            println!("= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = ");
+            let _ = toreturn.send(dm).await.unwrap();
+            println!("= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = ");
+            tokio::time::sleep(Duration::from_secs(20)).await;
+        }
     }
 }
 
-// pub async fn dsc(tx: Sender<DashMap<String, (Vec<(String, u16)>, AtomicUsize)>>) {
-//     let file_path = "etc/upstreams.conf";
-//     tokio::spawn(watch_file(file_path, tx));
-// }
-
-pub async fn watch_file(file_path: &str, mut toreturn: Sender<DashMap<String, (Vec<(String, u16)>, AtomicUsize)>>) {
+#[async_trait]
+impl Discovery for FromFileProvider {
+    async fn run(&self, tx: Sender<DashMap<String, (Vec<(String, u16)>, AtomicUsize)>>) {
+        tokio::spawn(watch_file(self.path.clone(), tx.clone()));
+    }
+}
+pub async fn watch_file(fp: String, mut toreturn: Sender<DashMap<String, (Vec<(String, u16)>, AtomicUsize)>>) {
+    let file_path = fp.as_str();
     let parent_dir = Path::new(file_path).parent().unwrap(); // Watch directory, not file
-    let (tx, mut rx) = mpsc::channel::<notify::Result<Event>>(10);
+    let (local_tx, mut local_rx) = tokio::sync::mpsc::channel::<notify::Result<Event>>(1);
 
     println!("Watching for changes in {:?}", parent_dir);
     let paths = fs::read_dir(parent_dir).unwrap();
@@ -49,7 +64,7 @@ pub async fn watch_file(file_path: &str, mut toreturn: Sender<DashMap<String, (V
         move || {
             let mut watcher = RecommendedWatcher::new(
                 move |res| {
-                    let _ = tx.blocking_send(res);
+                    let _ = local_tx.blocking_send(res);
                 },
                 Config::default(),
             )
@@ -61,21 +76,28 @@ pub async fn watch_file(file_path: &str, mut toreturn: Sender<DashMap<String, (V
             }
         }
     });
+    // loop {
+    //     println!(" ---------------------------------------------------------------- ");
+    //     thread::sleep(Duration::from_secs(1));
+    // }
     let mut start = Instant::now();
-    while let Some(event) = rx.recv().await {
+
+    while let Some(event) = local_rx.recv().await {
         match event {
             Ok(e) => match e.kind {
                 EventKind::Modify(ModifyKind::Data(_)) | EventKind::Create(..) | EventKind::Remove(..) => {
                     if e.paths[0].to_str().unwrap().ends_with("conf") {
-                        if start.elapsed() > Duration::from_secs(10) {
+                        // if start.elapsed() > Duration::from_secs(10) {
+                        if start.elapsed() > Duration::from_secs(2) {
                             start = Instant::now();
                             println!("Config File changed :=> {:?}", e);
+
                             let snd = read_upstreams_from_file(file_path);
                             let _ = toreturn.send(snd).await.unwrap();
                         }
                     }
                 }
-                _ => (),
+                _ => (), //println!("*  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *"),
             },
             Err(e) => println!("Watch error: {:?}", e),
         }

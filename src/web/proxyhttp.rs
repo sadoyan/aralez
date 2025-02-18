@@ -1,6 +1,6 @@
 // use crate::utils::compare;
 // use crate::utils::discovery;
-use crate::utils::discovery::Discovery;
+use crate::utils::discovery::{APIUpstreamProvider, Discovery, FromFileProvider};
 use crate::utils::*;
 use async_trait::async_trait;
 use dashmap::DashMap;
@@ -31,9 +31,21 @@ impl BackgroundService for LB {
     async fn start(&self, mut shutdown: ShutdownWatch) {
         tokio::spawn(healthcheck::hc(self.upstreams.clone(), self.umap_full.clone()));
         println!("Starting example background service");
+        // let (tra, mut rec) = broadcast::channel::<DashMap<String, (Vec<(String, u16)>, AtomicUsize)>>(16);
+
         let (tx, mut rx) = mpsc::channel::<DashMap<String, (Vec<(String, u16)>, AtomicUsize)>>(0);
-        // let _ = tokio::spawn(async move { discovery::dsc(tx.clone()).await });
-        let _ = tokio::spawn(async move { discovery::DSC.discover(tx.clone()).await });
+        let file_load = FromFileProvider {
+            path: "etc/upstreams.conf".to_string(),
+        };
+
+        let api_load = APIUpstreamProvider {
+            api_url: "myip.netangels.net".to_string(),
+        };
+
+        let tx_file = tx.clone();
+        let tx_api = tx.clone();
+        let _ = tokio::spawn(async move { api_load.run(tx_api).await });
+        let _ = tokio::spawn(async move { file_load.run(tx_file).await });
 
         loop {
             tokio::select! {
@@ -44,6 +56,7 @@ impl BackgroundService for LB {
                 val = rx.next() => {
                     match val {
                         Some(newmap) => {
+                            println!("{:?}", newmap);
                             let umap_work = self.upstreams.write().await;
                             let umap_full = self.umap_full.write().await;
                             if !compare::dashmaps(&umap_full, &newmap) {
