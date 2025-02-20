@@ -1,5 +1,3 @@
-// use crate::utils::compare;
-// use crate::utils::discovery;
 use crate::utils::discovery::{APIUpstreamProvider, Discovery, FromFileProvider};
 use crate::utils::*;
 use async_trait::async_trait;
@@ -21,26 +19,19 @@ pub struct LB {
     pub upstreams: Arc<RwLock<DashMap<String, (Vec<(String, u16)>, AtomicUsize)>>>,
     pub umap_full: Arc<RwLock<DashMap<String, (Vec<(String, u16)>, AtomicUsize)>>>,
 }
-// pub struct BGService {
-//     pub upstreams: Arc<RwLock<DashMap<String, (Vec<(String, u16)>, AtomicUsize)>>>,
-//     pub umap_full: Arc<RwLock<DashMap<String, (Vec<(String, u16)>, AtomicUsize)>>>,
-// }
 
 #[async_trait]
 impl BackgroundService for LB {
     async fn start(&self, mut shutdown: ShutdownWatch) {
         tokio::spawn(healthcheck::hc(self.upstreams.clone(), self.umap_full.clone()));
         println!("Starting example background service");
-        // let (tra, mut rec) = broadcast::channel::<DashMap<String, (Vec<(String, u16)>, AtomicUsize)>>(16);
 
         let (tx, mut rx) = mpsc::channel::<DashMap<String, (Vec<(String, u16)>, AtomicUsize)>>(0);
         let file_load = FromFileProvider {
             path: "etc/upstreams.conf".to_string(),
         };
 
-        let api_load = APIUpstreamProvider {
-            api_url: "myip.netangels.net".to_string(),
-        };
+        let api_load = APIUpstreamProvider;
 
         let tx_file = tx.clone();
         let tx_api = tx.clone();
@@ -52,23 +43,19 @@ impl BackgroundService for LB {
                 _ = shutdown.changed() => {
                     break;
                 }
-                // _ = period.tick() => {
                 val = rx.next() => {
                     match val {
                         Some(newmap) => {
-                            println!("{:?}", newmap);
                             let umap_work = self.upstreams.write().await;
                             let umap_full = self.umap_full.write().await;
                             if !compare::dashmaps(&umap_full, &newmap) {
-                                println!("DashMaps are different. Syncing !!!!!");
                                 umap_work.clear();
                                 umap_full.clear();
                                 for (k,v) in newmap {
                                     println!("Host: {}", k);
                                     for vv in v.0.clone() {
-                                        println!("  Upstreams: {:?}", vv);
+                                        println!("   ===> {:?}", vv);
                                     }
-                                    // println!("{} -> {:?}", k, v);
                                     umap_work.insert(k.clone(), (v.0.clone(), AtomicUsize::new(0))); // No need for extra vec!
                                     umap_full.insert(k, (v.0, AtomicUsize::new(0))); // Use `value.0` directly
                                 }
@@ -92,9 +79,6 @@ pub trait GetHost {
 impl GetHost for LB {
     async fn get_host(&self, peer: &str) -> Option<(String, u16)> {
         let map_read = self.upstreams.read().await;
-        // let ful_read = self.umap_full.read().await;
-        // println!("DN ==> {:?}", map_read);
-        // println!("FU ==> {:?}", ful_read);
         let x = if let Some(entry) = map_read.get(peer) {
             let (servers, index) = entry.value(); // No clone here
 

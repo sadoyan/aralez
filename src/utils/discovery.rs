@@ -5,6 +5,7 @@ use std::fs;
 use std::sync::atomic::AtomicUsize;
 use std::time::{Duration, Instant};
 
+use crate::web::webserver;
 use async_trait::async_trait;
 use notify::event::ModifyKind;
 use notify::{Config, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
@@ -14,9 +15,8 @@ use tokio::task;
 pub struct FromFileProvider {
     pub path: String,
 }
-pub struct APIUpstreamProvider {
-    pub api_url: String,
-}
+pub struct APIUpstreamProvider;
+
 #[async_trait]
 pub trait Discovery {
     async fn run(&self, tx: Sender<DashMap<String, (Vec<(String, u16)>, AtomicUsize)>>);
@@ -24,16 +24,15 @@ pub trait Discovery {
 
 #[async_trait]
 impl Discovery for APIUpstreamProvider {
-    async fn run(&self, mut toreturn: Sender<DashMap<String, (Vec<(String, u16)>, AtomicUsize)>>) {
+    async fn run(&self, toreturn: Sender<DashMap<String, (Vec<(String, u16)>, AtomicUsize)>>) {
+        let _ = tokio::spawn(async move { webserver::run_server(toreturn).await });
         loop {
-            let dm: DashMap<String, (Vec<(String, u16)>, AtomicUsize)> = DashMap::new();
-            dm.insert(
-                self.api_url.to_string(),
-                (vec![("192.168.1.1".parse().unwrap(), 8000), ("192.168.1.10".parse().unwrap(), 8000)], AtomicUsize::new(0)),
-            );
-            println!("= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = ");
-            let _ = toreturn.send(dm).await.unwrap();
-            println!("= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = ");
+            // let dm: DashMap<String, (Vec<(String, u16)>, AtomicUsize)> = DashMap::new();
+            // dm.insert(
+            //     "popok.netangels.net".to_string(),
+            //     (vec![("192.168.1.1".parse().unwrap(), 8000), ("192.168.1.10".parse().unwrap(), 8000)], AtomicUsize::new(0)),
+            // );
+            // let _ = toreturn.send(dm).await.unwrap();
             tokio::time::sleep(Duration::from_secs(20)).await;
         }
     }
@@ -56,7 +55,7 @@ pub async fn watch_file(fp: String, mut toreturn: Sender<DashMap<String, (Vec<(S
         println!("  {}", path.unwrap().path().display())
     }
 
-    let snd = read_upstreams_from_file(file_path);
+    let snd = read_upstreams_from_file(file_path, "filepath");
     let _ = toreturn.send(snd).await.unwrap();
 
     let _watcher_handle = task::spawn_blocking({
@@ -76,10 +75,6 @@ pub async fn watch_file(fp: String, mut toreturn: Sender<DashMap<String, (Vec<(S
             }
         }
     });
-    // loop {
-    //     println!(" ---------------------------------------------------------------- ");
-    //     thread::sleep(Duration::from_secs(1));
-    // }
     let mut start = Instant::now();
 
     while let Some(event) = local_rx.recv().await {
@@ -92,26 +87,36 @@ pub async fn watch_file(fp: String, mut toreturn: Sender<DashMap<String, (Vec<(S
                             start = Instant::now();
                             println!("Config File changed :=> {:?}", e);
 
-                            let snd = read_upstreams_from_file(file_path);
+                            let snd = read_upstreams_from_file(file_path, "filepath");
                             let _ = toreturn.send(snd).await.unwrap();
                         }
                     }
                 }
-                _ => (), //println!("*  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *"),
+                _ => (),
             },
             Err(e) => println!("Watch error: {:?}", e),
         }
     }
 }
-fn read_upstreams_from_file(path: &str) -> DashMap<String, (Vec<(String, u16)>, AtomicUsize)> {
+pub fn read_upstreams_from_file(d: &str, kind: &str) -> DashMap<String, (Vec<(String, u16)>, AtomicUsize)> {
     let upstreams = DashMap::new();
-    let contents = match fs::read_to_string(path) {
-        Ok(data) => data,
-        Err(e) => {
-            eprintln!("Error reading file: {:?}", e);
-            return upstreams;
+    let mut contents = d.to_string();
+    match kind {
+        "filepath" => {
+            println!("Reading upstreams from {}", d);
+            let _ = match fs::read_to_string(d) {
+                Ok(data) => contents = data,
+                Err(e) => {
+                    eprintln!("Error reading file: {:?}", e);
+                    return upstreams;
+                }
+            };
         }
-    };
+        "content" => {
+            println!("Reading upstreams from API post body");
+        }
+        _ => println!("*******************> nothing <*******************"),
+    }
 
     for line in contents.lines().filter(|line| !line.trim().is_empty()) {
         let mut parts = line.split_whitespace();
