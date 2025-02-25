@@ -25,16 +25,10 @@ pub trait Discovery {
 #[async_trait]
 impl Discovery for APIUpstreamProvider {
     async fn run(&self, toreturn: Sender<DashMap<String, (Vec<(String, u16)>, AtomicUsize)>>) {
-        let _ = tokio::spawn(async move { webserver::run_server(toreturn).await });
-        loop {
-            // let dm: DashMap<String, (Vec<(String, u16)>, AtomicUsize)> = DashMap::new();
-            // dm.insert(
-            //     "popok.netangels.net".to_string(),
-            //     (vec![("192.168.1.1".parse().unwrap(), 8000), ("192.168.1.10".parse().unwrap(), 8000)], AtomicUsize::new(0)),
-            // );
-            // let _ = toreturn.send(dm).await.unwrap();
-            tokio::time::sleep(Duration::from_secs(20)).await;
-        }
+        webserver::run_server(toreturn).await;
+        // let _ = tokio::spawn(async move { webserver::run_server(toreturn).await });
+        // let (_rtx, mut rrx) = tokio::sync::mpsc::channel::<bool>(1);
+        // let _ = rrx.blocking_recv();
     }
 }
 
@@ -55,7 +49,7 @@ pub async fn watch_file(fp: String, mut toreturn: Sender<DashMap<String, (Vec<(S
         println!("  {}", path.unwrap().path().display())
     }
 
-    let snd = read_upstreams_from_file(file_path, "filepath");
+    let snd = build_upstreams(file_path, "filepath");
     let _ = toreturn.send(snd).await.unwrap();
 
     let _watcher_handle = task::spawn_blocking({
@@ -69,10 +63,12 @@ pub async fn watch_file(fp: String, mut toreturn: Sender<DashMap<String, (Vec<(S
             )
             .unwrap();
             watcher.watch(&parent_dir, RecursiveMode::Recursive).unwrap();
-
-            loop {
-                std::thread::sleep(Duration::from_secs(50));
-            }
+            // println!("========================");
+            let (_rtx, mut rrx) = tokio::sync::mpsc::channel::<bool>(1);
+            let _ = rrx.blocking_recv();
+            // loop {
+            //     std::thread::sleep(Duration::from_secs(50));
+            // }
         }
     });
     let mut start = Instant::now();
@@ -87,7 +83,7 @@ pub async fn watch_file(fp: String, mut toreturn: Sender<DashMap<String, (Vec<(S
                             start = Instant::now();
                             println!("Config File changed :=> {:?}", e);
 
-                            let snd = read_upstreams_from_file(file_path, "filepath");
+                            let snd = build_upstreams(file_path, "filepath");
                             let _ = toreturn.send(snd).await.unwrap();
                         }
                     }
@@ -98,7 +94,7 @@ pub async fn watch_file(fp: String, mut toreturn: Sender<DashMap<String, (Vec<(S
         }
     }
 }
-pub fn read_upstreams_from_file(d: &str, kind: &str) -> DashMap<String, (Vec<(String, u16)>, AtomicUsize)> {
+pub fn build_upstreams(d: &str, kind: &str) -> DashMap<String, (Vec<(String, u16)>, AtomicUsize)> {
     let upstreams = DashMap::new();
     let mut contents = d.to_string();
     match kind {

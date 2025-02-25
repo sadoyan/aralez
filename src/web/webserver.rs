@@ -23,7 +23,7 @@ pub async fn run_server(mut toreturn: Sender<DashMap<String, (Vec<(String, u16)>
         .route(
             "/conf",
             post(|up: String| async move {
-                let serverlist = crate::utils::discovery::read_upstreams_from_file(up.as_str(), "content");
+                let serverlist = crate::utils::discovery::build_upstreams(up.as_str(), "content");
                 let _ = tr.send(serverlist).await.unwrap();
                 Response::builder().status(StatusCode::CREATED).body(Body::from("Config, conf file, updated!\n")).unwrap()
             })

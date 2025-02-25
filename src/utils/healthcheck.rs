@@ -6,25 +6,85 @@ use tokio::sync::RwLock;
 use tokio::time::interval;
 
 pub async fn hc(upslist: Arc<RwLock<DashMap<String, (Vec<(String, u16)>, AtomicUsize)>>>, fullist: Arc<RwLock<DashMap<String, (Vec<(String, u16)>, AtomicUsize)>>>) {
-    let mut period = interval(Duration::from_secs(20));
+    let mut period = interval(Duration::from_secs(2));
+
     loop {
         tokio::select! {
             _ = period.tick() => {
-                let ups = upslist.write().await;
-                let full = fullist.write().await;
-                for val in full.iter_mut() {
-                    // making some dummy ligic
-                    match val.key().to_string().as_str() {
-                       "polo.netangels.net" => ups.remove("polo.netangels.net"),
-                       "glop.netangels.net" => ups.remove("glop.netangels.net"),
-                        _ => ups.remove(""),
-                    };
+                // let before = Instant::now();
+                let totest: DashMap<String, (Vec<(String, u16)>, AtomicUsize)> = DashMap::new();
+                let fclone: DashMap<String, (Vec<(String, u16)>, AtomicUsize)> = DashMap::new();
+                // println!("\nElapsed dash: {:.2?}", before.elapsed());
+                // let before = Instant::now();
+                {
+                    let full = fullist.read().await;
+                    for v in full.iter() {
+                        fclone.insert(v.key().clone(), (v.value().0.clone(), AtomicUsize::new(0)));
+                    }
+                } // lock releases when scope ends
+                // println!("Elapsed full: {:.2?}", before.elapsed());
+                for val in fclone.iter() {
+                    let mut newvec = vec![];
+                    for hostport in val.value().0.clone(){
+                        let hostpart = hostport.0.split('/').last().unwrap(); // For later use
+                        let url = format!("http://{}:{}", hostpart, hostport.1);
+                        let resp = http_request(url.as_str(), "GET", "").await;
+                        match resp{
+                            true => {
+                                newvec.push((hostpart.to_string(), hostport.1));
+                            },
+                            false => {
+                                println!("Dead upstream. Host: {}, Upstream: {}:{} ",val.key(), hostpart.to_string(), hostport.1 );
+                            }
+                        }
+                    }
+                    totest.insert(val.key().clone(), (newvec, AtomicUsize::new(0)));
                 }
-
-                // println!("UPS: {:?}", ups);
-                drop(ups);
-                drop(full);
+                // let before = Instant::now();
+                {
+                    let upsl = upslist.read().await;
+                    if !crate::utils::compare::dm(&upsl, &totest) {
+                        println!("Dashmaps not matched, synchronizing");
+                        upsl.clear();
+                        for (k, v) in totest { // loop takes the ownership
+                            println!("Host: {}", k);
+                            for vv in &v.0 {
+                                println!("   :===> {:?}", vv);
+                            }
+                            upsl.insert(k, v);
+                        }
+                    }
+                }
+                // println!("Elapsed upsl: {:.2?}", before.elapsed());
             }
         }
+    }
+}
+
+async fn http_request(url: &str, method: &str, payload: &str) -> bool {
+    let client = reqwest::Client::new();
+    let to = Duration::from_secs(1);
+    match method {
+        "POST" => {
+            let response = client.post(url).body(payload.to_owned()).timeout(to).send().await;
+            match response {
+                Ok(r) => 100 <= r.status().as_u16() && r.status().as_u16() < 500,
+                Err(_) => false,
+            }
+        }
+        "GET" => {
+            let response = client.get(url).timeout(to).send().await;
+            match response {
+                Ok(r) => {
+                    // println!("Response: {} : {}", r.status(), r.url());
+                    100 <= r.status().as_u16() && r.status().as_u16() < 500
+                }
+                Err(_) => {
+                    // println!("Error: {}", url);
+                    false
+                }
+            }
+        }
+        _ => false,
     }
 }

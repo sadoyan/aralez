@@ -23,7 +23,6 @@ pub struct LB {
 #[async_trait]
 impl BackgroundService for LB {
     async fn start(&self, mut shutdown: ShutdownWatch) {
-        tokio::spawn(healthcheck::hc(self.upstreams.clone(), self.umap_full.clone()));
         println!("Starting example background service");
 
         let (tx, mut rx) = mpsc::channel::<DashMap<String, (Vec<(String, u16)>, AtomicUsize)>>(0);
@@ -37,6 +36,9 @@ impl BackgroundService for LB {
         let tx_api = tx.clone();
         let _ = tokio::spawn(async move { api_load.run(tx_api).await });
         let _ = tokio::spawn(async move { file_load.run(tx_file).await });
+        let up = self.upstreams.clone();
+        let fu = self.umap_full.clone();
+        let _ = tokio::spawn(async move { healthcheck::hc(up, fu).await });
 
         loop {
             tokio::select! {
@@ -46,22 +48,32 @@ impl BackgroundService for LB {
                 val = rx.next() => {
                     match val {
                         Some(newmap) => {
-                            let umap_work = self.upstreams.write().await;
-                            let umap_full = self.umap_full.write().await;
-                            if !compare::dashmaps(&umap_full, &newmap) {
-                                umap_work.clear();
-                                umap_full.clear();
-                                for (k,v) in newmap {
-                                    println!("Host: {}", k);
-                                    for vv in v.0.clone() {
-                                        println!("   ===> {:?}", vv);
+                            let umap_work = self.upstreams.read().await;
+                            let umap_full = self.umap_full.read().await;
+                            match compare::dm(&umap_full, &newmap) {
+                                false => {
+                                    drop(umap_full);
+                                    drop(umap_work);
+                                    let work = self.upstreams.write().await;
+                                    let full = self.umap_full.write().await;
+                                    work.clear();
+                                    full.clear();
+                                    for (k,v) in newmap {
+                                        println!("Host: {}", k);
+                                        for vv in v.0.clone() {
+                                            println!("   ===> {:?}", vv);
+                                        }
+                                        work.insert(k.clone(), (v.0.clone(), AtomicUsize::new(0))); // No need for extra vec!
+                                        full.insert(k, (v.0, AtomicUsize::new(0))); // Use `value.0` directly
                                     }
-                                    umap_work.insert(k.clone(), (v.0.clone(), AtomicUsize::new(0))); // No need for extra vec!
-                                    umap_full.insert(k, (v.0, AtomicUsize::new(0))); // Use `value.0` directly
+                                    drop(full);
+                                    drop(work);
+                                }
+                                true => {
+                                    drop(umap_full);
+                                    drop(umap_work);
                                 }
                             }
-                        drop(umap_full);
-                        drop(umap_work);
                         }
                         None => {}
                     }
@@ -86,7 +98,7 @@ impl GetHost for LB {
                 return None;
             }
             let idx = index.fetch_add(1, Ordering::Relaxed) % servers.len();
-            println!("{} {:?} => len: {}, idx: {}", peer, servers[idx], servers.len(), idx);
+            // println!("{} {:?} => len: {}, idx: {}", peer, servers[idx], servers.len(), idx);
             Some(servers[idx].clone())
         } else {
             None
@@ -109,8 +121,8 @@ impl ProxyHttp for LB {
                 Ok(peer)
             }
             None => {
-                println!("Returning default list => {:?}", ("127.0.0.1", 8000));
-                let peer = Box::new(HttpPeer::new(("127.0.0.1", 8000), false, "".to_string()));
+                println!("Returning default list => {:?}", ("127.0.0.1", 3000));
+                let peer = Box::new(HttpPeer::new(("127.0.0.1", 3000), false, "".to_string()));
                 Ok(peer)
             }
         }
