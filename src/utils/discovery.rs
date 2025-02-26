@@ -26,9 +26,6 @@ pub trait Discovery {
 impl Discovery for APIUpstreamProvider {
     async fn run(&self, toreturn: Sender<DashMap<String, (Vec<(String, u16)>, AtomicUsize)>>) {
         webserver::run_server(toreturn).await;
-        // let _ = tokio::spawn(async move { webserver::run_server(toreturn).await });
-        // let (_rtx, mut rrx) = tokio::sync::mpsc::channel::<bool>(1);
-        // let _ = rrx.blocking_recv();
     }
 }
 
@@ -63,12 +60,8 @@ pub async fn watch_file(fp: String, mut toreturn: Sender<DashMap<String, (Vec<(S
             )
             .unwrap();
             watcher.watch(&parent_dir, RecursiveMode::Recursive).unwrap();
-            // println!("========================");
             let (_rtx, mut rrx) = tokio::sync::mpsc::channel::<bool>(1);
             let _ = rrx.blocking_recv();
-            // loop {
-            //     std::thread::sleep(Duration::from_secs(50));
-            // }
         }
     });
     let mut start = Instant::now();

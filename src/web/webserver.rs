@@ -1,7 +1,8 @@
 use axum::body::Body;
 use axum::http::{Response, StatusCode};
-use axum::routing::post;
-use axum::{routing::get, Json, Router};
+use axum::response::IntoResponse;
+use axum::routing::{delete, get, head, post, put};
+use axum::{Json, Router};
 use dashmap::DashMap;
 use futures::channel::mpsc::Sender;
 use futures::SinkExt;
@@ -19,7 +20,11 @@ struct UpstreamData {
 pub async fn run_server(mut toreturn: Sender<DashMap<String, (Vec<(String, u16)>, AtomicUsize)>>) {
     let mut tr = toreturn.clone();
     let app = Router::new()
-        .route("/", get(getconfig))
+        .route("/{*wildcard}", get(getconfig))
+        .route("/{*wildcard}", post(getconfig))
+        .route("/{*wildcard}", put(getconfig))
+        .route("/{*wildcard}", head(getconfig))
+        .route("/{*wildcard}", delete(getconfig))
         .route(
             "/conf",
             post(|up: String| async move {
@@ -45,8 +50,9 @@ pub async fn run_server(mut toreturn: Sender<DashMap<String, (Vec<(String, u16)>
     axum::serve(listener, app).await.unwrap();
 }
 
-async fn getconfig() -> String {
-    "Hello from Axum API inside Pingora!\n".to_string()
+async fn getconfig() -> impl IntoResponse {
+    "Hello from Axum API inside Pingora!\n".to_string();
+    Response::builder().status(StatusCode::BAD_GATEWAY).body(Body::from("No live upstream found!\n")).unwrap()
 }
 // curl -XPOST -H 'Content-Type: application/json' --data-binary @./push.json 127.0.0.1:3000/json
 // curl -XPOST --data-binary @./etc/upstreams.txt 127.0.0.1:3000/conf
