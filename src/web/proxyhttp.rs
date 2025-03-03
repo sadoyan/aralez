@@ -14,6 +14,7 @@ use pingora_proxy::{ProxyHttp, Session};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use tokio::sync::RwLock;
+use tokio::time::Instant;
 
 pub struct LB {
     pub upstreams: Arc<RwLock<DashMap<String, (Vec<(String, u16)>, AtomicUsize)>>>,
@@ -92,8 +93,7 @@ impl GetHost for LB {
     async fn get_host(&self, peer: &str) -> Option<(String, u16)> {
         let map_read = self.upstreams.read().await;
         let x = if let Some(entry) = map_read.get(peer) {
-            let (servers, index) = entry.value(); // No clone here
-
+            let (servers, index) = entry.value();
             if servers.is_empty() {
                 return None;
             }
@@ -113,7 +113,36 @@ impl ProxyHttp for LB {
     type CTX = ();
     fn new_ctx(&self) -> Self::CTX {}
     async fn upstream_peer(&self, session: &mut Session, _ctx: &mut Self::CTX) -> Result<Box<HttpPeer>> {
+        let before = Instant::now();
         let host_name = session.req_header().headers.get("host");
+        // let fyu = session.req_header().uri.path();
+        // info!("{:?} ==> {} ==> {:?}", host_name, fyu, session.request_summary());
+        match host_name {
+            Some(host) => {
+                let h = host.to_str().unwrap().split(':').collect::<Vec<&str>>();
+                let ddr = self.get_host(h[0]);
+                match ddr.await {
+                    Some((host, port)) => {
+                        let peer = Box::new(HttpPeer::new((host, port), false, "".to_string()));
+                        info!("{:?}, Time => {:.2?}", session.request_summary(), before.elapsed());
+                        Ok(peer)
+                    }
+                    None => {
+                        warn!("Returning default list => {:?}", ("127.0.0.1", 3000));
+                        let peer = Box::new(HttpPeer::new(("127.0.0.1", 3000), false, "".to_string()));
+                        info!("{:?}, Time => {:.2?}", session.request_summary(), before.elapsed());
+                        Ok(peer)
+                    }
+                }
+            }
+            None => {
+                warn!("Returning default list => {:?}", ("127.0.0.1", 3000));
+                let peer = Box::new(HttpPeer::new(("127.0.0.1", 3000), false, "".to_string()));
+                info!("{:?}, Time => {:.2?}", session.request_summary(), before.elapsed());
+                Ok(peer)
+            }
+        }
+        /*
         let ddr = self.get_host(host_name.unwrap().to_str().unwrap());
         match ddr.await {
             Some((host, port)) => {
@@ -126,6 +155,7 @@ impl ProxyHttp for LB {
                 Ok(peer)
             }
         }
+        */
     }
     async fn request_filter(&self, _session: &mut Session, _ctx: &mut Self::CTX) -> pingora_core::Result<bool>
     where
