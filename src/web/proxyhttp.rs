@@ -1,7 +1,7 @@
 use crate::utils::discovery::{APIUpstreamProvider, Discovery, FromFileProvider};
+use crate::utils::tools::*;
 use crate::utils::*;
 use async_trait::async_trait;
-use dashmap::DashMap;
 use futures::channel::mpsc;
 use futures::StreamExt;
 use log::{info, warn};
@@ -14,11 +14,11 @@ use pingora_proxy::{ProxyHttp, Session};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tokio::time::Instant;
+// use tokio::time::Instant;
 
 pub struct LB {
-    pub upstreams: Arc<RwLock<DashMap<String, (Vec<(String, u16)>, AtomicUsize)>>>,
-    pub umap_full: Arc<RwLock<DashMap<String, (Vec<(String, u16)>, AtomicUsize)>>>,
+    pub upstreams: Arc<RwLock<UpstreamMap>>,
+    pub umap_full: Arc<RwLock<UpstreamMap>>,
 }
 
 #[async_trait]
@@ -26,7 +26,7 @@ impl BackgroundService for LB {
     async fn start(&self, mut shutdown: ShutdownWatch) {
         println!("Starting example background service");
 
-        let (tx, mut rx) = mpsc::channel::<DashMap<String, (Vec<(String, u16)>, AtomicUsize)>>(0);
+        let (tx, mut rx) = mpsc::channel::<UpstreamMap>(0);
         let file_load = FromFileProvider {
             path: "etc/upstreams.conf".to_string(),
         };
@@ -61,6 +61,7 @@ impl BackgroundService for LB {
                                     full.clear();
                                     for (k,v) in newmap {
                                         println!("Host: {}", k);
+                                        // <UpstreamMap
                                         for vv in v.0.clone() {
                                             println!("   ===> {:?}", vv);
                                         }
@@ -98,7 +99,7 @@ impl GetHost for LB {
                 return None;
             }
             let idx = index.fetch_add(1, Ordering::Relaxed) % servers.len();
-            // println!("{} {:?} => len: {}, idx: {}", peer, servers[idx], servers.len(), idx);
+            println!("{} {:?} => len: {}, idx: {}", peer, servers[idx], servers.len(), idx);
             Some(servers[idx].clone())
         } else {
             None
@@ -113,10 +114,8 @@ impl ProxyHttp for LB {
     type CTX = ();
     fn new_ctx(&self) -> Self::CTX {}
     async fn upstream_peer(&self, session: &mut Session, _ctx: &mut Self::CTX) -> Result<Box<HttpPeer>> {
-        let before = Instant::now();
+        // let before = Instant::now();
         let host_name = session.req_header().headers.get("host");
-        // let fyu = session.req_header().uri.path();
-        // info!("{:?} ==> {} ==> {:?}", host_name, fyu, session.request_summary());
         match host_name {
             Some(host) => {
                 let h = host.to_str().unwrap().split(':').collect::<Vec<&str>>();
@@ -124,13 +123,13 @@ impl ProxyHttp for LB {
                 match ddr.await {
                     Some((host, port)) => {
                         let peer = Box::new(HttpPeer::new((host, port), false, String::new()));
-                        info!("{:?}, Time => {:.2?}", session.request_summary(), before.elapsed());
+                        // info!("{:?}, Time => {:.2?}", session.request_summary(), before.elapsed());
                         Ok(peer)
                     }
                     None => {
                         warn!("Returning default list => {:?}", ("127.0.0.1", 3000));
                         let peer = Box::new(HttpPeer::new(("127.0.0.1", 3000), false, String::new()));
-                        info!("{:?}, Time => {:.2?}", session.request_summary(), before.elapsed());
+                        // info!("{:?}, Time => {:.2?}", session.request_summary(), before.elapsed());
                         Ok(peer)
                     }
                 }
@@ -138,7 +137,7 @@ impl ProxyHttp for LB {
             None => {
                 warn!("Returning default list => {:?}", ("127.0.0.1", 3000));
                 let peer = Box::new(HttpPeer::new(("127.0.0.1", 3000), false, String::new()));
-                info!("{:?}, Time => {:.2?}", session.request_summary(), before.elapsed());
+                // info!("{:?}, Time => {:.2?}", session.request_summary(), before.elapsed());
                 Ok(peer)
             }
         }

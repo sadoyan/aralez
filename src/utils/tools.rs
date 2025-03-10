@@ -1,14 +1,26 @@
+use dashmap::DashMap;
 use std::any::type_name;
 use std::sync::atomic::AtomicUsize;
 
-#[derive(Debug)]
 #[allow(dead_code)]
-pub struct UpstreamsStruct {
-    pub proto: String,
-    pub path: String,
-    pub address: (String, u16, bool),
-    pub atom: AtomicUsize,
+pub fn print_upstreams(upstreams: &UpstresmDashMap) {
+    for host_entry in upstreams.iter() {
+        let hostname = host_entry.key();
+        println!("Hostname: {}", hostname);
+
+        for path_entry in host_entry.value().iter() {
+            let path = path_entry.key();
+            println!("  Path: {}", path);
+
+            for (ip, port, ssl, proto) in path_entry.value().0.clone() {
+                println!("   ===> IP: {}, Port: {}, SSL: {}, Proto: {}", ip, port, ssl, proto);
+            }
+        }
+    }
 }
+
+pub type UpstresmDashMap = DashMap<String, DashMap<String, (Vec<(String, u16, bool, String)>, AtomicUsize)>>;
+pub type UpstreamMap = DashMap<String, (Vec<(String, u16)>, AtomicUsize)>;
 
 #[allow(dead_code)]
 pub fn typeoff<T>(_: T) {

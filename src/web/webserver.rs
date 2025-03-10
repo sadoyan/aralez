@@ -1,3 +1,4 @@
+use crate::utils::tools::*;
 use axum::body::Body;
 use axum::http::{Response, StatusCode};
 use axum::response::IntoResponse;
@@ -17,7 +18,7 @@ struct UpstreamData {
     counter: usize,
 }
 
-pub async fn run_server(mut toreturn: Sender<DashMap<String, (Vec<(String, u16)>, AtomicUsize)>>) {
+pub async fn run_server(mut toreturn: Sender<UpstreamMap>) {
     let mut tr = toreturn.clone();
     let app = Router::new()
         .route("/{*wildcard}", get(getconfig))

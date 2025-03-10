@@ -1,8 +1,8 @@
+use crate::utils::tools::*;
 use crate::web::proxyhttp::LB;
 use dashmap::DashMap;
 use pingora_core::prelude::background_service;
 use pingora_core::server::Server;
-use std::sync::atomic::AtomicUsize;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
@@ -12,10 +12,10 @@ pub fn run() {
     let mut server = Server::new(None).unwrap();
     server.bootstrap();
 
-    let upstreams_map: DashMap<String, (Vec<(String, u16)>, AtomicUsize)> = DashMap::new();
+    let upstreams_map: UpstreamMap = DashMap::new();
     let config = Arc::new(RwLock::new(upstreams_map));
 
-    let umap_full: DashMap<String, (Vec<(String, u16)>, AtomicUsize)> = DashMap::new();
+    let umap_full: UpstreamMap = DashMap::new();
     let fconfig = Arc::new(RwLock::new(umap_full));
 
     let lb = LB {

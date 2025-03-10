@@ -20,23 +20,23 @@ pub struct APIUpstreamProvider;
 
 #[async_trait]
 pub trait Discovery {
-    async fn run(&self, tx: Sender<DashMap<String, (Vec<(String, u16)>, AtomicUsize)>>);
+    async fn run(&self, tx: Sender<UpstreamMap>);
 }
 
 #[async_trait]
 impl Discovery for APIUpstreamProvider {
-    async fn run(&self, toreturn: Sender<DashMap<String, (Vec<(String, u16)>, AtomicUsize)>>) {
+    async fn run(&self, toreturn: Sender<UpstreamMap>) {
         webserver::run_server(toreturn).await;
     }
 }
 
 #[async_trait]
 impl Discovery for FromFileProvider {
-    async fn run(&self, tx: Sender<DashMap<String, (Vec<(String, u16)>, AtomicUsize)>>) {
+    async fn run(&self, tx: Sender<UpstreamMap>) {
         tokio::spawn(watch_file(self.path.clone(), tx.clone()));
     }
 }
-pub async fn watch_file(fp: String, mut toreturn: Sender<DashMap<String, (Vec<(String, u16)>, AtomicUsize)>>) {
+pub async fn watch_file(fp: String, mut toreturn: Sender<UpstreamMap>) {
     let file_path = fp.as_str();
     let parent_dir = Path::new(file_path).parent().unwrap(); // Watch directory, not file
     let (local_tx, mut local_rx) = tokio::sync::mpsc::channel::<notify::Result<Event>>(1);
@@ -77,15 +77,16 @@ pub async fn watch_file(fp: String, mut toreturn: Sender<DashMap<String, (Vec<(S
                             start = Instant::now();
                             println!("Config File changed :=> {:?}", e);
 
-                            let _sd = build_upstreams2("etc/upstreams-long.conf", "filepath");
+                            let upstreams = build_upstreams2("etc/upstreams-long.conf", "filepath");
 
-                            println!("\n\n");
-                            for t in _sd.iter() {
-                                println!("{} ==>", t.key());
-                                for v in t.value().iter() {
-                                    println!("    {:?}", v)
-                                }
+                            print_upstreams(&upstreams);
+
+                            let host_entry = upstreams.get("myip.netangels.net").unwrap();
+                            let path_entry = host_entry.get("/").unwrap();
+                            for p in path_entry.value().0.clone() {
+                                println!("  {:?}", p);
                             }
+
                             println!("\n\n");
 
                             let snd = build_upstreams(file_path, "filepath");
@@ -99,7 +100,7 @@ pub async fn watch_file(fp: String, mut toreturn: Sender<DashMap<String, (Vec<(S
         }
     }
 }
-pub fn build_upstreams(d: &str, kind: &str) -> DashMap<String, (Vec<(String, u16)>, AtomicUsize)> {
+pub fn build_upstreams(d: &str, kind: &str) -> UpstreamMap {
     let upstreams = DashMap::new();
     let mut contents = d.to_string();
     match kind {
@@ -150,8 +151,8 @@ pub fn build_upstreams(d: &str, kind: &str) -> DashMap<String, (Vec<(String, u16
     upstreams
 }
 
-pub fn build_upstreams2(d: &str, kind: &str) -> DashMap<String, Vec<UpstreamsStruct>> {
-    let upstreams: DashMap<String, Vec<UpstreamsStruct>> = DashMap::new();
+pub fn build_upstreams2(d: &str, kind: &str) -> UpstresmDashMap {
+    let upstreams: UpstresmDashMap = DashMap::new();
     let mut contents = d.to_string();
     match kind {
         "filepath" => {
@@ -176,7 +177,7 @@ pub fn build_upstreams2(d: &str, kind: &str) -> DashMap<String, Vec<UpstreamsStr
             continue;
         };
 
-        let Some(ssl) = crate::utils::tools::string_to_bool(parts.next()) else {
+        let Some(ssl) = string_to_bool(parts.next()) else {
             continue;
         };
 
@@ -201,13 +202,13 @@ pub fn build_upstreams2(d: &str, kind: &str) -> DashMap<String, Vec<UpstreamsStr
         let Ok(port) = port_str.parse::<u16>() else {
             continue;
         };
-        let d = UpstreamsStruct {
-            proto: proto.to_string(),
-            path: path.to_string(),
-            address: (ip.to_string(), port, ssl),
-            atom: AtomicUsize::new(0),
-        };
-        upstreams.entry(hostname.to_string()).or_insert_with(|| Vec::new()).push(d);
+
+        let entry = upstreams.entry(hostname.to_string()).or_insert_with(DashMap::new);
+        entry
+            .entry(path.to_string())
+            .or_insert_with(|| (Vec::new(), AtomicUsize::new(0)))
+            .0
+            .push((ip.to_string(), port, ssl, proto.to_string()));
     }
 
     upstreams

@@ -1,3 +1,4 @@
+use crate::utils::tools::*;
 use dashmap::DashMap;
 use std::sync::atomic::AtomicUsize;
 use std::sync::Arc;
@@ -5,15 +6,15 @@ use std::time::Duration;
 use tokio::sync::RwLock;
 use tokio::time::interval;
 
-pub async fn hc(upslist: Arc<RwLock<DashMap<String, (Vec<(String, u16)>, AtomicUsize)>>>, fullist: Arc<RwLock<DashMap<String, (Vec<(String, u16)>, AtomicUsize)>>>) {
+pub async fn hc(upslist: Arc<RwLock<UpstreamMap>>, fullist: Arc<RwLock<UpstreamMap>>) {
     let mut period = interval(Duration::from_secs(2));
 
     loop {
         tokio::select! {
             _ = period.tick() => {
                 // let before = Instant::now();
-                let totest: DashMap<String, (Vec<(String, u16)>, AtomicUsize)> = DashMap::new();
-                let fclone: DashMap<String, (Vec<(String, u16)>, AtomicUsize)> = DashMap::new();
+                let totest: UpstreamMap = DashMap::new();
+                let fclone: UpstreamMap = DashMap::new();
                 // println!("\nElapsed dash: {:.2?}", before.elapsed());
                 // let before = Instant::now();
                 {

@@ -1,10 +1,9 @@
-use dashmap::DashMap;
-use std::sync::atomic::AtomicUsize;
+use crate::utils::tools::*;
 use tokio::sync::RwLockReadGuard;
 
 /*
 #[allow(dead_code)]
-pub fn dashmaps(map1: &RwLockWriteGuard<DashMap<String, (Vec<(String, u16)>, AtomicUsize)>>, map2: &DashMap<String, (Vec<(String, u16)>, AtomicUsize)>) -> bool {
+pub fn dashmaps(map1: &RwLockWriteGuard<UpstreamMap>, map2: &UpstreamMap) -> bool {
     if map1.len() != map2.len() {
         return false;
     }
@@ -26,7 +25,7 @@ pub fn dashmaps(map1: &RwLockWriteGuard<DashMap<String, (Vec<(String, u16)>, Ato
 */
 
 #[allow(dead_code)]
-pub fn dm(map1: &RwLockReadGuard<DashMap<String, (Vec<(String, u16)>, AtomicUsize)>>, map2: &DashMap<String, (Vec<(String, u16)>, AtomicUsize)>) -> bool {
+pub fn dm(map1: &RwLockReadGuard<UpstreamMap>, map2: &UpstreamMap) -> bool {
     if map1.len() != map2.len() {
         return false; // Different number of keys
     }
