@@ -123,13 +123,13 @@ impl ProxyHttp for LB {
                 let ddr = self.get_host(h[0]);
                 match ddr.await {
                     Some((host, port)) => {
-                        let peer = Box::new(HttpPeer::new((host, port), false, "".to_string()));
+                        let peer = Box::new(HttpPeer::new((host, port), false, String::new()));
                         info!("{:?}, Time => {:.2?}", session.request_summary(), before.elapsed());
                         Ok(peer)
                     }
                     None => {
                         warn!("Returning default list => {:?}", ("127.0.0.1", 3000));
-                        let peer = Box::new(HttpPeer::new(("127.0.0.1", 3000), false, "".to_string()));
+                        let peer = Box::new(HttpPeer::new(("127.0.0.1", 3000), false, String::new()));
                         info!("{:?}, Time => {:.2?}", session.request_summary(), before.elapsed());
                         Ok(peer)
                     }
@@ -137,7 +137,7 @@ impl ProxyHttp for LB {
             }
             None => {
                 warn!("Returning default list => {:?}", ("127.0.0.1", 3000));
-                let peer = Box::new(HttpPeer::new(("127.0.0.1", 3000), false, "".to_string()));
+                let peer = Box::new(HttpPeer::new(("127.0.0.1", 3000), false, String::new()));
                 info!("{:?}, Time => {:.2?}", session.request_summary(), before.elapsed());
                 Ok(peer)
             }
@@ -146,12 +146,12 @@ impl ProxyHttp for LB {
         let ddr = self.get_host(host_name.unwrap().to_str().unwrap());
         match ddr.await {
             Some((host, port)) => {
-                let peer = Box::new(HttpPeer::new((host, port), false, "".to_string()));
+                let peer = Box::new(HttpPeer::new((host, port), false, String::new()));
                 Ok(peer)
             }
             None => {
                 println!("Returning default list => {:?}", ("127.0.0.1", 3000));
-                let peer = Box::new(HttpPeer::new(("127.0.0.1", 3000), false, "".to_string()));
+                let peer = Box::new(HttpPeer::new(("127.0.0.1", 3000), false, String::new()));
                 Ok(peer)
             }
         }

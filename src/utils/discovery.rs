@@ -5,6 +5,7 @@ use std::fs;
 use std::sync::atomic::AtomicUsize;
 use std::time::{Duration, Instant};
 
+use crate::utils::tools::*;
 use crate::web::webserver;
 use async_trait::async_trait;
 use notify::event::ModifyKind;
@@ -76,6 +77,17 @@ pub async fn watch_file(fp: String, mut toreturn: Sender<DashMap<String, (Vec<(S
                             start = Instant::now();
                             println!("Config File changed :=> {:?}", e);
 
+                            let _sd = build_upstreams2("etc/upstreams-long.conf", "filepath");
+
+                            println!("\n\n");
+                            for t in _sd.iter() {
+                                println!("{} ==>", t.key());
+                                for v in t.value().iter() {
+                                    println!("    {:?}", v)
+                                }
+                            }
+                            println!("\n\n");
+
                             let snd = build_upstreams(file_path, "filepath");
                             let _ = toreturn.send(snd).await.unwrap();
                         }
@@ -133,6 +145,69 @@ pub fn build_upstreams(d: &str, kind: &str) -> DashMap<String, (Vec<(String, u16
             .or_insert_with(|| (Vec::new(), AtomicUsize::new(0))) // Step 2: Insert if missing
             .0 // Step 3: Access the Vec<(String, u16)>
             .push((ip.to_string(), port)); // Step 4: Append new data
+    }
+
+    upstreams
+}
+
+pub fn build_upstreams2(d: &str, kind: &str) -> DashMap<String, Vec<UpstreamsStruct>> {
+    let upstreams: DashMap<String, Vec<UpstreamsStruct>> = DashMap::new();
+    let mut contents = d.to_string();
+    match kind {
+        "filepath" => {
+            println!("Reading upstreams from {}", d);
+            let _ = match fs::read_to_string(d) {
+                Ok(data) => contents = data,
+                Err(e) => {
+                    eprintln!("Error reading file: {:?}", e);
+                    return upstreams;
+                }
+            };
+        }
+        "content" => {
+            println!("Reading upstreams from API post body");
+        }
+        _ => println!("*******************> nothing <*******************"),
+    }
+    for line in contents.lines().filter(|line| !line.trim().is_empty()) {
+        let mut parts = line.split_whitespace();
+
+        let Some(hostname) = parts.next() else {
+            continue;
+        };
+
+        let Some(ssl) = crate::utils::tools::string_to_bool(parts.next()) else {
+            continue;
+        };
+
+        let Some(proto) = parts.next() else {
+            continue;
+        };
+        let Some(path) = parts.next() else {
+            continue;
+        };
+        let Some(address) = parts.next() else {
+            continue;
+        };
+
+        let mut addr_parts = address.split(':');
+        let Some(ip) = addr_parts.next() else {
+            continue;
+        };
+        let Some(port_str) = addr_parts.next() else {
+            continue;
+        };
+
+        let Ok(port) = port_str.parse::<u16>() else {
+            continue;
+        };
+        let d = UpstreamsStruct {
+            proto: proto.to_string(),
+            path: path.to_string(),
+            address: (ip.to_string(), port, ssl),
+            atom: AtomicUsize::new(0),
+        };
+        upstreams.entry(hostname.to_string()).or_insert_with(|| Vec::new()).push(d);
     }
 
     upstreams
