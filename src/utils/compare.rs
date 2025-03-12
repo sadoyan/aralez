@@ -2,7 +2,7 @@ use crate::utils::tools::*;
 use std::collections::HashSet;
 use tokio::sync::RwLockReadGuard;
 
-#[allow(dead_code)]
+// #[allow(dead_code)]
 pub fn dm(map1: &RwLockReadGuard<UpstreamMap>, map2: &UpstreamMap) -> bool {
     if map1.len() != map2.len() {
         return false; // Different number of keys
@@ -22,7 +22,7 @@ pub fn dm(map1: &RwLockReadGuard<UpstreamMap>, map2: &UpstreamMap) -> bool {
     }
     true
 }
-// #[allow(dead_code)]
+#[allow(dead_code)]
 pub fn dam(map1: &UpstresmDashMap, map2: &UpstresmDashMap) -> bool {
     // Step 1: Check if both maps have the same keys
     let keys1: HashSet<_> = map1.iter().map(|entry| entry.key().clone()).collect();

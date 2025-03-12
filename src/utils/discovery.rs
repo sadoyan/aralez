@@ -153,7 +153,6 @@ pub fn build_upstreams(d: &str, kind: &str) -> UpstreamMap {
 
 pub fn build_upstreams2(d: &str, kind: &str) -> UpstresmDashMap {
     let upstreams: UpstresmDashMap = DashMap::new();
-    let hopar: UpstresmDashMap = DashMap::new();
     let mut contents = d.to_string();
     match kind {
         "filepath" => {
@@ -205,12 +204,6 @@ pub fn build_upstreams2(d: &str, kind: &str) -> UpstresmDashMap {
         };
 
         let entry = upstreams.entry(hostname.to_string()).or_insert_with(DashMap::new);
-        entry
-            .entry(path.to_string())
-            .or_insert_with(|| (Vec::new(), AtomicUsize::new(0)))
-            .0
-            .push((ip.to_string(), port, ssl, proto.to_string()));
-        let entry = hopar.entry(hostname.to_string()).or_insert_with(DashMap::new);
         entry
             .entry(path.to_string())
             .or_insert_with(|| (Vec::new(), AtomicUsize::new(0)))
