@@ -78,14 +78,7 @@ pub async fn watch_file(fp: String, mut toreturn: Sender<UpstreamMap>) {
                             println!("Config File changed :=> {:?}", e);
 
                             let upstreams = build_upstreams2("etc/upstreams-long.conf", "filepath");
-
                             print_upstreams(&upstreams);
-
-                            let host_entry = upstreams.get("myip.netangels.net").unwrap();
-                            let path_entry = host_entry.get("/").unwrap();
-                            for p in path_entry.value().0.clone() {
-                                println!("  {:?}", p);
-                            }
 
                             println!("\n\n");
 
