@@ -13,12 +13,11 @@ use pingora_http::{RequestHeader, ResponseHeader};
 use pingora_proxy::{ProxyHttp, Session};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
-use tokio::sync::RwLock;
 // use tokio::time::Instant;
 
 pub struct LB {
-    pub upstreams: Arc<RwLock<UpstreamMap>>,
-    pub umap_full: Arc<RwLock<UpstreamMap>>,
+    pub upstreams: Arc<UpstreamMap>,
+    pub umap_full: Arc<UpstreamMap>,
 }
 
 #[async_trait]
@@ -49,31 +48,21 @@ impl BackgroundService for LB {
                 val = rx.next() => {
                     match val {
                         Some(newmap) => {
-                            let umap_work = self.upstreams.read().await;
-                            let umap_full = self.umap_full.read().await;
-                            match compare::dm(&umap_full, &newmap) {
+                            match compare::dm(&self.umap_full, &newmap) {
                                 false => {
-                                    drop(umap_full);
-                                    drop(umap_work);
-                                    let work = self.upstreams.write().await;
-                                    let full = self.umap_full.write().await;
-                                    work.clear();
-                                    full.clear();
+                                    self.upstreams.clear();
+                                    self.umap_full.clear();
                                     for (k,v) in newmap {
                                         println!("Host: {}", k);
                                         // <UpstreamMap
                                         for vv in v.0.clone() {
                                             println!("   ===> {:?}", vv);
                                         }
-                                        work.insert(k.clone(), (v.0.clone(), AtomicUsize::new(0))); // No need for extra vec!
-                                        full.insert(k, (v.0, AtomicUsize::new(0))); // Use `value.0` directly
+                                        self.upstreams.insert(k.clone(), (v.0.clone(), AtomicUsize::new(0))); // No need for extra vec!
+                                        self.umap_full.insert(k, (v.0, AtomicUsize::new(0))); // Use `value.0` directly
                                     }
-                                    drop(full);
-                                    drop(work);
                                 }
                                 true => {
-                                    drop(umap_full);
-                                    drop(umap_work);
                                 }
                             }
                         }
@@ -92,8 +81,7 @@ pub trait GetHost {
 #[async_trait]
 impl GetHost for LB {
     async fn get_host(&self, peer: &str) -> Option<(String, u16)> {
-        let map_read = self.upstreams.read().await;
-        let x = if let Some(entry) = map_read.get(peer) {
+        let x = if let Some(entry) = self.upstreams.get(peer) {
             let (servers, index) = entry.value();
             if servers.is_empty() {
                 return None;
@@ -104,7 +92,6 @@ impl GetHost for LB {
         } else {
             None
         };
-        drop(map_read);
         x
     }
 }

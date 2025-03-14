@@ -1,9 +1,8 @@
 use crate::utils::tools::*;
 use std::collections::HashSet;
-use tokio::sync::RwLockReadGuard;
 
 // #[allow(dead_code)]
-pub fn dm(map1: &RwLockReadGuard<UpstreamMap>, map2: &UpstreamMap) -> bool {
+pub fn dm(map1: &UpstreamMap, map2: &UpstreamMap) -> bool {
     if map1.len() != map2.len() {
         return false; // Different number of keys
     }

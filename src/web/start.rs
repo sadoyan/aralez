@@ -4,7 +4,6 @@ use dashmap::DashMap;
 use pingora_core::prelude::background_service;
 use pingora_core::server::Server;
 use std::sync::Arc;
-use tokio::sync::RwLock;
 
 pub fn run() {
     env_logger::init();
@@ -13,10 +12,10 @@ pub fn run() {
     server.bootstrap();
 
     let upstreams_map: UpstreamMap = DashMap::new();
-    let config = Arc::new(RwLock::new(upstreams_map));
+    let config = Arc::new(upstreams_map);
 
     let umap_full: UpstreamMap = DashMap::new();
-    let fconfig = Arc::new(RwLock::new(umap_full));
+    let fconfig = Arc::new(umap_full);
 
     let lb = LB {
         upstreams: config.clone(),

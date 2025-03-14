@@ -3,10 +3,9 @@ use dashmap::DashMap;
 use std::sync::atomic::AtomicUsize;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::RwLock;
 use tokio::time::interval;
 
-pub async fn hc(upslist: Arc<RwLock<UpstreamMap>>, fullist: Arc<RwLock<UpstreamMap>>) {
+pub async fn hc(upslist: Arc<UpstreamMap>, fullist: Arc<UpstreamMap>) {
     let mut period = interval(Duration::from_secs(2));
 
     loop {
@@ -18,8 +17,7 @@ pub async fn hc(upslist: Arc<RwLock<UpstreamMap>>, fullist: Arc<RwLock<UpstreamM
                 // println!("\nElapsed dash: {:.2?}", before.elapsed());
                 // let before = Instant::now();
                 {
-                    let full = fullist.read().await;
-                    for v in full.iter() {
+                    for v in fullist.iter() {
                         fclone.insert(v.key().clone(), (v.value().0.clone(), AtomicUsize::new(0)));
                     }
                 } // lock releases when scope ends
@@ -43,16 +41,15 @@ pub async fn hc(upslist: Arc<RwLock<UpstreamMap>>, fullist: Arc<RwLock<UpstreamM
                 }
                 // let before = Instant::now();
                 {
-                    let upsl = upslist.read().await;
-                    if !crate::utils::compare::dm(&upsl, &totest) {
+                    if !crate::utils::compare::dm(&upslist, &totest) {
                         println!("Dashmaps not matched, synchronizing");
-                        upsl.clear();
+                        upslist.clear();
                         for (k, v) in totest { // loop takes the ownership
                             println!("Host: {}", k);
                             for vv in &v.0 {
                                 println!("   :===> {:?}", vv);
                             }
-                            upsl.insert(k, v);
+                            upslist.insert(k, v);
                         }
                     }
                 }
