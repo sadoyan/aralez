@@ -3,22 +3,17 @@ use axum::body::Body;
 use axum::http::{Response, StatusCode};
 use axum::response::IntoResponse;
 use axum::routing::{delete, get, head, post, put};
-use axum::{Json, Router};
-use dashmap::DashMap;
+use axum::Router;
 use futures::channel::mpsc::Sender;
 use futures::SinkExt;
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::sync::atomic::AtomicUsize;
 use tokio::net::TcpListener;
 
-#[derive(Debug, Serialize, Deserialize)]
-struct UpstreamData {
-    servers: Vec<(String, u16)>,
-    counter: usize,
-}
+// struct UpstreamData {
+//     servers: UpstreamsDashMap,
+// }
 
-pub async fn run_server(mut toreturn: Sender<UpstreamMap>) {
+#[allow(unused_mut)]
+pub async fn run_server(mut toreturn: Sender<UpstreamsDashMap>) {
     let mut tr = toreturn.clone();
     let app = Router::new()
         .route("/{*wildcard}", get(getconfig))
@@ -29,28 +24,18 @@ pub async fn run_server(mut toreturn: Sender<UpstreamMap>) {
         .route(
             "/conf",
             post(|up: String| async move {
-                let serverlist = crate::utils::discovery::build_upstreams(up.as_str(), "content");
+                let serverlist = crate::utils::parceyaml::load_yaml_to_dashmap(up.as_str(), "content");
                 let _ = tr.send(serverlist).await.unwrap();
                 Response::builder().status(StatusCode::CREATED).body(Body::from("Config, conf file, updated!\n")).unwrap()
             })
             .with_state("state"),
-        )
-        .route(
-            "/json",
-            post(|Json(payload): Json<HashMap<String, UpstreamData>>| async move {
-                let upstreams = DashMap::new();
-                for (key, value) in payload {
-                    upstreams.insert(key, (value.servers, AtomicUsize::new(value.counter)));
-                }
-                let _ = toreturn.send(upstreams).await.unwrap();
-                Response::builder().status(StatusCode::CREATED).body(Body::from("Config, json, updated!\n")).unwrap()
-            }),
         );
     let listener = TcpListener::bind("0.0.0.0:3000").await.unwrap();
     println!("Axum API server running on port 3000");
     axum::serve(listener, app).await.unwrap();
 }
 
+#[allow(dead_code)]
 async fn getconfig() -> impl IntoResponse {
     "Hello from Axum API inside Pingora!\n".to_string();
     Response::builder().status(StatusCode::BAD_GATEWAY).body(Body::from("No live upstream found!\n")).unwrap()

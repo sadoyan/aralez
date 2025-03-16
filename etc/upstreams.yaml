@@ -1,0 +1,47 @@
+upstreams:
+  myip.netangels.net:
+    paths:
+      "/draw":
+        protocol: "wsoc"
+        ssl: false
+        servers:
+          - "192.168.1.1:8000"
+      "/":
+        protocol: "http"
+        ssl: false
+        servers:
+          - "127.0.0.1:8000"
+          - "127.0.0.3:8000"
+      "/ping":
+        protocol: "http"
+        ssl: false
+        servers:
+          - "127.0.0.1:8000"
+          - "127.0.0.4:8000"
+  polo.netangels.net:
+    paths:
+      "/":
+        protocol: "http"
+        ssl: false
+        servers:
+          - "192.168.1.10:8000"
+      "/ws":
+        protocol: "wsoc"
+        ssl: false
+        servers:
+          - "192.168.1.1:8000"
+  glop.netangels.net:
+    paths:
+      "/":
+        protocol: "http"
+        ssl: false
+        servers:
+          - "192.168.1.10:8000"
+          - "192.168.1.10:8000"
+#  apt.netangels.net:
+#    paths:
+#      "/":
+#        protocol: "http"
+#        ssl: true
+#        servers:
+#          - "apt.netangels.net:443"

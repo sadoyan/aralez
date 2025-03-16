@@ -1,16 +1,16 @@
-use dashmap::DashMap;
-use futures::channel::mpsc::Sender;
-use futures::SinkExt;
-use std::fs;
-use std::sync::atomic::AtomicUsize;
-use std::time::{Duration, Instant};
-
+use crate::utils::parceyaml::load_yaml_to_dashmap;
 use crate::utils::tools::*;
 use crate::web::webserver;
 use async_trait::async_trait;
+use dashmap::DashMap;
+use futures::channel::mpsc::Sender;
+use futures::SinkExt;
 use notify::event::ModifyKind;
 use notify::{Config, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
+use std::fs;
 use std::path::Path;
+use std::sync::atomic::AtomicUsize;
+use std::time::{Duration, Instant};
 use tokio::task;
 
 pub struct FromFileProvider {
@@ -20,34 +20,32 @@ pub struct APIUpstreamProvider;
 
 #[async_trait]
 pub trait Discovery {
-    async fn run(&self, tx: Sender<UpstreamMap>);
+    async fn start(&self, tx: Sender<UpstreamsDashMap>);
 }
 
 #[async_trait]
 impl Discovery for APIUpstreamProvider {
-    async fn run(&self, toreturn: Sender<UpstreamMap>) {
+    async fn start(&self, toreturn: Sender<UpstreamsDashMap>) {
         webserver::run_server(toreturn).await;
     }
 }
 
 #[async_trait]
 impl Discovery for FromFileProvider {
-    async fn run(&self, tx: Sender<UpstreamMap>) {
+    async fn start(&self, tx: Sender<UpstreamsDashMap>) {
         tokio::spawn(watch_file(self.path.clone(), tx.clone()));
     }
 }
-pub async fn watch_file(fp: String, mut toreturn: Sender<UpstreamMap>) {
+pub async fn watch_file(fp: String, mut toreturn: Sender<UpstreamsDashMap>) {
     let file_path = fp.as_str();
-    let parent_dir = Path::new(file_path).parent().unwrap(); // Watch directory, not file
+    let parent_dir = Path::new(file_path).parent().unwrap();
     let (local_tx, mut local_rx) = tokio::sync::mpsc::channel::<notify::Result<Event>>(1);
-
     println!("Watching for changes in {:?}", parent_dir);
     let paths = fs::read_dir(parent_dir).unwrap();
     for path in paths {
         println!("  {}", path.unwrap().path().display())
     }
-
-    let snd = build_upstreams(file_path, "filepath");
+    let snd = load_yaml_to_dashmap(file_path, "filepath");
     let _ = toreturn.send(snd).await.unwrap();
 
     let _watcher_handle = task::spawn_blocking({
@@ -71,18 +69,11 @@ pub async fn watch_file(fp: String, mut toreturn: Sender<UpstreamMap>) {
         match event {
             Ok(e) => match e.kind {
                 EventKind::Modify(ModifyKind::Data(_)) | EventKind::Create(..) | EventKind::Remove(..) => {
-                    if e.paths[0].to_str().unwrap().ends_with("conf") {
-                        // if start.elapsed() > Duration::from_secs(10) {
+                    if e.paths[0].to_str().unwrap().ends_with("yaml") {
                         if start.elapsed() > Duration::from_secs(2) {
                             start = Instant::now();
                             println!("Config File changed :=> {:?}", e);
-
-                            let upstreams = build_upstreams2("etc/upstreams-long.conf", "filepath");
-                            print_upstreams(&upstreams);
-
-                            println!("\n\n");
-
-                            let snd = build_upstreams(file_path, "filepath");
+                            let snd = load_yaml_to_dashmap(file_path, "filepath");
                             let _ = toreturn.send(snd).await.unwrap();
                         }
                     }
@@ -93,59 +84,9 @@ pub async fn watch_file(fp: String, mut toreturn: Sender<UpstreamMap>) {
         }
     }
 }
-pub fn build_upstreams(d: &str, kind: &str) -> UpstreamMap {
-    let upstreams = DashMap::new();
-    let mut contents = d.to_string();
-    match kind {
-        "filepath" => {
-            println!("Reading upstreams from {}", d);
-            let _ = match fs::read_to_string(d) {
-                Ok(data) => contents = data,
-                Err(e) => {
-                    eprintln!("Error reading file: {:?}", e);
-                    return upstreams;
-                }
-            };
-        }
-        "content" => {
-            println!("Reading upstreams from API post body");
-        }
-        _ => println!("*******************> nothing <*******************"),
-    }
-
-    for line in contents.lines().filter(|line| !line.trim().is_empty()) {
-        let mut parts = line.split_whitespace();
-
-        let Some(hostname) = parts.next() else {
-            continue;
-        };
-        let Some(address) = parts.next() else {
-            continue;
-        };
-
-        let mut addr_parts = address.split(':');
-        let Some(ip) = addr_parts.next() else {
-            continue;
-        };
-        let Some(port_str) = addr_parts.next() else {
-            continue;
-        };
-
-        let Ok(port) = port_str.parse::<u16>() else {
-            continue;
-        };
-        upstreams
-            .entry(hostname.to_string()) // Step 1: Find or create entry
-            .or_insert_with(|| (Vec::new(), AtomicUsize::new(0))) // Step 2: Insert if missing
-            .0 // Step 3: Access the Vec<(String, u16)>
-            .push((ip.to_string(), port)); // Step 4: Append new data
-    }
-
-    upstreams
-}
-
-pub fn build_upstreams2(d: &str, kind: &str) -> UpstresmDashMap {
-    let upstreams: UpstresmDashMap = DashMap::new();
+#[allow(dead_code)]
+pub fn build_upstreams(d: &str, kind: &str) -> UpstreamsDashMap {
+    let upstreams: UpstreamsDashMap = DashMap::new();
     let mut contents = d.to_string();
     match kind {
         "filepath" => {
@@ -203,7 +144,5 @@ pub fn build_upstreams2(d: &str, kind: &str) -> UpstresmDashMap {
             .0
             .push((ip.to_string(), port, ssl, proto.to_string()));
     }
-    // println!("\n\nResult ===> {} <===\n\n", dam(&hopar, &upstreams));
-    // println!("{:?}", hopar);
     upstreams
 }

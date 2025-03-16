@@ -1,9 +1,20 @@
 use crate::utils::tools::*;
 use crate::web::proxyhttp::LB;
+use clap::{arg, Parser};
 use dashmap::DashMap;
+use log::info;
 use pingora_core::prelude::background_service;
 use pingora_core::server::Server;
 use std::sync::Arc;
+
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Args {
+    #[arg(short, long)]
+    address: String,
+    #[arg(short, long)]
+    port: String,
+}
 
 pub fn run() {
     env_logger::init();
@@ -11,27 +22,30 @@ pub fn run() {
     let mut server = Server::new(None).unwrap();
     server.bootstrap();
 
-    let upstreams_map: UpstreamMap = DashMap::new();
-    let config = Arc::new(upstreams_map);
-
-    let umap_full: UpstreamMap = DashMap::new();
-    let fconfig = Arc::new(umap_full);
+    let uf: UpstreamsDashMap = DashMap::new();
+    let ff: UpstreamsDashMap = DashMap::new();
+    let uf_config = Arc::new(uf);
+    let ff_config = Arc::new(ff);
 
     let lb = LB {
-        upstreams: config.clone(),
-        umap_full: fconfig.clone(),
+        ump_upst: uf_config.clone(),
+        ump_full: ff_config.clone(),
     };
     let bg = LB {
-        upstreams: config.clone(),
-        umap_full: fconfig.clone(),
+        ump_upst: uf_config.clone(),
+        ump_full: ff_config.clone(),
     };
 
     let bg_srvc = background_service("bgsrvc", bg);
     let mut proxy = pingora_proxy::http_proxy_service(&server.configuration, lb);
 
-    proxy.add_tcp("0.0.0.0:6193");
+    let args = Args::parse();
+    let addr = format!("{}:{}", args.address, args.port);
+    proxy.add_tcp(&addr);
     server.add_service(proxy);
     server.add_service(bg_srvc);
+
+    info!("Starting Gazan server on {}, port : {} !", args.address, args.port);
 
     server.run_forever();
 }
