@@ -1,25 +1,25 @@
 use crate::utils::tools::*;
 use crate::web::proxyhttp::LB;
-use clap::{arg, Parser};
+// use clap::{arg, Parser};
 use dashmap::DashMap;
-use log::info;
-use pingora_core::prelude::background_service;
+use pingora_core::prelude::{background_service, Opt};
 use pingora_core::server::Server;
 use std::sync::Arc;
 
-#[derive(Parser, Debug)]
-#[command(version, about, long_about = None)]
-struct Args {
-    #[arg(short, long)]
-    address: String,
-    #[arg(short, long)]
-    port: String,
-}
+// #[derive(Parser, Debug)]
+// #[command(version, about, long_about = None)]
+// struct Args {
+//     #[arg(short, long)]
+//     address: String,
+//     #[arg(short, long)]
+//     port: String,
+// }
 
 pub fn run() {
     env_logger::init();
 
-    let mut server = Server::new(None).unwrap();
+    // let mut server = Server::new(None).unwrap();
+    let mut server = Server::new(Some(Opt::parse_args())).unwrap();
     server.bootstrap();
 
     let uf: UpstreamsDashMap = DashMap::new();
@@ -39,13 +39,13 @@ pub fn run() {
     let bg_srvc = background_service("bgsrvc", bg);
     let mut proxy = pingora_proxy::http_proxy_service(&server.configuration, lb);
 
-    let args = Args::parse();
-    let addr = format!("{}:{}", args.address, args.port);
-    proxy.add_tcp(&addr);
+    // let args = Args::parse();
+    // let addr = format!("{}:{}", args.address, args.port);
+    proxy.add_tcp("0.0.0.0:6193");
     server.add_service(proxy);
     server.add_service(bg_srvc);
 
-    info!("Starting Gazan server on {}, port : {} !", args.address, args.port);
+    // info!("Starting Gazan server on {}, port : {} !", args.address, args.port);
 
     server.run_forever();
 }
