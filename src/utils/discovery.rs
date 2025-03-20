@@ -2,21 +2,22 @@ use crate::utils::parceyaml::load_yaml_to_dashmap;
 use crate::utils::tools::*;
 use crate::web::webserver;
 use async_trait::async_trait;
-use dashmap::DashMap;
 use futures::channel::mpsc::Sender;
 use futures::SinkExt;
+use log::{error, info};
 use notify::event::ModifyKind;
 use notify::{Config, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
-use std::fs;
+use pingora::prelude::sleep;
 use std::path::Path;
-use std::sync::atomic::AtomicUsize;
 use std::time::{Duration, Instant};
 use tokio::task;
 
 pub struct FromFileProvider {
     pub path: String,
 }
-pub struct APIUpstreamProvider;
+pub struct APIUpstreamProvider {
+    pub address: String,
+}
 
 #[async_trait]
 pub trait Discovery {
@@ -26,7 +27,7 @@ pub trait Discovery {
 #[async_trait]
 impl Discovery for APIUpstreamProvider {
     async fn start(&self, toreturn: Sender<UpstreamsDashMap>) {
-        webserver::run_server(toreturn).await;
+        webserver::run_server(self.address.clone(), toreturn).await;
     }
 }
 
@@ -37,16 +38,18 @@ impl Discovery for FromFileProvider {
     }
 }
 pub async fn watch_file(fp: String, mut toreturn: Sender<UpstreamsDashMap>) {
+    sleep(Duration::from_millis(50)).await; // For having nice logs :-)
     let file_path = fp.as_str();
     let parent_dir = Path::new(file_path).parent().unwrap();
     let (local_tx, mut local_rx) = tokio::sync::mpsc::channel::<notify::Result<Event>>(1);
-    println!("Watching for changes in {:?}", parent_dir);
-    let paths = fs::read_dir(parent_dir).unwrap();
-    for path in paths {
-        println!("  {}", path.unwrap().path().display())
-    }
+    info!("Watching for changes in {:?}", parent_dir);
     let snd = load_yaml_to_dashmap(file_path, "filepath");
-    let _ = toreturn.send(snd).await.unwrap();
+    match snd {
+        Some(snd) => {
+            toreturn.send(snd).await.unwrap();
+        }
+        None => {}
+    }
 
     let _watcher_handle = task::spawn_blocking({
         let parent_dir = parent_dir.to_path_buf(); // Move directory path into the closure
@@ -72,29 +75,38 @@ pub async fn watch_file(fp: String, mut toreturn: Sender<UpstreamsDashMap>) {
                     if e.paths[0].to_str().unwrap().ends_with("yaml") {
                         if start.elapsed() > Duration::from_secs(2) {
                             start = Instant::now();
-                            println!("Config File changed :=> {:?}", e);
+                            info!("Config File changed :=> {:?}", e);
                             let snd = load_yaml_to_dashmap(file_path, "filepath");
-                            let _ = toreturn.send(snd).await.unwrap();
+                            match snd {
+                                Some(snd) => {
+                                    toreturn.send(snd).await.unwrap();
+                                }
+                                None => {}
+                            }
                         }
                     }
                 }
                 _ => (),
             },
-            Err(e) => println!("Watch error: {:?}", e),
+            Err(e) => error!("Watch error: {:?}", e),
         }
     }
 }
+
+/*
 #[allow(dead_code)]
 pub fn build_upstreams(d: &str, kind: &str) -> UpstreamsDashMap {
     let upstreams: UpstreamsDashMap = DashMap::new();
     let mut contents = d.to_string();
     match kind {
         "filepath" => {
-            println!("Reading upstreams from {}", d);
             let _ = match fs::read_to_string(d) {
-                Ok(data) => contents = data,
+                Ok(data) => {
+                    println!("Reading upstreams from {}", d);
+                    contents = data
+                }
                 Err(e) => {
-                    eprintln!("Error reading file: {:?}", e);
+                    error!("Reading upstreams file: {:?}", e);
                     return upstreams;
                 }
             };
@@ -146,3 +158,4 @@ pub fn build_upstreams(d: &str, kind: &str) -> UpstreamsDashMap {
     }
     upstreams
 }
+*/

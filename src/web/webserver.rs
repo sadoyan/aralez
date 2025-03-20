@@ -6,14 +6,11 @@ use axum::routing::{delete, get, head, post, put};
 use axum::Router;
 use futures::channel::mpsc::Sender;
 use futures::SinkExt;
+use log::info;
 use tokio::net::TcpListener;
 
-// struct UpstreamData {
-//     servers: UpstreamsDashMap,
-// }
-
 #[allow(unused_mut)]
-pub async fn run_server(mut toreturn: Sender<UpstreamsDashMap>) {
+pub async fn run_server(bindaddress: String, mut toreturn: Sender<UpstreamsDashMap>) {
     let mut tr = toreturn.clone();
     let app = Router::new()
         .route("/{*wildcard}", get(getconfig))
@@ -25,13 +22,22 @@ pub async fn run_server(mut toreturn: Sender<UpstreamsDashMap>) {
             "/conf",
             post(|up: String| async move {
                 let serverlist = crate::utils::parceyaml::load_yaml_to_dashmap(up.as_str(), "content");
-                let _ = tr.send(serverlist).await.unwrap();
-                Response::builder().status(StatusCode::CREATED).body(Body::from("Config, conf file, updated!\n")).unwrap()
+
+                match serverlist {
+                    Some(serverlist) => {
+                        let _ = tr.send(serverlist).await.unwrap();
+                        Response::builder().status(StatusCode::CREATED).body(Body::from("Config, conf file, updated!\n")).unwrap()
+                    }
+                    None => Response::builder()
+                        .status(StatusCode::INTERNAL_SERVER_ERROR)
+                        .body(Body::from("Failed to parce config file!\n"))
+                        .unwrap(),
+                }
             })
             .with_state("state"),
         );
-    let listener = TcpListener::bind("0.0.0.0:3000").await.unwrap();
-    println!("Axum API server running on port 3000");
+    let listener = TcpListener::bind(bindaddress.clone()).await.unwrap();
+    info!("Starting the API server on: {}", bindaddress);
     axum::serve(listener, app).await.unwrap();
 }
 

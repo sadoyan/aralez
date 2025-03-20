@@ -1,49 +1,56 @@
 upstreams:
   myip.netangels.net:
     paths:
-      "/draw":
-        protocol: "wsoc"
-        ssl: false
-        servers:
-          - "192.168.1.1:8000"
-      "/":
-        protocol: "http"
-        ssl: false
-        servers:
-          - "127.0.0.1:8000"
-          - "127.0.0.3:8000"
-          - "127.0.0.4:8000"
-          - "127.0.0.5:8000"
-      "/ping":
-        protocol: "http"
+      "/echo":
+        protocol: "X-Proxied-From:Fooooooooooooooo, X-DoSome-About:Yaaaaaaaaaaaaaaa"
         ssl: false
         servers:
           - "127.0.0.1:8000"
           - "127.0.0.2:8000"
+          - "127.0.0.3:8000"
+          - "127.0.0.4:8000"
+      "/ping":
+        protocol: "PLACEHOLDER"
+        ssl: false
+        servers:
+          - "127.0.0.1:8000"
+          - "127.0.0.2:8000"
+      "/draw":
+        protocol: "PLACEHOLDER"
+        ssl: false
+        servers:
+          - "192.168.1.1:8000"
   polo.netangels.net:
     paths:
       "/":
-        protocol: "http"
+        protocol: "PLACEHOLDER"
         ssl: false
         servers:
           - "192.168.1.10:8000"
       "/ws":
-        protocol: "wsoc"
+        protocol: "PLACEHOLDER"
         ssl: false
         servers:
           - "192.168.1.1:8000"
   glop.netangels.net:
     paths:
       "/":
-        protocol: "http"
+        protocol: "PLACEHOLDER"
         ssl: false
         servers:
           - "192.168.1.10:8000"
           - "192.168.1.10:8000"
-#  apt.netangels.net:
-#    paths:
-#      "/":
-#        protocol: "http"
-#        ssl: true
-#        servers:
-#          - "apt.netangels.net:443"
+  apt.netangels.net:
+    paths:
+      "/":
+        protocol: "PLACEHOLDER"
+        ssl: true
+        servers:
+          - "apt.netangels.net:443"
+  127.0.0.1:
+    paths:
+      "/camerastatus":
+        protocol: "PLACEHOLDER"
+        ssl: false
+        servers:
+          - "192.168.1.5:8080"
