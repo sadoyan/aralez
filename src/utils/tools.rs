@@ -13,14 +13,14 @@ pub fn print_upstreams(upstreams: &UpstreamsDashMap) {
             let path = path_entry.key();
             println!("  Path: {}", path);
 
-            for (ip, port, ssl, proto) in path_entry.value().0.clone() {
-                println!("   ===> IP: {}, Port: {}, SSL: {}, Proto: {}", ip, port, ssl, proto);
+            for (ip, port, ssl) in path_entry.value().0.clone() {
+                println!("   ===> IP: {}, Port: {}, SSL: {}", ip, port, ssl);
             }
         }
     }
 }
 
-pub type UpstreamsDashMap = DashMap<String, DashMap<String, (Vec<(String, u16, bool, String)>, AtomicUsize)>>;
+pub type UpstreamsDashMap = DashMap<String, DashMap<String, (Vec<(String, u16, bool)>, AtomicUsize)>>;
 // pub type UpstreamMap = DashMap<String, (Vec<(String, u16)>, AtomicUsize)>;
 
 #[allow(dead_code)]

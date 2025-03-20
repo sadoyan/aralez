@@ -84,17 +84,12 @@ impl BackgroundService for LB {
 
 #[async_trait]
 pub trait GetHost {
-    async fn get_host(&self, peer: &str, path: &str, upgrade: bool) -> Option<(String, u16, bool, String)>;
+    async fn get_host(&self, peer: &str, path: &str, upgrade: bool) -> Option<(String, u16, bool)>;
 }
 #[async_trait]
 impl GetHost for LB {
-    async fn get_host(&self, peer: &str, path: &str, _upgrade: bool) -> Option<(String, u16, bool, String)> {
+    async fn get_host(&self, peer: &str, path: &str, _upgrade: bool) -> Option<(String, u16, bool)> {
         let _proto = "";
-        // if upgrade {
-        //     _proto = "wsoc";
-        // } else {
-        //     _proto = "http"
-        // }
         let host_entry = self.ump_upst.get(peer);
         match host_entry {
             Some(host_entry) => {
@@ -127,7 +122,7 @@ impl ProxyHttp for LB {
                 let header_host = host.to_str().unwrap().split(':').collect::<Vec<&str>>();
                 let ddr = self.get_host(header_host[0], session.req_header().uri.path(), session.is_upgrade_req());
                 match ddr.await {
-                    Some((host, port, ssl, _proto)) => {
+                    Some((host, port, ssl)) => {
                         let peer = Box::new(HttpPeer::new((host, port), ssl, String::new()));
                         Ok(peer)
                     }

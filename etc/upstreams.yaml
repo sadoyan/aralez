@@ -2,7 +2,6 @@ upstreams:
   myip.netangels.net:
     paths:
       "/echo":
-        protocol: "X-Proxied-From:Fooooooooooooooo, X-DoSome-About:Yaaaaaaaaaaaaaaa"
         ssl: false
         servers:
           - "127.0.0.1:8000"
@@ -10,32 +9,27 @@ upstreams:
           - "127.0.0.3:8000"
           - "127.0.0.4:8000"
       "/ping":
-        protocol: "PLACEHOLDER"
         ssl: false
         servers:
           - "127.0.0.1:8000"
           - "127.0.0.2:8000"
       "/draw":
-        protocol: "PLACEHOLDER"
         ssl: false
         servers:
           - "192.168.1.1:8000"
   polo.netangels.net:
     paths:
       "/":
-        protocol: "PLACEHOLDER"
         ssl: false
         servers:
           - "192.168.1.10:8000"
       "/ws":
-        protocol: "PLACEHOLDER"
         ssl: false
         servers:
           - "192.168.1.1:8000"
   glop.netangels.net:
     paths:
       "/":
-        protocol: "PLACEHOLDER"
         ssl: false
         servers:
           - "192.168.1.10:8000"
@@ -43,14 +37,12 @@ upstreams:
   apt.netangels.net:
     paths:
       "/":
-        protocol: "PLACEHOLDER"
         ssl: true
         servers:
           - "apt.netangels.net:443"
   127.0.0.1:
     paths:
       "/camerastatus":
-        protocol: "PLACEHOLDER"
         ssl: false
         servers:
           - "192.168.1.5:8080"

@@ -19,7 +19,6 @@ struct HostConfig {
 
 #[derive(Debug, Serialize, Deserialize)]
 struct PathConfig {
-    protocol: String,
     ssl: bool,
     servers: Vec<String>,
 }
@@ -57,7 +56,7 @@ pub fn load_yaml_to_dashmap(d: &str, kind: &str) -> Option<UpstreamsDashMap> {
                     for server in path_config.servers {
                         if let Some((ip, port_str)) = server.split_once(':') {
                             if let Ok(port) = port_str.parse::<u16>() {
-                                server_list.push((ip.to_string(), port, path_config.ssl, path_config.protocol.clone()));
+                                server_list.push((ip.to_string(), port, path_config.ssl));
                             }
                         }
                     }

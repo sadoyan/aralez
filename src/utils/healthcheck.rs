@@ -20,7 +20,7 @@ pub async fn hc2(upslist: Arc<UpstreamsDashMap>, fullist: Arc<UpstreamsDashMap>)
                         let path = path_entry.key();
                         let mut innervec= Vec::new();
                         for k in path_entry.value().0.iter().enumerate() {
-                            let (ip, port, ssl, _proto) = k.1;
+                            let (ip, port, ssl) = k.1;
                             let mut _pref = "";
                             match ssl {
                                 true => _pref = "https://",
