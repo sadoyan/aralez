@@ -46,3 +46,12 @@ upstreams:
         ssl: false
         servers:
           - "192.168.1.5:8080"
+#  127.0.0.1:
+#    paths:
+#      "/camerastatus":
+#        ssl: false
+#        headers:
+#          - "X-Some-Thing:Yaaaaaaaaaaaaaaa"
+#          - "X-Prox-From:Hopaaaaaaaaaaaar"
+#        servers:
+#          - "192.168.1.5:8080"

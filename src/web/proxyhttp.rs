@@ -180,22 +180,7 @@ impl ProxyHttp for LB {
     where
         Self::CTX: Send + Sync,
     {
-        // -------------------------------------------------------------------------------------------- //
-        // let header_host = _session.req_header().headers.get("host");
-        // match header_host {
-        //     Some(header_host) => {
-        //         let data = self.ump_full.get(header_host.to_str().unwrap()).unwrap();
-        //         let detail = data.get(_session.req_header().uri.path());
-        //         let thelast = detail.unwrap().value().0[0].clone().3;
-        //         println!("        Host ==> {}", thelast);
-        //     }
-        //     None => {}
-        // }
-        // _upstream_response.insert_header("X-DoSome-About", "Yaaaaaaaaaaaaaaa").unwrap();
-        // -------------------------------------------------------------------------------------------- //
-
         _upstream_response.insert_header("X-Proxied-From", "Fooooooooooooooo").unwrap();
-
         Ok(())
     }
 
