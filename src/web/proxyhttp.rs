@@ -88,8 +88,8 @@ pub trait GetHost {
 }
 #[async_trait]
 impl GetHost for LB {
+    /*
     async fn get_host(&self, peer: &str, path: &str, _upgrade: bool) -> Option<(String, u16, bool)> {
-        let _proto = "";
         let host_entry = self.ump_upst.get(peer);
         match host_entry {
             Some(host_entry) => {
@@ -99,7 +99,6 @@ impl GetHost for LB {
                         return None;
                     }
                     let idx = index.fetch_add(1, Ordering::Relaxed) % servers.len();
-                    // info!("Host: {}, Path: {}, Peer: {:?},  len: {}, idx: {}", peer, path, servers[idx], servers.len(), idx);
                     Some(servers[idx].clone())
                 } else {
                     None
@@ -108,6 +107,40 @@ impl GetHost for LB {
             }
             None => None,
         }
+    }
+    */
+    async fn get_host(&self, peer: &str, path: &str, _upgrade: bool) -> Option<(String, u16, bool)> {
+        let host_entry = self.ump_upst.get(peer)?;
+
+        // Check if an exact match exists first
+        let mut current_path = path.to_string();
+        let mut best_match: Option<(String, u16, bool)> = None;
+
+        loop {
+            if let Some(entry) = host_entry.get(&current_path) {
+                let (servers, index) = entry.value();
+                if !servers.is_empty() {
+                    let idx = index.fetch_add(1, Ordering::Relaxed) % servers.len();
+                    best_match = Some(servers[idx].clone());
+                    break;
+                }
+            }
+            if let Some(pos) = current_path.rfind('/') {
+                current_path.truncate(pos);
+            } else {
+                break;
+            }
+        }
+        if best_match.is_none() {
+            if let Some(entry) = host_entry.get("/") {
+                let (servers, index) = entry.value();
+                if !servers.is_empty() {
+                    let idx = index.fetch_add(1, Ordering::Relaxed) % servers.len();
+                    best_match = Some(servers[idx].clone());
+                }
+            }
+        }
+        best_match
     }
 }
 

@@ -1,7 +1,7 @@
 upstreams:
   myip.netangels.net:
     paths:
-      "/echo":
+      "/":
         ssl: false
         servers:
           - "127.0.0.1:8000"
