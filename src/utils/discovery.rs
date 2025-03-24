@@ -21,29 +21,30 @@ pub struct APIUpstreamProvider {
 
 #[async_trait]
 pub trait Discovery {
-    async fn start(&self, tx: Sender<UpstreamsDashMap>);
+    async fn start(&self, tx: Sender<(UpstreamsDashMap, Headers)>);
 }
 
 #[async_trait]
 impl Discovery for APIUpstreamProvider {
-    async fn start(&self, toreturn: Sender<UpstreamsDashMap>) {
+    async fn start(&self, toreturn: Sender<(UpstreamsDashMap, Headers)>) {
         webserver::run_server(self.address.clone(), toreturn).await;
     }
 }
 
 #[async_trait]
 impl Discovery for FromFileProvider {
-    async fn start(&self, tx: Sender<UpstreamsDashMap>) {
+    async fn start(&self, tx: Sender<(UpstreamsDashMap, Headers)>) {
         tokio::spawn(watch_file(self.path.clone(), tx.clone()));
     }
 }
-pub async fn watch_file(fp: String, mut toreturn: Sender<UpstreamsDashMap>) {
+pub async fn watch_file(fp: String, mut toreturn: Sender<(UpstreamsDashMap, Headers)>) {
     sleep(Duration::from_millis(50)).await; // For having nice logs :-)
     let file_path = fp.as_str();
     let parent_dir = Path::new(file_path).parent().unwrap();
     let (local_tx, mut local_rx) = tokio::sync::mpsc::channel::<notify::Result<Event>>(1);
     info!("Watching for changes in {:?}", parent_dir);
     let snd = load_yaml_to_dashmap(file_path, "filepath");
+
     match snd {
         Some(snd) => {
             toreturn.send(snd).await.unwrap();

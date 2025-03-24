@@ -10,7 +10,7 @@ use log::info;
 use tokio::net::TcpListener;
 
 #[allow(unused_mut)]
-pub async fn run_server(bindaddress: String, mut toreturn: Sender<UpstreamsDashMap>) {
+pub async fn run_server(bindaddress: String, mut toreturn: Sender<(UpstreamsDashMap, Headers)>) {
     let mut tr = toreturn.clone();
     let app = Router::new()
         .route("/{*wildcard}", get(getconfig))

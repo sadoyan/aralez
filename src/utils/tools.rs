@@ -21,6 +21,8 @@ pub fn print_upstreams(upstreams: &UpstreamsDashMap) {
 }
 
 pub type UpstreamsDashMap = DashMap<String, DashMap<String, (Vec<(String, u16, bool)>, AtomicUsize)>>;
+// pub type HeadersList = DashMap<String, Vec<(String, String)>>;
+pub type Headers = DashMap<String, DashMap<String, Vec<(String, String)>>>;
 // pub type UpstreamMap = DashMap<String, (Vec<(String, u16)>, AtomicUsize)>;
 
 #[allow(dead_code)]

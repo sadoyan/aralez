@@ -19,6 +19,7 @@ use std::sync::Arc;
 pub struct LB {
     pub ump_upst: Arc<UpstreamsDashMap>,
     pub ump_full: Arc<UpstreamsDashMap>,
+    pub headers: Arc<Headers>,
     pub config: Arc<DashMap<String, String>>,
     pub local: Arc<(String, u16)>,
 }
@@ -27,7 +28,7 @@ pub struct LB {
 impl BackgroundService for LB {
     async fn start(&self, mut shutdown: ShutdownWatch) {
         info!("Starting background service");
-        let (tx, mut rx) = mpsc::channel::<UpstreamsDashMap>(0);
+        let (tx, mut rx) = mpsc::channel::<(UpstreamsDashMap, Headers)>(0);
 
         let from_file = self.config.get("upstreams_conf");
         match from_file {
@@ -67,10 +68,13 @@ impl BackgroundService for LB {
                 val = rx.next() => {
                     match val {
                         Some(ss) => {
-                            let foo = compare_dashmaps(&*self.ump_full, &ss);
+                            let foo = compare_dashmaps(&*self.ump_full, &ss.0);
                             if !foo {
-                                clone_dashmap_into(&ss, &self.ump_full);
-                                clone_dashmap_into(&ss, &self.ump_upst);
+                                clone_dashmap_into(&ss.0, &self.ump_full);
+                                clone_dashmap_into(&ss.0, &self.ump_upst);
+                                for (k,v) in ss.1 {
+                                    self.headers.insert(k,v);
+                                }
                                 print_upstreams(&self.ump_full);
                             }
                         }
@@ -85,6 +89,7 @@ impl BackgroundService for LB {
 #[async_trait]
 pub trait GetHost {
     async fn get_host(&self, peer: &str, path: &str, upgrade: bool) -> Option<(String, u16, bool)>;
+    async fn get_header(&self, peer: &str, path: &str) -> Option<Vec<(String, String)>>;
 }
 #[async_trait]
 impl GetHost for LB {
@@ -111,8 +116,6 @@ impl GetHost for LB {
     */
     async fn get_host(&self, peer: &str, path: &str, _upgrade: bool) -> Option<(String, u16, bool)> {
         let host_entry = self.ump_upst.get(peer)?;
-
-        // Check if an exact match exists first
         let mut current_path = path.to_string();
         let mut best_match: Option<(String, u16, bool)> = None;
 
@@ -137,6 +140,33 @@ impl GetHost for LB {
                 if !servers.is_empty() {
                     let idx = index.fetch_add(1, Ordering::Relaxed) % servers.len();
                     best_match = Some(servers[idx].clone());
+                }
+            }
+        }
+        best_match
+    }
+    async fn get_header(&self, peer: &str, path: &str) -> Option<Vec<(String, String)>> {
+        let host_entry = self.headers.get(peer)?;
+        let mut current_path = path.to_string();
+        let mut best_match: Option<Vec<(String, String)>> = None;
+
+        loop {
+            if let Some(entry) = host_entry.get(&current_path) {
+                if !entry.value().is_empty() {
+                    best_match = Some(entry.value().clone());
+                    break;
+                }
+            }
+            if let Some(pos) = current_path.rfind('/') {
+                current_path.truncate(pos);
+            } else {
+                break;
+            }
+        }
+        if best_match.is_none() {
+            if let Some(entry) = host_entry.get("/") {
+                if !entry.value().is_empty() {
+                    best_match = Some(entry.value().clone());
                 }
             }
         }
@@ -213,7 +243,22 @@ impl ProxyHttp for LB {
     where
         Self::CTX: Send + Sync,
     {
-        _upstream_response.insert_header("X-Proxied-From", "Fooooooooooooooo").unwrap();
+        // _upstream_response.insert_header("X-Proxied-From", "Fooooooooooooooo").unwrap();
+
+        let host = _session.req_header().headers.get("Host");
+        match host {
+            Some(host) => {
+                let path = _session.req_header().uri.path();
+                let yoyo = self.get_header(host.to_str().unwrap(), path).await;
+
+                for k in yoyo.iter() {
+                    for t in k.iter() {
+                        _upstream_response.insert_header(t.0.clone(), t.1.clone()).unwrap();
+                    }
+                }
+            }
+            None => {}
+        }
         Ok(())
     }
 

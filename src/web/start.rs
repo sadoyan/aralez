@@ -23,8 +23,12 @@ pub fn run() {
 
     let uf: UpstreamsDashMap = DashMap::new();
     let ff: UpstreamsDashMap = DashMap::new();
+    let hh: Headers = DashMap::new();
+
     let uf_config = Arc::new(uf);
     let ff_config = Arc::new(ff);
+    let hh_config = Arc::new(hh);
+
     let cfg = Arc::new(maincfg);
     let local = Arc::new(local_conf);
 
@@ -33,12 +37,14 @@ pub fn run() {
         ump_full: ff_config.clone(),
         config: cfg.clone(),
         local: local.clone(),
+        headers: hh_config.clone(),
     };
     let bg = LB {
         ump_upst: uf_config.clone(),
         ump_full: ff_config.clone(),
         config: cfg.clone(),
         local: local.clone(),
+        headers: hh_config.clone(),
     };
 
     // env_logger::Env::new();
