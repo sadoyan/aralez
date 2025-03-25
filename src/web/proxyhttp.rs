@@ -68,15 +68,16 @@ impl BackgroundService for LB {
                 val = rx.next() => {
                     match val {
                         Some(ss) => {
-                            let foo = compare_dashmaps(&*self.ump_full, &ss.0);
-                            if !foo {
-                                clone_dashmap_into(&ss.0, &self.ump_full);
-                                clone_dashmap_into(&ss.0, &self.ump_upst);
-                                for (k,v) in ss.1 {
-                                    self.headers.insert(k,v);
-                                }
-                                print_upstreams(&self.ump_full);
+                            // let foo = compare_dashmaps(&*self.ump_full, &ss.0);
+                            // println!("{:?}", ss.1);
+                            // if !foo {
+                            clone_dashmap_into(&ss.0, &self.ump_full);
+                            clone_dashmap_into(&ss.0, &self.ump_upst);
+                            for (k,v) in ss.1 {
+                                self.headers.insert(k,v);
                             }
+                            print_upstreams(&self.ump_full);
+                            // }
                         }
                         None => {}
                     }
@@ -265,5 +266,6 @@ impl ProxyHttp for LB {
     async fn logging(&self, session: &mut Session, _e: Option<&pingora::Error>, ctx: &mut Self::CTX) {
         let response_code = session.response_written().map_or(0, |resp| resp.status.as_u16());
         debug!("{}, response code: {response_code}", self.request_summary(session, ctx));
+        info!("{}, response code: {response_code}", self.request_summary(session, ctx));
     }
 }

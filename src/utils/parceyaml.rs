@@ -10,6 +10,7 @@ use std::sync::atomic::AtomicUsize;
 #[derive(Debug, Serialize, Deserialize)]
 struct Config {
     upstreams: HashMap<String, HostConfig>,
+    globals: HashMap<String, Vec<String>>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -57,13 +58,23 @@ pub fn load_yaml_to_dashmap(d: &str, kind: &str) -> Option<(UpstreamsDashMap, He
                 for (path, path_config) in host_config.paths {
                     let mut server_list = Vec::new();
                     let mut hl = Vec::new();
+
+                    // Set global headers
+                    for headers in parsed.globals.get("headers").iter().by_ref() {
+                        for header in headers.iter() {
+                            if let Some((key, val)) = header.split_once(':') {
+                                hl.push((key.to_string(), val.to_string()));
+                            }
+                        }
+                    }
+                    // Set per host/path headers
                     for header in path_config.headers.iter().by_ref() {
                         if let Some((key, val)) = header.split_once(':') {
                             hl.push((key.to_string(), val.to_string()));
                         }
                     }
+
                     header_list.insert(path.clone(), hl);
-                    // println!("     {:?} == {:?}", hostname, header_list);
                     for server in path_config.servers {
                         if let Some((ip, port_str)) = server.split_once(':') {
                             if let Ok(port) = port_str.parse::<u16>() {
