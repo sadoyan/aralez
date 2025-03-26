@@ -9,9 +9,6 @@ upstreams:
     paths:
       "/":
         ssl: false
-        headers:
-          - "X-Some-Thing:Yaaaaaaaaaaaaaaa"
-          - "X-Prox-From:Hopaaaaaaaaaaaar"
         servers:
           - "127.0.0.1:8000"
           - "127.0.0.2:8000"
@@ -27,9 +24,6 @@ upstreams:
           - "127.0.0.2:8000"
       "/draw":
         ssl: false
-        headers:
-          - "X-Some-Thing:Yaaaaaaaaaaaaaaa"
-          - "X-Prox-From:Hopaaaaaaaaaaaar"
         servers:
           - "192.168.1.1:8000"
   polo.netangels.net:
@@ -38,14 +32,10 @@ upstreams:
         ssl: false
         headers:
           - "X-Some-Thing:Yaaaaaaaaaaaaaaa"
-          - "X-Prox-From:Hopaaaaaaaaaaaar"
         servers:
           - "192.168.1.10:8000"
       "/ws":
         ssl: false
-        headers:
-          - "X-Some-Thing:Yaaaaaaaaaaaaaaa"
-          - "X-Prox-From:Hopaaaaaaaaaaaar"
         servers:
           - "192.168.1.1:8000"
   glop.netangels.net:
@@ -61,17 +51,11 @@ upstreams:
     paths:
       "/":
         ssl: true
-        headers:
-          - "X-Some-Thing:Yaaaaaaaaaaaaaaa"
-          - "X-Prox-From:Hopaaaaaaaaaaaar"
         servers:
           - "apt.netangels.net:443"
   127.0.0.1:
     paths:
       "/camerastatus":
         ssl: false
-        headers:
-          - "X-Some-Thing:Yaaaaaaaaaaaaaaa"
-          - "X-Prox-From:Hopaaaaaaaaaaaar"
         servers:
           - "192.168.1.5:8080"

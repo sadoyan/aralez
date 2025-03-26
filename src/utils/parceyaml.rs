@@ -9,8 +9,8 @@ use std::sync::atomic::AtomicUsize;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct Config {
-    upstreams: HashMap<String, HostConfig>,
-    globals: HashMap<String, Vec<String>>,
+    upstreams: Option<HashMap<String, HostConfig>>,
+    globals: Option<HashMap<String, Vec<String>>>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -22,12 +22,12 @@ struct HostConfig {
 struct PathConfig {
     ssl: bool,
     servers: Vec<String>,
-    headers: Vec<String>,
+    headers: Option<Vec<String>>,
 }
 
 pub fn load_yaml_to_dashmap(d: &str, kind: &str) -> Option<(UpstreamsDashMap, Headers)> {
     let dashmap = UpstreamsDashMap::new();
-    let headers = DashMap::new();
+    let headerm = DashMap::new();
     let mut yaml_data = d.to_string();
     match kind {
         "filepath" => {
@@ -52,42 +52,47 @@ pub fn load_yaml_to_dashmap(d: &str, kind: &str) -> Option<(UpstreamsDashMap, He
     let p: Result<Config, Error> = serde_yaml::from_str(&yaml_data);
     match p {
         Ok(parsed) => {
-            for (hostname, host_config) in parsed.upstreams {
-                let path_map = DashMap::new();
-                let header_list = DashMap::new();
-                for (path, path_config) in host_config.paths {
-                    let mut server_list = Vec::new();
-                    let mut hl = Vec::new();
-
-                    // Set global headers
-                    for headers in parsed.globals.get("headers").iter().by_ref() {
-                        for header in headers.iter() {
-                            if let Some((key, val)) = header.split_once(':') {
-                                hl.push((key.to_string(), val.to_string()));
+            if let Some(headers) = parsed.upstreams {
+                for (hostname, host_config) in headers {
+                    let path_map = DashMap::new();
+                    let header_list = DashMap::new();
+                    for (path, path_config) in host_config.paths {
+                        let mut server_list = Vec::new();
+                        let mut hl = Vec::new();
+                        // Set global headers
+                        if let Some(globals) = &parsed.globals {
+                            for headers in globals.get("headers").iter().by_ref() {
+                                for header in headers.iter() {
+                                    if let Some((key, val)) = header.split_once(':') {
+                                        hl.push((key.to_string(), val.to_string()));
+                                    }
+                                }
                             }
                         }
-                    }
-                    // Set per host/path headers
-                    for header in path_config.headers.iter().by_ref() {
-                        if let Some((key, val)) = header.split_once(':') {
-                            hl.push((key.to_string(), val.to_string()));
-                        }
-                    }
-
-                    header_list.insert(path.clone(), hl);
-                    for server in path_config.servers {
-                        if let Some((ip, port_str)) = server.split_once(':') {
-                            if let Ok(port) = port_str.parse::<u16>() {
-                                server_list.push((ip.to_string(), port, path_config.ssl));
+                        // Set per host/path headers
+                        if let Some(headers) = &path_config.headers {
+                            for header in headers.iter().by_ref() {
+                                if let Some((key, val)) = header.split_once(':') {
+                                    hl.push((key.to_string(), val.to_string()));
+                                }
                             }
                         }
+                        header_list.insert(path.clone(), hl);
+                        for server in path_config.servers {
+                            if let Some((ip, port_str)) = server.split_once(':') {
+                                if let Ok(port) = port_str.parse::<u16>() {
+                                    server_list.push((ip.to_string(), port, path_config.ssl));
+                                }
+                            }
+                        }
+                        path_map.insert(path, (server_list, AtomicUsize::new(0)));
                     }
-                    path_map.insert(path, (server_list, AtomicUsize::new(0)));
+                    headerm.insert(hostname.clone(), header_list);
+                    dashmap.insert(hostname, path_map);
                 }
-                headers.insert(hostname.clone(), header_list);
-                dashmap.insert(hostname, path_map);
             }
-            Some((dashmap, headers))
+
+            Some((dashmap, headerm))
         }
         Err(e) => {
             error!("Failed to parse upstreams file: {}", e);

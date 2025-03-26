@@ -11,10 +11,10 @@ pub fn print_upstreams(upstreams: &UpstreamsDashMap) {
 
         for path_entry in host_entry.value().iter() {
             let path = path_entry.key();
-            println!("  Path: {}", path);
+            println!(" Path: {}", path);
 
             for (ip, port, ssl) in path_entry.value().0.clone() {
-                println!("   ===> IP: {}, Port: {}, SSL: {}", ip, port, ssl);
+                println!("    ===> IP: {}, Port: {}, SSL: {}", ip, port, ssl);
             }
         }
     }
