@@ -9,6 +9,7 @@ use std::sync::atomic::AtomicUsize;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct Config {
+    provider: String,
     upstreams: Option<HashMap<String, HostConfig>>,
     globals: Option<HashMap<String, Vec<String>>>,
 }
@@ -25,7 +26,7 @@ struct PathConfig {
     headers: Option<Vec<String>>,
 }
 
-pub fn load_yaml_to_dashmap(d: &str, kind: &str) -> Option<(UpstreamsDashMap, Headers)> {
+pub fn load_configuration(d: &str, kind: &str) -> Option<(UpstreamsDashMap, Headers)> {
     let dashmap = UpstreamsDashMap::new();
     let headerm = DashMap::new();
     let mut yaml_data = d.to_string();
@@ -52,8 +53,14 @@ pub fn load_yaml_to_dashmap(d: &str, kind: &str) -> Option<(UpstreamsDashMap, He
     let p: Result<Config, Error> = serde_yaml::from_str(&yaml_data);
     match p {
         Ok(parsed) => {
-            if let Some(headers) = parsed.upstreams {
-                for (hostname, host_config) in headers {
+            match parsed.provider.as_str() {
+                "file" => {}
+                "consul" => return None,
+                "kubernetes" => return None,
+                _ => warn!("Unknown provider {}", parsed.provider),
+            };
+            if let Some(upstream) = parsed.upstreams {
+                for (hostname, host_config) in upstream {
                     let path_map = DashMap::new();
                     let header_list = DashMap::new();
                     for (path, path_config) in host_config.paths {
@@ -91,7 +98,6 @@ pub fn load_yaml_to_dashmap(d: &str, kind: &str) -> Option<(UpstreamsDashMap, He
                     dashmap.insert(hostname, path_map);
                 }
             }
-
             Some((dashmap, headerm))
         }
         Err(e) => {

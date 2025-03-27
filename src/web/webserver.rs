@@ -21,7 +21,7 @@ pub async fn run_server(bindaddress: String, mut toreturn: Sender<(UpstreamsDash
         .route(
             "/conf",
             post(|up: String| async move {
-                let serverlist = crate::utils::parceyaml::load_yaml_to_dashmap(up.as_str(), "content");
+                let serverlist = crate::utils::parceyaml::load_configuration(up.as_str(), "content");
 
                 match serverlist {
                     Some(serverlist) => {
