@@ -20,7 +20,7 @@ pub async fn start(fp: String, mut toreturn: Sender<(UpstreamsDashMap, Headers)>
 
     match snd {
         Some(snd) => {
-            toreturn.send(snd).await.unwrap();
+            toreturn.send((snd.0, snd.1)).await.unwrap();
         }
         None => {}
     }
@@ -49,11 +49,11 @@ pub async fn start(fp: String, mut toreturn: Sender<(UpstreamsDashMap, Headers)>
                     if e.paths[0].to_str().unwrap().ends_with("yaml") {
                         if start.elapsed() > Duration::from_secs(2) {
                             start = Instant::now();
-                            info!("Config File changed :=> {:?}", e);
+                            // info!("Config File changed :=> {:?}", e);
                             let snd = load_configuration(file_path, "filepath");
                             match snd {
                                 Some(snd) => {
-                                    toreturn.send(snd).await.unwrap();
+                                    toreturn.send((snd.0, snd.1)).await.unwrap();
                                 }
                                 None => {}
                             }

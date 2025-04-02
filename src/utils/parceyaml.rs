@@ -8,10 +8,16 @@ use std::fs;
 use std::sync::atomic::AtomicUsize;
 
 #[derive(Debug, Serialize, Deserialize)]
+struct Consul {
+    servers: Option<Vec<String>>,
+    services: Option<Vec<String>>,
+}
+#[derive(Debug, Serialize, Deserialize)]
 struct Config {
     provider: String,
     upstreams: Option<HashMap<String, HostConfig>>,
     globals: Option<HashMap<String, Vec<String>>>,
+    consul: Option<Consul>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -26,9 +32,18 @@ struct PathConfig {
     headers: Option<Vec<String>>,
 }
 
-pub fn load_configuration(d: &str, kind: &str) -> Option<(UpstreamsDashMap, Headers)> {
-    let dashmap = UpstreamsDashMap::new();
-    let headerm = DashMap::new();
+// #[derive(Debug, Serialize, Deserialize)]
+// pub struct Allconfig {
+//     pub upstreams: Option<UpstreamsDashMap>,
+//     pub headers: Option<Headers>,
+//     pub consul: Option<Consul>,
+//     pub typecfg: String,
+// }
+
+// pub fn load_configuration(d: &str, kind: &str) -> Option<(UpstreamsDashMap, Headers, String)> {
+pub fn load_configuration(d: &str, kind: &str) -> Option<(UpstreamsDashMap, Headers, String)> {
+    let upstreamsmap = UpstreamsDashMap::new();
+    let headersmap = DashMap::new();
     let mut yaml_data = d.to_string();
     match kind {
         "filepath" => {
@@ -53,52 +68,91 @@ pub fn load_configuration(d: &str, kind: &str) -> Option<(UpstreamsDashMap, Head
     let p: Result<Config, Error> = serde_yaml::from_str(&yaml_data);
     match p {
         Ok(parsed) => {
+            let global_headers = DashMap::new();
+            let mut hl = Vec::new();
+            if let Some(globals) = &parsed.globals {
+                for headers in globals.get("headers").iter().by_ref() {
+                    for header in headers.iter() {
+                        if let Some((key, val)) = header.split_once(':') {
+                            hl.push((key.to_string(), val.to_string()));
+                        }
+                    }
+                }
+                global_headers.insert("/".to_string(), hl);
+                headersmap.insert("GLOBAL_HEADERS".to_string(), global_headers);
+            }
+
             match parsed.provider.as_str() {
-                "file" => {}
-                "consul" => return None,
-                "kubernetes" => return None,
-                _ => warn!("Unknown provider {}", parsed.provider),
-            };
-            if let Some(upstream) = parsed.upstreams {
-                for (hostname, host_config) in upstream {
-                    let path_map = DashMap::new();
-                    let header_list = DashMap::new();
-                    for (path, path_config) in host_config.paths {
-                        let mut server_list = Vec::new();
-                        let mut hl = Vec::new();
-                        // Set global headers
-                        if let Some(globals) = &parsed.globals {
-                            for headers in globals.get("headers").iter().by_ref() {
-                                for header in headers.iter() {
-                                    if let Some((key, val)) = header.split_once(':') {
-                                        hl.push((key.to_string(), val.to_string()));
+                "file" => {
+                    if let Some(upstream) = parsed.upstreams {
+                        for (hostname, host_config) in upstream {
+                            let path_map = DashMap::new();
+                            let header_list = DashMap::new();
+                            for (path, path_config) in host_config.paths {
+                                let mut server_list = Vec::new();
+                                let mut hl = Vec::new();
+                                // Set global headers
+                                // if let Some(globals) = &parsed.globals {
+                                //     for headers in globals.get("headers").iter().by_ref() {
+                                //         for header in headers.iter() {
+                                //             if let Some((key, val)) = header.split_once(':') {
+                                //                 hl.push((key.to_string(), val.to_string()));
+                                //             }
+                                //         }
+                                //     }
+                                // }
+                                // Set per host/path headers
+                                if let Some(headers) = &path_config.headers {
+                                    for header in headers.iter().by_ref() {
+                                        if let Some((key, val)) = header.split_once(':') {
+                                            hl.push((key.to_string(), val.to_string()));
+                                        }
                                     }
                                 }
-                            }
-                        }
-                        // Set per host/path headers
-                        if let Some(headers) = &path_config.headers {
-                            for header in headers.iter().by_ref() {
-                                if let Some((key, val)) = header.split_once(':') {
-                                    hl.push((key.to_string(), val.to_string()));
+                                header_list.insert(path.clone(), hl);
+                                for server in path_config.servers {
+                                    if let Some((ip, port_str)) = server.split_once(':') {
+                                        if let Ok(port) = port_str.parse::<u16>() {
+                                            server_list.push((ip.to_string(), port, path_config.ssl));
+                                        }
+                                    }
                                 }
+                                path_map.insert(path, (server_list, AtomicUsize::new(0)));
                             }
+                            headersmap.insert(hostname.clone(), header_list);
+                            upstreamsmap.insert(hostname, path_map);
                         }
-                        header_list.insert(path.clone(), hl);
-                        for server in path_config.servers {
-                            if let Some((ip, port_str)) = server.split_once(':') {
-                                if let Ok(port) = port_str.parse::<u16>() {
-                                    server_list.push((ip.to_string(), port, path_config.ssl));
-                                }
-                            }
-                        }
-                        path_map.insert(path, (server_list, AtomicUsize::new(0)));
                     }
-                    headerm.insert(hostname.clone(), header_list);
-                    dashmap.insert(hostname, path_map);
+                    Some((upstreamsmap, headersmap, String::from("file")))
+                }
+                "consul" => {
+                    let consul = parsed.consul;
+                    match consul {
+                        Some(consul) => {
+                            // println!("{:?}", consul.services);
+                            if let Some(srv) = consul.servers {
+                                let joined = srv.join(" ");
+                                Some((upstreamsmap, headersmap, String::from("consul ") + &*joined))
+                            } else {
+                                None
+                            }
+                        }
+                        None => None,
+                    }
+                    // if let Some(srv) = parsed.consul?.servers {
+                    //     let joined = srv.join(" ");
+                    //     Some((upstreamsmap, headersmap, String::from("consul ") + &*joined))
+                    // } else {
+                    //     None
+                    // }
+                    // Some((upstreamsmap, headersmap, String::from("consul ")))
+                }
+                "kubernetes" => None,
+                _ => {
+                    warn!("Unknown provider {}", parsed.provider);
+                    None
                 }
             }
-            Some((dashmap, headerm))
         }
         Err(e) => {
             error!("Failed to parse upstreams file: {}", e);

@@ -1,3 +1,4 @@
+use crate::utils::consul;
 use crate::utils::filewatch;
 use crate::utils::tools::*;
 use crate::web::webserver;
@@ -9,6 +10,10 @@ pub struct FromFileProvider {
 }
 pub struct APIUpstreamProvider {
     pub address: String,
+}
+
+pub struct ConsulProvider {
+    pub path: String,
 }
 
 #[async_trait]
@@ -27,5 +32,12 @@ impl Discovery for APIUpstreamProvider {
 impl Discovery for FromFileProvider {
     async fn start(&self, tx: Sender<(UpstreamsDashMap, Headers)>) {
         tokio::spawn(filewatch::start(self.path.clone(), tx.clone()));
+    }
+}
+
+#[async_trait]
+impl Discovery for ConsulProvider {
+    async fn start(&self, tx: Sender<(UpstreamsDashMap, Headers)>) {
+        tokio::spawn(consul::start(self.path.clone(), tx.clone()));
     }
 }

@@ -1,4 +1,4 @@
-use crate::utils::discovery::{APIUpstreamProvider, Discovery, FromFileProvider};
+use crate::utils::discovery::{APIUpstreamProvider, ConsulProvider, Discovery, FromFileProvider};
 use crate::utils::tools::*;
 use crate::utils::*;
 use async_trait::async_trait;
@@ -33,9 +33,14 @@ impl BackgroundService for LB {
         let from_file = self.config.get("upstreams_conf");
         match from_file {
             Some(from_file) => {
-                let file_load = FromFileProvider { path: from_file.to_string() };
                 let tx_file = tx.clone();
+                let tx_consul = tx.clone();
+
+                let file_load = FromFileProvider { path: from_file.to_string() };
+                let consul_load = ConsulProvider { path: from_file.to_string() };
+
                 let _ = tokio::spawn(async move { file_load.start(tx_file).await });
+                let _ = tokio::spawn(async move { consul_load.start(tx_consul).await });
             }
             None => {
                 error!("Can't read config file");
@@ -68,16 +73,29 @@ impl BackgroundService for LB {
                 val = rx.next() => {
                     match val {
                         Some(ss) => {
-                            // let foo = compare_dashmaps(&*self.ump_full, &ss.0);
-                            // println!("{:?}", ss.1);
-                            // if !foo {
                             clone_dashmap_into(&ss.0, &self.ump_full);
                             clone_dashmap_into(&ss.0, &self.ump_upst);
-                            for (k,v) in ss.1 {
-                                self.headers.insert(k,v);
+                            self.headers.clear();
+
+                            for entry in ss.0.iter() {
+                                let global_key = entry.key().clone();
+                                let global_values = DashMap::new();
+                                let mut target_entry = ss.1.entry(global_key).or_insert_with(DashMap::new);
+                                target_entry.extend(global_values);
+                                self.headers.insert(target_entry.key().to_owned(), target_entry.value().to_owned());
                             }
-                            print_upstreams(&self.ump_full);
-                            // }
+
+                            for path in ss.1.iter() {
+                                let path_key = path.key().clone();
+                                let path_headers = path.value().clone();
+                                self.headers.insert(path_key.clone(), path_headers);
+                                if let Some(global_headers) = ss.1.get("GLOBAL_HEADERS") {
+                                    if let Some(existing_headers) = self.headers.get_mut(&path_key) {
+                                        merge_headers(&existing_headers, &global_headers);
+                                    }
+                                }
+                            }
+                            // print_upstreams(&self.ump_full);
                         }
                         None => {}
                     }
@@ -266,6 +284,6 @@ impl ProxyHttp for LB {
     async fn logging(&self, session: &mut Session, _e: Option<&pingora::Error>, ctx: &mut Self::CTX) {
         let response_code = session.response_written().map_or(0, |resp| resp.status.as_u16());
         debug!("{}, response code: {response_code}", self.request_summary(session, ctx));
-        info!("{}, response code: {response_code}", self.request_summary(session, ctx));
+        // info!("{}, response code: {response_code}", self.request_summary(session, ctx));
     }
 }

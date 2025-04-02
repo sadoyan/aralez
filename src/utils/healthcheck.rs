@@ -1,5 +1,6 @@
 use crate::utils::tools::*;
 use dashmap::DashMap;
+use log::warn;
 use std::sync::atomic::AtomicUsize;
 use std::sync::Arc;
 use std::time::Duration;
@@ -33,7 +34,7 @@ pub async fn hc2(upslist: Arc<UpstreamsDashMap>, fullist: Arc<UpstreamsDashMap>)
                                     innervec.push(k.1.clone());
                                 }
                                 false => {
-                                    println!("Dead Upstream {}, Link: {}",k.0, link);
+                                    warn!("Dead Upstream : {}", link);
                                 }
                             }
                         }
@@ -42,7 +43,7 @@ pub async fn hc2(upslist: Arc<UpstreamsDashMap>, fullist: Arc<UpstreamsDashMap>)
                     totest.insert(host.clone(), inner);
                 }
                 if ! compare_dashmaps(&totest, &upslist){
-                    print_upstreams(&totest);
+                    // print_upstreams(&totest);
                     clone_dashmap_into(&totest, &upslist);
                 }
             }

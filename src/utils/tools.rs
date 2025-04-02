@@ -117,3 +117,13 @@ pub fn compare_dashmaps(map1: &UpstreamsDashMap, map2: &UpstreamsDashMap) -> boo
     }
     true
 }
+
+#[allow(dead_code)]
+pub fn merge_headers(target: &DashMap<String, Vec<(String, String)>>, source: &DashMap<String, Vec<(String, String)>>) {
+    for entry in source.iter() {
+        let global_key = entry.key().clone();
+        let global_values = entry.value().clone();
+        let mut target_entry = target.entry(global_key).or_insert_with(Vec::new);
+        target_entry.extend(global_values);
+    }
+}

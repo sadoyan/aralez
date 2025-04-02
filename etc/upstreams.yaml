@@ -1,14 +1,26 @@
-provider: "file"
+provider: "consul"
 globals:
   headers:
     - "Access-Control-Allow-Origin:*"
     - "Access-Control-Allow-Methods:POST, GET, OPTIONS"
     - "Access-Control-Max-Age:86400"
+consul:
+  servers:
+    - "master1:8500"
+    - "192.168.22.1:8500"
+    - "master1.digitai.local:8500"
+  services:
+    - "_frontend-dev-frontend-srv._tcp.service.consul."
+    - "_gateway-test-gateway-srv._tcp.service.consul"
+    - "_gateway-stage-gateway-srv._tcp.service.consul"
 upstreams:
   myip.netangels.net:
     paths:
       "/":
         ssl: false
+        headers:
+          - "X-Some-Thing:Yaaaaaaaaaaaaaaa"
+          - "X-Prox-From:Hopaaaaaaaaaaaar"
         servers:
           - "127.0.0.1:8000"
           - "127.0.0.2:8000"
