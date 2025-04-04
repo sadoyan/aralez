@@ -25,7 +25,7 @@ pub async fn run_server(bindaddress: String, mut toreturn: Sender<(UpstreamsDash
 
                 match serverlist {
                     Some(serverlist) => {
-                        let _ = tr.send((serverlist.0, serverlist.1)).await.unwrap();
+                        let _ = tr.send((serverlist.upstreams, serverlist.headers)).await.unwrap();
                         Response::builder().status(StatusCode::CREATED).body(Body::from("Config, conf file, updated!\n")).unwrap()
                     }
                     None => Response::builder()

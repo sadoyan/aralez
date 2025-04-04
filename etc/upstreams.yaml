@@ -1,4 +1,4 @@
-provider: "consul"
+provider: "file"
 globals:
   headers:
     - "Access-Control-Allow-Origin:*"
@@ -6,13 +6,13 @@ globals:
     - "Access-Control-Max-Age:86400"
 consul:
   servers:
-    - "master1:8500"
-    - "192.168.22.1:8500"
-    - "master1.digitai.local:8500"
-  services:
-    - "_frontend-dev-frontend-srv._tcp.service.consul."
-    - "_gateway-test-gateway-srv._tcp.service.consul"
-    - "_gateway-stage-gateway-srv._tcp.service.consul"
+    - "http://master1:8500"
+    - "http://192.168.22.1:8500"
+    - "http://master1.digitai.local:8500"
+  whitelist:
+    - "frontend-dev-frontend-srv"
+    - "gateway-test-gateway-srv"
+    - "gateway-stage-gateway-srv"
 upstreams:
   myip.netangels.net:
     paths:

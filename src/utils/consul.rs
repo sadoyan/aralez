@@ -1,10 +1,7 @@
-use crate::utils::tools::{Headers, UpstreamsDashMap};
-use futures::channel::mpsc::Sender;
-use std::collections::HashMap;
-use std::time::Duration;
-
 use crate::utils::parceyaml::load_configuration;
+use crate::utils::tools::{clone_dashmap_into, compare_dashmaps, Headers, UpstreamsDashMap};
 use dashmap::DashMap;
+use futures::channel::mpsc::Sender;
 use futures::SinkExt;
 use hickory_client::client::{Client, ClientHandle};
 use hickory_client::proto::rr::{DNSClass, Name, RecordType};
@@ -14,8 +11,10 @@ use log::info;
 use pingora::prelude::sleep;
 use rand::Rng;
 use serde::Deserialize;
+use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::atomic::AtomicUsize;
+use std::time::Duration;
 
 #[derive(Debug, Deserialize)]
 struct Service {
@@ -36,53 +35,77 @@ struct TaggedAddress {
 pub async fn start(fp: String, mut toreturn: Sender<(UpstreamsDashMap, Headers)>) {
     let config = load_configuration(fp.as_str(), "filepath");
     let headers = DashMap::new();
-    // println!("{:?}", config);
+
     match config {
         Some(config) => {
-            let conf: Vec<&str> = config.2.split_whitespace().collect();
-            let y = conf.get(0).unwrap();
-            if y.to_string() != "consul" {
-                info!("Not running Consul discovery, requested type is: {}", config.2);
+            if config.typecfg.to_string() != "consul" {
+                info!("Not running Consul discovery, requested type is: {}", config.typecfg);
                 return;
             }
-            info!("Consul Discovery is enabled : {}", config.2);
-            let end = conf.len();
-            loop {
-                let num = rand::thread_rng().gen_range(1..end);
-                sleep(Duration::from_secs(5)).await;
-                headers.clear();
-                for (k, v) in config.1.clone() {
-                    headers.insert(k.to_string(), v);
-                }
-                let consul = "http://".to_string() + conf.get(num).unwrap();
-                let upstreams = http_request(consul, "GET");
-                match upstreams.await {
-                    Some(upstreams) => {
-                        toreturn.send((upstreams, headers.clone())).await.unwrap();
+
+            info!("Consul Discovery is enabled : {}", config.typecfg);
+            let consul = config.consul;
+            let prev_upstreams = UpstreamsDashMap::new();
+            match consul {
+                Some(consul) => {
+                    let servers = consul.servers.unwrap();
+                    info!("Consul Servers => {:?}", servers);
+                    let end = servers.len();
+                    loop {
+                        let num = rand::thread_rng().gen_range(1..end);
+                        headers.clear();
+                        for (k, v) in config.headers.clone() {
+                            headers.insert(k.to_string(), v);
+                        }
+                        let consul_data = servers.get(num).unwrap().to_string();
+                        let upstreams = http_request(consul_data, consul.whitelist.clone());
+                        match upstreams.await {
+                            Some(upstreams) => {
+                                if !compare_dashmaps(&upstreams, &prev_upstreams) {
+                                    clone_dashmap_into(&upstreams, &prev_upstreams);
+                                    toreturn.send((upstreams, headers.clone())).await.unwrap();
+                                }
+                            }
+                            None => {}
+                        }
+                        sleep(Duration::from_secs(5)).await;
                     }
-                    None => {}
                 }
+                None => {}
             }
         }
         None => {}
     }
 }
 
-async fn http_request(url: String, method: &str) -> Option<UpstreamsDashMap> {
+async fn http_request(url: String, whitelist: Option<Vec<String>>) -> Option<UpstreamsDashMap> {
     let client = reqwest::Client::new();
     let to = Duration::from_secs(1);
     let upstreams = UpstreamsDashMap::new();
     let excludes = vec!["consul", "nomad", "nomad-client"];
-    match method {
-        "GET" => {
-            let ss = url.clone() + "/v1/catalog/service";
-            let response = client.get(ss.clone() + "s").timeout(to).send().await;
-            match response {
-                Ok(r) => {
-                    let json = r.json::<HashMap<String, Vec<String>>>().await;
-                    match json {
-                        Ok(_j) => {
-                            for (k, _v) in _j {
+    let ss = url.clone() + "/v1/catalog/service";
+    let response = client.get(ss.clone() + "s").timeout(to).send().await;
+    match response {
+        Ok(r) => {
+            let json = r.json::<HashMap<String, Vec<String>>>().await;
+            match json {
+                Ok(_j) => {
+                    for (k, _v) in _j {
+                        match whitelist.clone() {
+                            Some(whitelist) => {
+                                if whitelist.iter().any(|i| *i == k) {
+                                    let mut pref: String = ss.clone() + "/";
+                                    pref.push_str(&k);
+                                    let list = get_by_http(pref).await;
+                                    match list {
+                                        Some(list) => {
+                                            upstreams.insert(k.to_string(), list);
+                                        }
+                                        None => {}
+                                    }
+                                }
+                            }
+                            None => {
                                 if !excludes.iter().any(|&i| i == k) {
                                     let mut pref: String = ss.clone() + "/";
                                     pref.push_str(&k);
@@ -95,19 +118,18 @@ async fn http_request(url: String, method: &str) -> Option<UpstreamsDashMap> {
                                     }
                                 }
                             }
-                            // print_upstreams(&upstreams);
-                            Some(upstreams)
                         }
-                        Err(_) => None,
                     }
+                    // print_upstreams(&upstreams);
+                    Some(upstreams)
                 }
-                Err(e) => {
-                    println!("Error: {:?}", e);
-                    None
-                }
+                Err(_) => None,
             }
         }
-        _ => None,
+        Err(e) => {
+            println!("Error: {:?}", e);
+            None
+        }
     }
 }
 
@@ -121,8 +143,8 @@ async fn get_by_http(url: String) -> Option<DashMap<String, (Vec<(String, u16, b
         Ok(r) => {
             let jason = r.json::<Vec<Service>>().await;
             match jason {
-                Ok(services) => {
-                    for service in services {
+                Ok(whitelist) => {
+                    for service in whitelist {
                         let addr = service.tagged_addresses.get("lan_ipv4").unwrap().address.clone();
                         let prt = service.tagged_addresses.get("lan_ipv4").unwrap().port.clone();
                         let to_add = (addr, prt, false);

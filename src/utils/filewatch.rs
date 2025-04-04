@@ -20,7 +20,7 @@ pub async fn start(fp: String, mut toreturn: Sender<(UpstreamsDashMap, Headers)>
 
     match snd {
         Some(snd) => {
-            toreturn.send((snd.0, snd.1)).await.unwrap();
+            toreturn.send((snd.upstreams, snd.headers)).await.unwrap();
         }
         None => {}
     }
@@ -53,7 +53,7 @@ pub async fn start(fp: String, mut toreturn: Sender<(UpstreamsDashMap, Headers)>
                             let snd = load_configuration(file_path, "filepath");
                             match snd {
                                 Some(snd) => {
-                                    toreturn.send((snd.0, snd.1)).await.unwrap();
+                                    toreturn.send((snd.upstreams, snd.headers)).await.unwrap();
                                 }
                                 None => {}
                             }

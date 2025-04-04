@@ -8,9 +8,9 @@ use std::fs;
 use std::sync::atomic::AtomicUsize;
 
 #[derive(Debug, Serialize, Deserialize)]
-struct Consul {
-    servers: Option<Vec<String>>,
-    services: Option<Vec<String>>,
+pub struct Consul {
+    pub servers: Option<Vec<String>>,
+    pub whitelist: Option<Vec<String>>,
 }
 #[derive(Debug, Serialize, Deserialize)]
 struct Config {
@@ -32,18 +32,27 @@ struct PathConfig {
     headers: Option<Vec<String>>,
 }
 
-// #[derive(Debug, Serialize, Deserialize)]
-// pub struct Allconfig {
-//     pub upstreams: Option<UpstreamsDashMap>,
-//     pub headers: Option<Headers>,
-//     pub consul: Option<Consul>,
-//     pub typecfg: String,
-// }
+pub struct Configuration {
+    pub upstreams: UpstreamsDashMap,
+    pub headers: Headers,
+    pub consul: Option<Consul>,
+    pub typecfg: String,
+}
 
 // pub fn load_configuration(d: &str, kind: &str) -> Option<(UpstreamsDashMap, Headers, String)> {
-pub fn load_configuration(d: &str, kind: &str) -> Option<(UpstreamsDashMap, Headers, String)> {
-    let upstreamsmap = UpstreamsDashMap::new();
-    let headersmap = DashMap::new();
+pub fn load_configuration(d: &str, kind: &str) -> Option<Configuration> {
+    let mut toreturn: Configuration = Configuration {
+        upstreams: Default::default(),
+        headers: Default::default(),
+        consul: None,
+        typecfg: "".to_string(),
+    };
+    toreturn.upstreams = UpstreamsDashMap::new();
+    toreturn.headers = Headers::new();
+
+    // let upstreamsmap = UpstreamsDashMap::new();
+    // let headersmap = DashMap::new();
+
     let mut yaml_data = d.to_string();
     match kind {
         "filepath" => {
@@ -79,11 +88,11 @@ pub fn load_configuration(d: &str, kind: &str) -> Option<(UpstreamsDashMap, Head
                     }
                 }
                 global_headers.insert("/".to_string(), hl);
-                headersmap.insert("GLOBAL_HEADERS".to_string(), global_headers);
+                toreturn.headers.insert("GLOBAL_HEADERS".to_string(), global_headers);
             }
-
             match parsed.provider.as_str() {
                 "file" => {
+                    toreturn.typecfg = "file".to_string();
                     if let Some(upstream) = parsed.upstreams {
                         for (hostname, host_config) in upstream {
                             let path_map = DashMap::new();
@@ -119,33 +128,22 @@ pub fn load_configuration(d: &str, kind: &str) -> Option<(UpstreamsDashMap, Head
                                 }
                                 path_map.insert(path, (server_list, AtomicUsize::new(0)));
                             }
-                            headersmap.insert(hostname.clone(), header_list);
-                            upstreamsmap.insert(hostname, path_map);
+                            toreturn.headers.insert(hostname.clone(), header_list);
+                            toreturn.upstreams.insert(hostname, path_map);
                         }
                     }
-                    Some((upstreamsmap, headersmap, String::from("file")))
+                    Some(toreturn)
                 }
                 "consul" => {
+                    toreturn.typecfg = "consul".to_string();
                     let consul = parsed.consul;
                     match consul {
                         Some(consul) => {
-                            // println!("{:?}", consul.services);
-                            if let Some(srv) = consul.servers {
-                                let joined = srv.join(" ");
-                                Some((upstreamsmap, headersmap, String::from("consul ") + &*joined))
-                            } else {
-                                None
-                            }
+                            toreturn.consul = Some(consul);
+                            Some(toreturn)
                         }
                         None => None,
                     }
-                    // if let Some(srv) = parsed.consul?.servers {
-                    //     let joined = srv.join(" ");
-                    //     Some((upstreamsmap, headersmap, String::from("consul ") + &*joined))
-                    // } else {
-                    //     None
-                    // }
-                    // Some((upstreamsmap, headersmap, String::from("consul ")))
                 }
                 "kubernetes" => None,
                 _ => {
