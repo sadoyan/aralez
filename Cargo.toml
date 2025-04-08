@@ -4,21 +4,23 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-tokio = { version = "1.44.1", features = ["full"] }
+tokio = { version = "1.44.2", features = ["full"] }
 pingora = { version = "0.4.0", features = ["lb", "openssl"] } # openssl, rustls, boringssl
 serde = { version = "1.0.219", features = ["derive"] }
-dashmap = "6.1.0"
+dashmap = "7.0.0-rc2"
 pingora-core = "0.4.0"
 pingora-proxy = "0.4.0"
 pingora-http = "0.4.0"
 async-trait = "0.1.88"
-env_logger = "0.11.7"
-log = "0.4.26"
+env_logger = "0.11.8"
+log = "0.4.27"
 futures = "0.3.31"
 notify = "8.0.0"
-axum = "0.8.1"
+axum = { version = "0.8.3" }
+#axum-server = { version = "0.8.3", features = ["tls-rustls"] }
+
 reqwest = { version = "0.12.15", features = ["json"] }
 serde_yaml = "0.8.26"
-hickory-client = "0.25.1"
-rand = "0.8.5"
+#hickory-client = "0.25.1"
+rand = "0.9.0"
 

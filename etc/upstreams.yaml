@@ -1,4 +1,4 @@
-provider: "consul"
+provider: "file"
 globals:
   headers:
     - "Access-Control-Allow-Origin:*"

@@ -55,7 +55,7 @@ pub async fn start(fp: String, mut toreturn: Sender<(UpstreamsDashMap, Headers)>
 
                     loop {
                         // println!("     ==> {:?}", consul.services);
-                        let num = rand::thread_rng().gen_range(1..end);
+                        let num = rand::rng().random_range(1..end);
                         headers.clear();
                         for (k, v) in config.headers.clone() {
                             headers.insert(k.to_string(), v);
