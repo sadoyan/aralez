@@ -1,18 +1,27 @@
-provider: "file"
+provider: "consul"
 globals:
   headers:
     - "Access-Control-Allow-Origin:*"
     - "Access-Control-Allow-Methods:POST, GET, OPTIONS"
     - "Access-Control-Max-Age:86400"
+    - "Hujukulu-Header-HoHoHo:Me No Ho Ho Ho"
 consul:
   servers:
     - "http://master1:8500"
     - "http://192.168.22.1:8500"
     - "http://master1.digitai.local:8500"
-  whitelist:
-    - "frontend-dev-frontend-srv"
-    - "gateway-test-gateway-srv"
-    - "gateway-stage-gateway-srv"
+  services:
+    - proxy: "proxy-frontend-dev-frontend-srv"
+      real: "frontend-dev-frontend-srv"
+    - proxy: "proxy-gateway-test-gateway-srv"
+      real: "gateway-test-gateway-srv"
+    - proxy: "proxy-backoffice-dev-backoffice-srv"
+      real: "backoffice-dev-backoffice-srv"
+  token: "8e2db809-845b-45e1-8b47-2c8356a09da0-a4370955-18c2-4d6e-a8f8-ffcc0b47be81"
+#  whitelist:
+#    - "frontend-dev-frontend-srv"
+#    - "gateway-test-gateway-srv"
+#    - "gateway-stage-gateway-srv"
 upstreams:
   myip.netangels.net:
     paths:

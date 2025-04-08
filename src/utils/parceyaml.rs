@@ -7,10 +7,17 @@ use std::collections::HashMap;
 use std::fs;
 use std::sync::atomic::AtomicUsize;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ServiceMapping {
+    pub proxy: String,
+    pub real: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Consul {
     pub servers: Option<Vec<String>>,
-    pub whitelist: Option<Vec<String>>,
+    pub services: Option<Vec<ServiceMapping>>,
+    pub token: Option<String>,
 }
 #[derive(Debug, Serialize, Deserialize)]
 struct Config {

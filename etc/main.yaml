@@ -1,0 +1,13 @@
+version: 1
+threads: 8
+upstream_keepalive_pool_size: 100
+pid_file: /tmp/load_balancer.pid
+error_log: /tmp/load_balancer_err.log
+upgrade_sock: /tmp/load_balancer.sock
+proxy_address_http: 0.0.0.0:6193
+proxy_address_tls: 0.0.0.0:6194
+config_address: 0.0.0.0:3000
+upstreams_conf: etc/upstreams.yaml
+#idle_timeout: 1000
+log_level: info # info, warn, error, debug, trace, off
+
