@@ -1,6 +1,7 @@
 use crate::utils::tools::*;
 use crate::web::proxyhttp::LB;
 use dashmap::DashMap;
+use log::info;
 use pingora_core::prelude::{background_service, Opt};
 use pingora_core::server::Server;
 use std::env;
@@ -72,9 +73,22 @@ pub fn run() {
 
     let bg_srvc = background_service("bgsrvc", bg);
     let mut proxy = pingora_proxy::http_proxy_service(&server.configuration, lb);
-    let bindaddress = cfg.get("proxy_address_http").unwrap();
+    let bind_address_http = cfg.get("proxy_address_http").unwrap();
 
-    proxy.add_tcp(bindaddress.as_str());
+    let bind_address_tls = cfg.get("proxy_address_tls");
+    match bind_address_tls {
+        Some(bind_address_tls) => {
+            info!("Running TLS listener on :{}", bind_address_tls.value());
+            let cert_path = cfg.get("tls_certificate").unwrap();
+            let key_path = cfg.get("tls_key_file").unwrap();
+            let mut tls_settings = pingora_core::listeners::tls::TlsSettings::intermediate(&cert_path, &key_path).unwrap();
+            tls_settings.enable_h2();
+            proxy.add_tls_with_settings(bind_address_tls.value(), None, tls_settings);
+        }
+        None => {}
+    }
+    info!("Running HTTP listener on :{}", bind_address_http.as_str());
+    proxy.add_tcp(bind_address_http.as_str());
     server.add_service(proxy);
     server.add_service(bg_srvc);
 

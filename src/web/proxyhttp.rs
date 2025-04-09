@@ -6,11 +6,13 @@ use dashmap::DashMap;
 use futures::channel::mpsc;
 use futures::StreamExt;
 use log::{debug, error, info, warn};
+use pingora::http::RequestHeader;
 use pingora::prelude::*;
 use pingora_core::prelude::HttpPeer;
 use pingora_core::server::ShutdownWatch;
 use pingora_core::services::background::BackgroundService;
-use pingora_http::{RequestHeader, ResponseHeader};
+use pingora_http::ResponseHeader;
+
 use pingora_proxy::{ProxyHttp, Session};
 use std::ops::Deref;
 use std::sync::atomic::Ordering;
@@ -138,7 +140,6 @@ impl GetHost for LB {
         let host_entry = self.ump_upst.get(peer)?;
         let mut current_path = path.to_string();
         let mut best_match: Option<(String, u16, bool)> = None;
-
         loop {
             if let Some(entry) = host_entry.get(&current_path) {
                 let (servers, index) = entry.value();
@@ -199,11 +200,13 @@ impl ProxyHttp for LB {
     type CTX = ();
     fn new_ctx(&self) -> Self::CTX {}
     async fn upstream_peer(&self, session: &mut Session, _ctx: &mut Self::CTX) -> Result<Box<HttpPeer>> {
-        let host_name = session.req_header().headers.get("host");
+        let host_name = return_header_host(&session);
+
         match host_name {
             Some(host) => {
-                let header_host = host.to_str().unwrap().split(':').collect::<Vec<&str>>();
-                let ddr = self.get_host(header_host[0], session.req_header().uri.path(), session.is_upgrade_req());
+                // session.req_header_mut().headers.insert("X-Host-Name", host.to_string().parse().unwrap());
+
+                let ddr = self.get_host(host, host, session.is_upgrade_req());
                 match ddr.await {
                     Some((host, port, ssl)) => {
                         let peer = Box::new(HttpPeer::new((host, port), ssl, String::new()));
@@ -265,15 +268,28 @@ impl ProxyHttp for LB {
     {
         // _upstream_response.insert_header("X-Proxied-From", "Fooooooooooooooo").unwrap();
 
-        let host = _session.req_header().headers.get("Host");
-        match host {
+        let host_name = return_header_host(&_session);
+        match host_name {
             Some(host) => {
                 let path = _session.req_header().uri.path();
-                let yoyo = self.get_header(host.to_str().unwrap(), path).await;
-
-                for k in yoyo.iter() {
-                    for t in k.iter() {
-                        _upstream_response.insert_header(t.0.clone(), t.1.clone()).unwrap();
+                let host_header = host;
+                let split_header = host_header.split_once(':');
+                match split_header {
+                    Some(sh) => {
+                        let yoyo = self.get_header(sh.0, path).await;
+                        for k in yoyo.iter() {
+                            for t in k.iter() {
+                                _upstream_response.insert_header(t.0.clone(), t.1.clone()).unwrap();
+                            }
+                        }
+                    }
+                    None => {
+                        let yoyo = self.get_header(host_header, path).await;
+                        for k in yoyo.iter() {
+                            for t in k.iter() {
+                                _upstream_response.insert_header(t.0.clone(), t.1.clone()).unwrap();
+                            }
+                        }
                     }
                 }
             }
@@ -286,5 +302,22 @@ impl ProxyHttp for LB {
         let response_code = session.response_written().map_or(0, |resp| resp.status.as_u16());
         debug!("{}, response code: {response_code}", self.request_summary(session, ctx));
         // info!("{}, response code: {response_code}", self.request_summary(session, ctx));
+    }
+}
+
+fn return_header_host(session: &Session) -> Option<&str> {
+    if session.is_http2() {
+        match session.req_header().uri.host() {
+            Some(host) => Option::from(host),
+            None => None,
+        }
+    } else {
+        match session.req_header().headers.get("host") {
+            Some(host) => {
+                let header_host = host.to_str().unwrap().splitn(2, ':').collect::<Vec<&str>>();
+                Option::from(header_host[0])
+            }
+            None => None,
+        }
     }
 }

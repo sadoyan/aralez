@@ -5,7 +5,9 @@ pid_file: /tmp/load_balancer.pid
 error_log: /tmp/load_balancer_err.log
 upgrade_sock: /tmp/load_balancer.sock
 proxy_address_http: 0.0.0.0:6193
-proxy_address_tls: 0.0.0.0:6194
+proxy_address_tls: 0.0.0.0:6194 # Optionnal
+tls_certificate: etc/server.crt # Mandatory if proxy_address_tls if exists
+tls_key_file: etc/key.pem # Mandatory if proxy_address_tls if exists
 config_address: 0.0.0.0:3000
 upstreams_conf: etc/upstreams.yaml
 #idle_timeout: 1000
