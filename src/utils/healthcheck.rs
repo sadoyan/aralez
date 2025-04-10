@@ -1,13 +1,13 @@
 use crate::utils::tools::*;
 use dashmap::DashMap;
-use log::warn;
+use log::{error, warn};
 use std::sync::atomic::AtomicUsize;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::time::interval;
 
-pub async fn hc2(upslist: Arc<UpstreamsDashMap>, fullist: Arc<UpstreamsDashMap>) {
-    let mut period = interval(Duration::from_secs(2));
+pub async fn hc2(upslist: Arc<UpstreamsDashMap>, fullist: Arc<UpstreamsDashMap>, params: (&str, u64)) {
+    let mut period = interval(Duration::from_secs(params.1));
     loop {
         tokio::select! {
             _ = period.tick() => {
@@ -28,7 +28,7 @@ pub async fn hc2(upslist: Arc<UpstreamsDashMap>, fullist: Arc<UpstreamsDashMap>)
                                 false => _pref = "http://",
                             }
                             let link = format!("{}{}:{}{}", _pref, ip, port, path);
-                            let resp = http_request(link.as_str(), "HEAD", "").await;
+                            let resp = http_request(link.as_str(), params.0, "").await;
                             match resp {
                                 true => {
                                     innervec.push(k.1.clone());
@@ -53,7 +53,7 @@ pub async fn hc2(upslist: Arc<UpstreamsDashMap>, fullist: Arc<UpstreamsDashMap>)
 
 #[allow(dead_code)]
 async fn http_request(url: &str, method: &str, payload: &str) -> bool {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
     let to = Duration::from_secs(1);
     match method {
         "POST" => {
@@ -83,6 +83,9 @@ async fn http_request(url: &str, method: &str, payload: &str) -> bool {
                 Err(_) => false,
             }
         }
-        _ => false,
+        _ => {
+            error!("Method {} not supported. Only GET|POST|HEAD are supported", method);
+            false
+        }
     }
 }

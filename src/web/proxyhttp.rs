@@ -65,7 +65,8 @@ impl BackgroundService for LB {
 
         let uu = self.ump_upst.clone();
         let ff = self.ump_full.clone();
-        let _ = tokio::spawn(async move { healthcheck::hc2(uu, ff).await });
+        let (hc_method, hc_interval) = (self.config.get("hc_method").unwrap().clone(), self.config.get("hc_interval").unwrap().clone());
+        let _ = tokio::spawn(async move { healthcheck::hc2(uu, ff, (&*hc_method.to_string(), hc_interval.to_string().parse().unwrap())).await });
 
         loop {
             tokio::select! {
@@ -301,7 +302,6 @@ impl ProxyHttp for LB {
     async fn logging(&self, session: &mut Session, _e: Option<&pingora::Error>, ctx: &mut Self::CTX) {
         let response_code = session.response_written().map_or(0, |resp| resp.status.as_u16());
         debug!("{}, response code: {response_code}", self.request_summary(session, ctx));
-        // info!("{}, response code: {response_code}", self.request_summary(session, ctx));
     }
 }
 

@@ -85,3 +85,9 @@ upstreams:
         ssl: false
         servers:
           - "192.168.1.5:8080"
+  127.0.0.2:
+    paths:
+      "/":
+        ssl: false
+        servers:
+          - "10.0.55.171:3000"
