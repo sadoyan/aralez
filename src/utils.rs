@@ -1,3 +1,4 @@
+pub mod auth;
 pub mod consul;
 pub mod discovery;
 mod filewatch;

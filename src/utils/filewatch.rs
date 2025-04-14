@@ -1,5 +1,4 @@
-use crate::utils::parceyaml::load_configuration;
-use crate::utils::tools::*;
+use crate::utils::parceyaml::{load_configuration, Configuration};
 use futures::channel::mpsc::Sender;
 use futures::SinkExt;
 use log::{error, info};
@@ -10,17 +9,16 @@ use std::path::Path;
 use std::time::{Duration, Instant};
 use tokio::task;
 
-pub async fn start(fp: String, mut toreturn: Sender<(UpstreamsDashMap, Headers)>) {
+pub async fn start(fp: String, mut toreturn: Sender<Configuration>) {
     sleep(Duration::from_millis(50)).await; // For having nice logs :-)
     let file_path = fp.as_str();
     let parent_dir = Path::new(file_path).parent().unwrap();
     let (local_tx, mut local_rx) = tokio::sync::mpsc::channel::<notify::Result<Event>>(1);
     info!("Watching for changes in {:?}", parent_dir);
     let snd = load_configuration(file_path, "filepath");
-
     match snd {
         Some(snd) => {
-            toreturn.send((snd.upstreams, snd.headers)).await.unwrap();
+            toreturn.send(snd).await.unwrap();
         }
         None => {}
     }
@@ -53,7 +51,7 @@ pub async fn start(fp: String, mut toreturn: Sender<(UpstreamsDashMap, Headers)>
                             let snd = load_configuration(file_path, "filepath");
                             match snd {
                                 Some(snd) => {
-                                    toreturn.send((snd.upstreams, snd.headers)).await.unwrap();
+                                    toreturn.send(snd).await.unwrap();
                                 }
                                 None => {}
                             }

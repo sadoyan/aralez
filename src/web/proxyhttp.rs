@@ -13,10 +13,13 @@ use pingora_core::server::ShutdownWatch;
 use pingora_core::services::background::BackgroundService;
 use pingora_http::ResponseHeader;
 
+use crate::utils::auth::authenticate;
+use crate::utils::parceyaml::Configuration;
 use pingora_proxy::{ProxyHttp, Session};
 use std::ops::Deref;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
+// use http_auth_basic::Credentials;
 
 pub struct LB {
     pub ump_upst: Arc<UpstreamsDashMap>,
@@ -24,13 +27,14 @@ pub struct LB {
     pub headers: Arc<Headers>,
     pub config: Arc<DashMap<String, String>>,
     pub local: Arc<(String, u16)>,
+    pub proxyconf: Arc<DashMap<String, Vec<String>>>,
 }
 
 #[async_trait]
 impl BackgroundService for LB {
     async fn start(&self, mut shutdown: ShutdownWatch) {
         info!("Starting background service");
-        let (tx, mut rx) = mpsc::channel::<(UpstreamsDashMap, Headers)>(0);
+        let (tx, mut rx) = mpsc::channel::<Configuration>(0);
 
         let from_file = self.config.get("upstreams_conf");
         match from_file {
@@ -76,23 +80,32 @@ impl BackgroundService for LB {
                 val = rx.next() => {
                     match val {
                         Some(ss) => {
-                            clone_dashmap_into(&ss.0, &self.ump_full);
-                            clone_dashmap_into(&ss.0, &self.ump_upst);
+                            clone_dashmap_into(&ss.upstreams, &self.ump_full);
+                            clone_dashmap_into(&ss.upstreams, &self.ump_upst);
+                            self.proxyconf.clear();
+                            match ss.globals {
+                                Some(globals) => {
+                                    for (k,v) in globals {
+                                        self.proxyconf.insert(k, v);
+                                    }
+                                }
+                                None => {}
+                            }
                             self.headers.clear();
 
-                            for entry in ss.0.iter() {
+                            for entry in ss.upstreams.iter() {
                                 let global_key = entry.key().clone();
                                 let global_values = DashMap::new();
-                                let mut target_entry = ss.1.entry(global_key).or_insert_with(DashMap::new);
+                                let mut target_entry = ss.headers.entry(global_key).or_insert_with(DashMap::new);
                                 target_entry.extend(global_values);
                                 self.headers.insert(target_entry.key().to_owned(), target_entry.value().to_owned());
                             }
 
-                            for path in ss.1.iter() {
+                            for path in ss.headers.iter() {
                                 let path_key = path.key().clone();
                                 let path_headers = path.value().clone();
                                 self.headers.insert(path_key.clone(), path_headers);
-                                if let Some(global_headers) = ss.1.get("GLOBAL_HEADERS") {
+                                if let Some(global_headers) = ss.headers.get("GLOBAL_HEADERS") {
                                     if let Some(existing_headers) = self.headers.get_mut(&path_key) {
                                         merge_headers(&existing_headers, &global_headers);
                                     }
@@ -138,6 +151,7 @@ impl GetHost for LB {
     }
     */
     async fn get_host(&self, peer: &str, path: &str, _upgrade: bool) -> Option<(String, u16, bool)> {
+        // println!("   ==> {:?}", self.config);
         let host_entry = self.ump_upst.get(peer)?;
         let mut current_path = path.to_string();
         let mut best_match: Option<(String, u16, bool)> = None;
@@ -202,7 +216,6 @@ impl ProxyHttp for LB {
     fn new_ctx(&self) -> Self::CTX {}
     async fn upstream_peer(&self, session: &mut Session, _ctx: &mut Self::CTX) -> Result<Box<HttpPeer>> {
         let host_name = return_header_host(&session);
-
         match host_name {
             Some(host) => {
                 // session.req_header_mut().headers.insert("X-Host-Name", host.to_string().parse().unwrap());
@@ -227,19 +240,26 @@ impl ProxyHttp for LB {
             }
         }
     }
-    async fn request_filter(&self, _session: &mut Session, _ctx: &mut Self::CTX) -> pingora_core::Result<bool>
+    async fn request_filter(&self, session: &mut Session, _ctx: &mut Self::CTX) -> Result<bool>
     where
         Self::CTX: Send + Sync,
     {
-        // if !_session.req_header().uri.path().starts_with("/ping") {
-        if _session.req_header().uri.path().starts_with("/denied") {
-            let _ = _session.respond_error(403).await;
-            info!("Forbidded: {:?}, {}", _session.client_addr(), _session.req_header().uri.path().to_string());
+        if let Some(auth) = self.proxyconf.get("authorization") {
+            let authenticated = authenticate(&auth.value(), &session);
+            if !authenticated {
+                let _ = session.respond_error(401).await;
+                info!("Forbidden: {:?}, {}", session.client_addr(), session.req_header().uri.path().to_string());
+                return Ok(true);
+            }
+        };
+        if session.req_header().uri.path().starts_with("/denied") {
+            let _ = session.respond_error(403).await;
+            info!("Forbidden: {:?}, {}", session.client_addr(), session.req_header().uri.path().to_string());
             return Ok(true);
         };
         Ok(false)
     }
-    async fn upstream_request_filter(&self, _session: &mut Session, _upstream_request: &mut RequestHeader, _ctx: &mut Self::CTX) -> pingora_core::Result<()>
+    async fn upstream_request_filter(&self, _session: &mut Session, _upstream_request: &mut RequestHeader, _ctx: &mut Self::CTX) -> Result<()>
     where
         Self::CTX: Send + Sync,
     {

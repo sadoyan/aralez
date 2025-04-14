@@ -1,4 +1,4 @@
-use crate::utils::tools::*;
+use crate::utils::parceyaml::Configuration;
 use axum::body::Body;
 use axum::http::{Response, StatusCode};
 use axum::response::IntoResponse;
@@ -10,7 +10,7 @@ use log::info;
 use tokio::net::TcpListener;
 
 #[allow(unused_mut)]
-pub async fn run_server(bindaddress: String, mut toreturn: Sender<(UpstreamsDashMap, Headers)>) {
+pub async fn run_server(bindaddress: String, mut toreturn: Sender<Configuration>) {
     let mut tr = toreturn.clone();
     let app = Router::new()
         .route("/{*wildcard}", get(getconfig))
@@ -25,7 +25,7 @@ pub async fn run_server(bindaddress: String, mut toreturn: Sender<(UpstreamsDash
 
                 match serverlist {
                     Some(serverlist) => {
-                        let _ = tr.send((serverlist.upstreams, serverlist.headers)).await.unwrap();
+                        let _ = tr.send(serverlist).await.unwrap();
                         Response::builder().status(StatusCode::CREATED).body(Body::from("Config, conf file, updated!\n")).unwrap()
                     }
                     None => Response::builder()

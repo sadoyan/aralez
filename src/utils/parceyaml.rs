@@ -38,12 +38,12 @@ struct PathConfig {
     servers: Vec<String>,
     headers: Option<Vec<String>>,
 }
-
 pub struct Configuration {
     pub upstreams: UpstreamsDashMap,
     pub headers: Headers,
     pub consul: Option<Consul>,
     pub typecfg: String,
+    pub globals: Option<DashMap<String, Vec<String>>>,
 }
 
 // pub fn load_configuration(d: &str, kind: &str) -> Option<(UpstreamsDashMap, Headers, String)> {
@@ -53,6 +53,7 @@ pub fn load_configuration(d: &str, kind: &str) -> Option<Configuration> {
         headers: Default::default(),
         consul: None,
         typecfg: "".to_string(),
+        globals: Default::default(),
     };
     toreturn.upstreams = UpstreamsDashMap::new();
     toreturn.headers = Headers::new();
@@ -96,6 +97,14 @@ pub fn load_configuration(d: &str, kind: &str) -> Option<Configuration> {
                 }
                 global_headers.insert("/".to_string(), hl);
                 toreturn.headers.insert("GLOBAL_HEADERS".to_string(), global_headers);
+
+                let cfg = DashMap::new();
+                if let Some(k) = globals.get("authorization") {
+                    cfg.insert("authorization".to_string(), k.to_owned());
+                    toreturn.globals = Some(cfg);
+                } else {
+                    toreturn.globals = None;
+                }
             }
             match parsed.provider.as_str() {
                 "file" => {
@@ -107,17 +116,6 @@ pub fn load_configuration(d: &str, kind: &str) -> Option<Configuration> {
                             for (path, path_config) in host_config.paths {
                                 let mut server_list = Vec::new();
                                 let mut hl = Vec::new();
-                                // Set global headers
-                                // if let Some(globals) = &parsed.globals {
-                                //     for headers in globals.get("headers").iter().by_ref() {
-                                //         for header in headers.iter() {
-                                //             if let Some((key, val)) = header.split_once(':') {
-                                //                 hl.push((key.to_string(), val.to_string()));
-                                //             }
-                                //         }
-                                //     }
-                                // }
-                                // Set per host/path headers
                                 if let Some(headers) = &path_config.headers {
                                     for header in headers.iter().by_ref() {
                                         if let Some((key, val)) = header.split_once(':') {

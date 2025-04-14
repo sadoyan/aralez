@@ -33,12 +33,16 @@ pub fn run() {
     let cfg = Arc::new(maincfg);
     let local = Arc::new(local_conf);
 
+    let proxyconf: DashMap<String, Vec<String>> = Default::default();
+    let pconf = Arc::new(proxyconf);
+
     let lb = LB {
         ump_upst: uf_config.clone(),
         ump_full: ff_config.clone(),
         config: cfg.clone(),
         local: local.clone(),
         headers: hh_config.clone(),
+        proxyconf: pconf.clone(),
     };
     let bg = LB {
         ump_upst: uf_config.clone(),
@@ -46,6 +50,7 @@ pub fn run() {
         config: cfg.clone(),
         local: local.clone(),
         headers: hh_config.clone(),
+        proxyconf: pconf.clone(),
     };
 
     // env_logger::Env::new();
