@@ -1,4 +1,10 @@
-# Gazan, Reverse proxy, service mesh based on Cloudflare's Pingora
+![Gazan]("https://netangels.net/utils/gazan-black.png")
+
+# Gazan - The beast-mode reverse proxy.
+
+Is a Reverse proxy, service mesh based on Cloudflare's Pingora
+
+**Why Gazan ?** Roots and meaning (Gazan = Գազան = beast / wild animal in Armenian).
 
 Built on Rust, on top of **Cloudflare’s battle-tested Pingora engine**, **Gazan** delivers world-class performance, security, and scalability — right out of the box.
 
