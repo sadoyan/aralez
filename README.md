@@ -130,4 +130,4 @@ The product is distributed under [Apache License Version 2.0](https://www.apache
 
 - Uses Pingora under the hood for efficiency and flexibility.
 - Designed for edge proxying, internal routing, or hybrid cloud scenarios.
-- WebSocket upgrade support is fully automatic.
+- Transparent, fully automatic WebSocket upgrade support. 
