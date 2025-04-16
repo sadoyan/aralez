@@ -1,11 +1,13 @@
 # Default configuration file for Pingora, read only once at startup
-version: 1 # Pingora default setting
 threads: 8 # Pingora default setting
+#user: pastor # Username for running gazan after dropping root privileges, requires program to start as root
+#group: pastor # Group for running gazan after dropping root privileges, requires program to start as root
+daemon: false # Run in background
 #idle_timeout: 1000 # Pingora default setting
 upstream_keepalive_pool_size: 100 # Pingora default setting
-pid_file: /tmp/load_balancer.pid # Pingora default setting
-error_log: /tmp/load_balancer_err.log # Pingora default setting
-upgrade_sock: /tmp/load_balancer.sock # Pingora default setting
+pid_file: /tmp/gazan.pid # Pingora default setting
+error_log: /tmp/gazan_err.log # Pingora default setting
+upgrade_sock: /tmp/gazan.sock # Pingora default setting
 config_address: 0.0.0.0:3000 # HTTP API address for pushing upstreams.yaml from remote location
 proxy_address_http: 0.0.0.0:6193 # Pingora default setting
 proxy_address_tls: 0.0.0.0:6194 # Optional

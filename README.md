@@ -6,10 +6,7 @@ Is a Reverse proxy, service mesh based on Cloudflare's Pingora
 
 **Why Gazan ?** Roots and meaning (Gazan = Գազան = beast / wild animal in Armenian).
 
-Built on Rust, on top of **Cloudflare’s battle-tested Pingora engine**, **Gazan** delivers world-class performance, security, and scalability — right out of the box.
-
-**Pingora** powers millions of requests per second at Cloudflare’s edge, and now you can harness its core in your own infrastructure. This project brings that power into a lean and flexible reverse proxy with dynamic upstream configuration and
-automatic websocket support.
+Built on Rust, on top of **Cloudflare’s Pingora engine**, **Gazan** delivers world-class performance, security, and scalability — right out of the box.
 
 ---
 
@@ -18,8 +15,9 @@ automatic websocket support.
 - ⚙️ **Upstream Providers:** Supports `file`-based static upstreams, dynamic service discovery via `Consul`, and upcoming `Kubernetes` integration
 - 🔁 **Hot Reloading:** Modify upstreams on the fly via `upstreams.yaml` — no restart needed
 - 🔮 **Automatic WebSocket Support:** No special config required — connection upgrades are handled seamlessly
+- 🔮 **Upcoming Automatic GRPC Support:** Zero config for GRPC upstreams and downstreams
 - 🔐 **TLS Termination:** Fully supports TLS for incoming and upstream traffic
-- 🛡️ **Built-in Auth Support:** (Basic and API Key ready)
+- 🛡️ **Built-in Auth Support:**
 - 🧠 **CORS & Header Injection:** Global and per-route header configuration
 - 🧪 **Health Checks:** Pluggable health check methods for upstreams
 - 🛰️ **Remote Config Push:** Lightweight HTTP API to update configs from CI/CD or other systems
@@ -49,6 +47,8 @@ automatic websocket support.
 - `upstreams_conf`: `etc/upstreams.yaml` (location of upstreams config)
 - `log_level`: `info` (verbosity of logs)
 - `hc_method`: `HEAD`, `hc_interval`: `2s` (upstream health checks)
+- `user` Optional. Drop privileges to regular user. To bind to privileged ports. Requires to start as root.
+- `group` Optional. Drop privileges to regular group
 - Other defaults: thread count, keep-alive pool size, etc.
 
 ### 🌐 `upstreams.yaml`
@@ -89,11 +89,19 @@ myhost.mydomain.com:
       servers:
         - "127.0.0.1:8000"
         - "127.0.0.2:8000"
+    "/foo":
+      ssl: true
+      headers:
+        - "X-Another-Header:Hohohohoho"
+      servers:
+        - "127.0.0.4:8000"
+        - "127.0.0.5:8000"
 ```
 
 This means:
 
-- Requests to `myhost.mydomain.com/` will be load balanced to those servers.
+- Requests to `myhost.mydomain.com/` will be load balanced to `127.0.0.1` and `127.0.0.2` servers via plain http.
+- Requests to `myhost.mydomain.com/foo` will be load balanced to `127.0.0.4` and `127.0.0.5` servers via https.
 - You can choose any path, deep nested paths are supported, the best match will be chosen
 - Additional headers will be injected into the request.
 - TLS is disabled for upstreams (but can be enabled).
@@ -136,4 +144,6 @@ The product is distributed under [Apache License Version 2.0](https://www.apache
 
 - Uses Pingora under the hood for efficiency and flexibility.
 - Designed for edge proxying, internal routing, or hybrid cloud scenarios.
-- Transparent, fully automatic WebSocket upgrade support. 
+- Transparent, fully automatic WebSocket upgrade support.
+- Upcoming transparent, fully automatic GRPC proxy.
+- HTTP2 ready. 
