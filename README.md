@@ -71,8 +71,6 @@ Built on Rust, on top of **Cloudflare’s Pingora engine**, **Gazan** delivers w
 ./gazan -c path/to/main.yaml
 ```
 
-Replace `APP_BINARY` with your compiled binary.
-
 ---
 
 ## 💡 Example
