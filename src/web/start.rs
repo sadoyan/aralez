@@ -97,7 +97,6 @@ pub fn run() {
     server.add_service(proxy);
     server.add_service(bg_srvc);
 
-    // info!("Starting Gazan server on {}, port : {} !", args.address, args.port);
     // let mut prometheus_service_http = Service::prometheus_http_service();
     // prometheus_service_http.add_tcp("0.0.0.0:1234");
     // server.add_service(prometheus_service_http);
