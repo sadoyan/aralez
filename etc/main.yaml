@@ -17,4 +17,4 @@ upstreams_conf: etc/upstreams.yaml # the location of upstreams file
 log_level: info # info, warn, error, debug, trace, off
 hc_method: HEAD # Healthcheck method (HEAD, GET, POST are supported)
 hc_interval: 2 #Intervak for Healthcheck in seconds
-
+master_key: 910517d9-f9a1-48de-8826-dbadacbd84af-cb6f830e-ab16-47ec-9d8f-0090de732774

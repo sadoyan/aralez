@@ -4,7 +4,8 @@
 
 Is a Reverse proxy, service mesh based on Cloudflare's Pingora
 
-**Why Gazan ?** Roots and meaning (Gazan = Գազան = beast / wild animal in Armenian).
+**What Gazan means?**
+<ins>Gazan = Գազան = beast / wild animal in Armenian / Often used as a synonym to something great.</ins>.
 
 Built on Rust, on top of **Cloudflare’s Pingora engine**, **Gazan** delivers world-class performance, security, and scalability — right out of the box.
 
@@ -60,7 +61,7 @@ Built on Rust, on top of **Cloudflare’s Pingora engine**, **Gazan** delivers w
     - Optional request headers
     - Optional TLS for upstreams
 - Global headers (e.g., CORS) apply to all proxied responses
-- Optional authentication (Basic, API Key) — currently commented for example
+- Optional authentication (Basic, API Key, JWT) — currently commented for example
 
 ---
 
@@ -134,9 +135,54 @@ curl -XPOST --data-binary @./etc/upstreams.txt 127.0.0.1:3000/conf
 
 ---
 
+## 🔐 Authentication (Optional)
+
+- Adds authentication to all requests.
+- Only one method can be active at a time.
+- `basic` : Standard HTTP Basic Authentication requests.
+- `apikey` : Authentication via `x-api-key` header, which should match the value in config.
+- `jwt`: JWT authentication implemented vi `x-jwt-token` header.
+    - To obtain JWT token, you should send **generate** request to built in api server's `/jwt` endpoint.
+    - `masterkey`: should match configured `masterkey` in `main.yaml` and `upstreams.yaml`.
+    - `owner` : Just a placeholder, can be anything.
+    - `valid` : Time in minutes during which the generated token will be valid.
+
+**Example JWT token generateion request**
+
+```bash
+PAYLOAD='{
+    "masterkey": "910517d9-f9a1-48de-8826-dbadacbd84af-cb6f830e-ab16-47ec-9d8f-0090de732774",
+    "owner": "valod",
+    "valid": 1
+}'
+
+TOK=`curl -s -XPOST -H "Content-Type: application/json" -d "$PAYLOAD"  http://127.0.0.1:3000/jwt  | cut -d '"' -f4`
+echo $TOK
+```
+
+**Example Request with JWT token**
+
+```bash
+curl -H "x-jwt-token: ${TOK}" -H 'Host: myip.mydomain.com' http://127.0.0.1:6193/
+```
+
+**Example Request with API Key**
+
+```bash
+curl -H "x-api-key: ${APIKEY}" --header 'Host: myip.mydomain.com' http://127.0.0.1:6193/
+
+```
+
+**Example Request with Basic Auth**
+
+```bash
+curl  -u username:password -H 'Host: myip.mydomain.com' http://127.0.0.1:6193/
+
+```
+
 ## 📃 License
 
-The product is distributed under [Apache License Version 2.0](https://www.apache.org/licenses/LICENSE-2.0)
+[Apache License Version 2.0](https://www.apache.org/licenses/LICENSE-2.0)
 
 ---
 

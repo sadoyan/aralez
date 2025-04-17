@@ -52,12 +52,13 @@ impl BackgroundService for LB {
                 error!("Can't read config file");
             }
         }
-
         let config_address = self.config.get("config_address");
+        let masterkey = self.config.get("master_key").unwrap();
         match config_address {
             Some(config_address) => {
                 let api_load = APIUpstreamProvider {
                     address: config_address.to_string(),
+                    masterkey: masterkey.value().to_string(),
                 };
                 let tx_api = tx.clone();
                 let _ = tokio::spawn(async move { api_load.start(tx_api).await });
@@ -248,13 +249,13 @@ impl ProxyHttp for LB {
             let authenticated = authenticate(&auth.value(), &session);
             if !authenticated {
                 let _ = session.respond_error(401).await;
-                info!("Forbidden: {:?}, {}", session.client_addr(), session.req_header().uri.path().to_string());
+                warn!("Forbidden: {:?}, {}", session.client_addr(), session.req_header().uri.path().to_string());
                 return Ok(true);
             }
         };
         if session.req_header().uri.path().starts_with("/denied") {
             let _ = session.respond_error(403).await;
-            info!("Forbidden: {:?}, {}", session.client_addr(), session.req_header().uri.path().to_string());
+            warn!("Forbidden: {:?}, {}", session.client_addr(), session.req_header().uri.path().to_string());
             return Ok(true);
         };
         Ok(false)

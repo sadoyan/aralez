@@ -10,6 +10,7 @@ pub struct FromFileProvider {
 }
 pub struct APIUpstreamProvider {
     pub address: String,
+    pub masterkey: String,
 }
 
 pub struct ConsulProvider {
@@ -24,7 +25,7 @@ pub trait Discovery {
 #[async_trait]
 impl Discovery for APIUpstreamProvider {
     async fn start(&self, toreturn: Sender<Configuration>) {
-        webserver::run_server(self.address.clone(), toreturn).await;
+        webserver::run_server(self.address.clone(), self.masterkey.clone(), toreturn).await;
     }
 }
 

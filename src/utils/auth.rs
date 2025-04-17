@@ -1,3 +1,4 @@
+use crate::utils::jwt::check_jwt;
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine;
 use pingora_proxy::Session;
@@ -7,6 +8,7 @@ trait AuthValidator {
 }
 struct BasicAuth<'a>(&'a str);
 struct ApiKeyAuth<'a>(&'a str);
+struct JwtAuth<'a>(&'a str);
 
 impl AuthValidator for BasicAuth<'_> {
     fn validate(&self, session: &Session) -> bool {
@@ -30,6 +32,16 @@ impl AuthValidator for ApiKeyAuth<'_> {
     }
 }
 
+impl AuthValidator for JwtAuth<'_> {
+    fn validate(&self, session: &Session) -> bool {
+        let jwtsecret = self.0;
+        if let Some(header) = session.get_header("x-jwt-token") {
+            let tok = header.to_str().ok().unwrap();
+            return check_jwt(tok, jwtsecret);
+        }
+        false
+    }
+}
 fn validate(auth: &dyn AuthValidator, session: &Session) -> bool {
     auth.validate(session)
 }
@@ -42,6 +54,10 @@ pub fn authenticate(c: &[String], session: &Session) -> bool {
         }
         "apikey" => {
             let auth = ApiKeyAuth(c[1].as_str().into());
+            validate(&auth, session)
+        }
+        "jwt" => {
+            let auth = JwtAuth(c[1].as_str().into());
             validate(&auth, session)
         }
         _ => {

@@ -5,11 +5,13 @@ globals:
     - "Access-Control-Allow-Origin:*"
     - "Access-Control-Allow-Methods:POST, GET, OPTIONS"
     - "Access-Control-Max-Age:86400"
-#  authorization: # if enabled
-#    - "basic"
-#    - "zangag:Anhnazand1234"
-#    - "apikey"
-#    - "qweasdqweadhbk"
+  authorization: # if enabled
+    #    - "basic"
+    #    - "zangag:Anhnazand1234"
+    #    - "apikey"
+    #    - "5a28cc4c-ce10-4ff1-824e-743c38835f5c"
+    - "jwt"
+    - "910517d9-f9a1-48de-8826-dbadacbd84af-cb6f830e-ab16-47ec-9d8f-0090de732774"
 consul: # read only if provider is consul
   servers:
     - "http://master1:8500"

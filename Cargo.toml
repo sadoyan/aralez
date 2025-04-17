@@ -17,12 +17,13 @@ log = "0.4.27"
 futures = "0.3.31"
 notify = "8.0.0"
 axum = { version = "0.8.3" }
-#axum-server = { version = "0.8.3", features = ["tls-rustls"] }
-
 reqwest = { version = "0.12.15", features = ["json"] }
 serde_yaml = "0.8.26"
 #hickory-client = "0.25.1"
 rand = "0.9.0"
 base64 = "0.22.1"
+jsonwebtoken = "9.3.1"
+#hmac = "0.12.1"
+#sha2 = "0.10.8"
 
 
