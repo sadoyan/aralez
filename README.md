@@ -2,7 +2,7 @@
 
 # Gazan - The beast-mode reverse proxy.
 
-Is a Reverse proxy, service mesh based on Cloudflare's Pingora
+Gazan is a Reverse proxy, service mesh based on Cloudflare's Pingora
 
 **What Gazan means?**
 <ins>Gazan = Գազան = beast / wild animal in Armenian / Often used as a synonym to something great.</ins>.
