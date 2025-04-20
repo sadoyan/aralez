@@ -1,4 +1,4 @@
-![Gazan](https://netangels.net/utils/gazan-black.jpg)
+![Gazan](https://netangels.net/utils/gazan-white.jpg)
 
 # Gazan - The beast-mode reverse proxy.
 
