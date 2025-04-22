@@ -65,13 +65,34 @@ Built on Rust, on top of **Cloudflare’s Pingora engine**, **Gazan** delivers w
 
 ---
 
+## 🛠 Installation
+
+Download the prebuilt binary for your architecture from releases section of [GitHub](https://github.com/sadoyan/gazan/releases) repo
+Make the binary executable `chmod 755 ./gazan` and run .
+
 ## 🔌 Running the Proxy
 
 ```bash
 ./gazan -c path/to/main.yaml
 ```
 
----
+## 🔌 Systemd integration
+
+```bash
+cat > /etc/systemd/system/gazan.service <<EOF
+[Service]
+Type=forking
+PIDFile=/run/gazan.pid
+ExecStart=/bin/gazan -d -c /etc/gazan.conf
+ExecReload=kill -QUIT $MAINPID
+ExecReload=/bin/gazan -u -d -c /etc/gazan.conf
+EOF
+```
+
+```bash
+systemctl enable gazan.service.
+systemctl restart gazan.service.
+```
 
 ## 💡 Example
 
@@ -190,4 +211,5 @@ curl  -u username:password -H 'Host: myip.mydomain.com' http://127.0.0.1:6193/
 - Designed for edge proxying, internal routing, or hybrid cloud scenarios.
 - Transparent, fully automatic WebSocket upgrade support.
 - Upcoming transparent, fully automatic GRPC proxy.
+- Upcoming Kubernetes integration
 - HTTP2 ready. 
