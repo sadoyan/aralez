@@ -1,10 +1,12 @@
 use crate::utils::tools::*;
 use dashmap::DashMap;
 use log::{error, warn};
+use reqwest::Client;
 use std::sync::atomic::AtomicUsize;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::time::interval;
+use tonic::transport::Endpoint;
 
 pub async fn hc2(upslist: Arc<UpstreamsDashMap>, fullist: Arc<UpstreamsDashMap>, params: (&str, u64)) {
     let mut period = interval(Duration::from_secs(params.1));
@@ -43,7 +45,6 @@ pub async fn hc2(upslist: Arc<UpstreamsDashMap>, fullist: Arc<UpstreamsDashMap>,
                     totest.insert(host.clone(), inner);
                 }
                 if ! compare_dashmaps(&totest, &upslist){
-                    // print_upstreams(&totest);
                     clone_dashmap_into(&totest, &upslist);
                 }
             }
@@ -53,39 +54,44 @@ pub async fn hc2(upslist: Arc<UpstreamsDashMap>, fullist: Arc<UpstreamsDashMap>,
 
 #[allow(dead_code)]
 async fn http_request(url: &str, method: &str, payload: &str) -> bool {
-    let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
-    let to = Duration::from_secs(1);
-    match method {
-        "POST" => {
-            let response = client.post(url).body(payload.to_owned()).timeout(to).send().await;
-            match response {
-                Ok(r) => 100 <= r.status().as_u16() && r.status().as_u16() < 500,
-                Err(_) => false,
-            }
+    let client = Client::builder().danger_accept_invalid_certs(true).build().unwrap();
+    let timeout = Duration::from_secs(1);
+    if !["POST", "GET", "HEAD"].contains(&method) {
+        error!("Method {} not supported. Only GET|POST|HEAD are supported ", method);
+        return false;
+    }
+    async fn send_request(client: &Client, method: &str, url: &str, payload: &str, timeout: Duration) -> Option<reqwest::Response> {
+        match method {
+            "POST" => client.post(url).body(payload.to_owned()).timeout(timeout).send().await.ok(),
+            "GET" => client.get(url).timeout(timeout).send().await.ok(),
+            "HEAD" => client.head(url).timeout(timeout).send().await.ok(),
+            _ => None,
         }
-        "GET" => {
-            let response = client.get(url).timeout(to).send().await;
-            match response {
-                Ok(r) => {
-                    // println!("Response: {} : {}", r.status(), r.url());
-                    100 <= r.status().as_u16() && r.status().as_u16() < 500
-                }
-                Err(_) => {
-                    // println!("Error: {}", url);
-                    false
-                }
-            }
+    }
+
+    match send_request(&client, method, url, payload, timeout).await {
+        Some(response) => {
+            let status = response.status().as_u16();
+            (99..499).contains(&status)
         }
-        "HEAD" => {
-            let response = client.head(url).timeout(to).send().await;
-            match response {
-                Ok(r) => 100 <= r.status().as_u16() && r.status().as_u16() < 500,
-                Err(_) => false,
-            }
+        None => {
+            let fallback_url = url.replace("https", "http");
+            ping_grpc(&fallback_url).await
         }
-        _ => {
-            error!("Method {} not supported. Only GET|POST|HEAD are supported", method);
-            false
+    }
+}
+
+pub async fn ping_grpc(addr: &str) -> bool {
+    let endpoint_result = Endpoint::from_shared(addr.to_owned());
+
+    if let Ok(endpoint) = endpoint_result {
+        let endpoint = endpoint.timeout(Duration::from_secs(2));
+
+        match tokio::time::timeout(Duration::from_secs(3), endpoint.connect()).await {
+            Ok(Ok(_channel)) => true,
+            _ => false,
         }
+    } else {
+        false
     }
 }

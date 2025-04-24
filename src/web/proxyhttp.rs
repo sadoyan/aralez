@@ -15,6 +15,7 @@ use pingora_http::ResponseHeader;
 
 use crate::utils::auth::authenticate;
 use crate::utils::parceyaml::Configuration;
+use pingora_core::listeners::ALPN;
 use pingora_proxy::{ProxyHttp, Session};
 use std::ops::Deref;
 use std::sync::atomic::Ordering;
@@ -216,15 +217,21 @@ impl ProxyHttp for LB {
     type CTX = ();
     fn new_ctx(&self) -> Self::CTX {}
     async fn upstream_peer(&self, session: &mut Session, _ctx: &mut Self::CTX) -> Result<Box<HttpPeer>> {
+        // println!("upstream_peer called for {:?}", session.req_header());
+        // println!("==============================================");
         let host_name = return_header_host(&session);
         match host_name {
             Some(host) => {
                 // session.req_header_mut().headers.insert("X-Host-Name", host.to_string().parse().unwrap());
 
                 let ddr = self.get_host(host, host, session.is_upgrade_req());
+
                 match ddr.await {
                     Some((host, port, ssl)) => {
-                        let peer = Box::new(HttpPeer::new((host, port), ssl, String::new()));
+                        let mut peer = Box::new(HttpPeer::new((host, port), ssl, String::new()));
+                        if session.is_http2() {
+                            peer.options.alpn = ALPN::H2;
+                        }
                         Ok(peer)
                     }
                     None => {
