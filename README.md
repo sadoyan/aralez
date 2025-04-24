@@ -15,8 +15,8 @@ Built on Rust, on top of **Cloudflare’s Pingora engine**, **Gazan** delivers w
 
 - ⚙️ **Upstream Providers:** Supports `file`-based static upstreams, dynamic service discovery via `Consul`, and upcoming `Kubernetes` integration
 - 🔁 **Hot Reloading:** Modify upstreams on the fly via `upstreams.yaml` — no restart needed
-- 🔮 **Automatic WebSocket Support:** No special config required — connection upgrades are handled seamlessly
-- 🔮 **Automatic GRPC Support:** Zero config for GRPC upstreams and downstreams
+- 🔮 **Automatic WebSocket Support:** Zero config — connection upgrades are handled seamlessly
+- 🔮 **Automatic GRPC Support:** Zero config, Requires `ssl` to proxy, gRPC is handled seamlessly
 - 🔐 **TLS Termination:** Fully supports TLS for incoming and upstream traffic
 - 🛡️ **Built-in Auth Support:**
 - 🧠 **CORS & Header Injection:** Global and per-route header configuration
