@@ -1,6 +1,6 @@
 use crate::utils::tools::*;
 use dashmap::DashMap;
-use log::{error, warn};
+use log::{error, info, warn};
 use reqwest::Client;
 use std::sync::atomic::AtomicUsize;
 use std::sync::Arc;
@@ -8,8 +8,9 @@ use std::time::Duration;
 use tokio::time::interval;
 use tonic::transport::Endpoint;
 
-pub async fn hc2(upslist: Arc<UpstreamsDashMap>, fullist: Arc<UpstreamsDashMap>, params: (&str, u64)) {
+pub async fn hc2(upslist: Arc<UpstreamsDashMap>, fullist: Arc<UpstreamsDashMap>, idlist: Arc<UpstreamsIdMap>, params: (&str, u64)) {
     let mut period = interval(Duration::from_secs(params.1));
+    let mut first_run = 0;
     loop {
         tokio::select! {
             _ = period.tick() => {
@@ -44,9 +45,19 @@ pub async fn hc2(upslist: Arc<UpstreamsDashMap>, fullist: Arc<UpstreamsDashMap>,
                     }
                     totest.insert(host.clone(), inner);
                 }
+
+                if first_run == 1 {
+                    info!("Synchronising inner hashmaps");
+                    clone_idmap_into(&totest, &idlist);
+                }
+
+                first_run+=1;
+
                 if ! compare_dashmaps(&totest, &upslist){
                     clone_dashmap_into(&totest, &upslist);
+                    clone_idmap_into(&totest, &idlist);
                 }
+                // print!("{:?}", idlist);
             }
         }
     }
