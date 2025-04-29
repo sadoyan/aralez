@@ -1,0 +1,19 @@
+provider: "file"
+globals:
+  headers:
+    - "Access-Control-Allow-Origin:*"
+    - "Access-Control-Allow-Methods:POST, GET, OPTIONS"
+    - "Access-Control-Max-Age:86400"
+    - "X-Custom-Header:Something Special"
+upstreams:
+  myip.netangels.net:
+    paths:
+      "/":
+        ssl: false
+        headers:
+          - "X-Proxy-From:Gazan"
+        servers:
+          - "192.168.221.213:8000"
+          - "192.168.221.214:8000"
+          - "192.168.221.210:8000"
+          - "192.168.221.212:8000"
