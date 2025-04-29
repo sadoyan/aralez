@@ -1,6 +1,8 @@
 use dashmap::DashMap;
+use sha2::{Digest, Sha256};
 use std::any::type_name;
 use std::collections::HashSet;
+use std::fmt::Write;
 use std::sync::atomic::AtomicUsize;
 
 #[allow(dead_code)]
@@ -21,9 +23,8 @@ pub fn print_upstreams(upstreams: &UpstreamsDashMap) {
 }
 
 pub type UpstreamsDashMap = DashMap<String, DashMap<String, (Vec<(String, u16, bool)>, AtomicUsize)>>;
-// pub type HeadersList = DashMap<String, Vec<(String, String)>>;
 pub type Headers = DashMap<String, DashMap<String, Vec<(String, String)>>>;
-// pub type UpstreamMap = DashMap<String, (Vec<(String, u16)>, AtomicUsize)>;
+pub type UpstreamsIdMap = DashMap<String, (String, u16, bool)>;
 
 #[allow(dead_code)]
 pub fn typeoff<T>(_: T) {
@@ -70,9 +71,7 @@ pub fn clone_dashmap_into(original: &UpstreamsDashMap, cloned: &UpstreamsDashMap
     for outer_entry in original.iter() {
         let hostname = outer_entry.key();
         let inner_map = outer_entry.value();
-
         let new_inner_map = DashMap::new();
-
         for inner_entry in inner_map.iter() {
             let path = inner_entry.key();
             let (vec, _) = inner_entry.value();
@@ -125,5 +124,32 @@ pub fn merge_headers(target: &DashMap<String, Vec<(String, String)>>, source: &D
         let global_values = entry.value().clone();
         let mut target_entry = target.entry(global_key).or_insert_with(Vec::new);
         target_entry.extend(global_values);
+    }
+}
+
+pub fn clone_idmap_into(original: &UpstreamsDashMap, cloned: &UpstreamsIdMap) {
+    cloned.clear();
+    for outer_entry in original.iter() {
+        let inner_map = outer_entry.value();
+        let new_inner_map = DashMap::new();
+        for inner_entry in inner_map.iter() {
+            let path = inner_entry.key();
+            let (vec, _) = inner_entry.value();
+            let new_vec = vec.clone();
+            for x in vec.iter() {
+                // let id = format!("{}:{}:{}", x.0.to_string(), x.1.to_string(), x.2.to_string());
+                let mut id = String::new();
+                write!(&mut id, "{}:{}:{}", x.0, x.1, x.2).unwrap();
+
+                let mut hasher = Sha256::new();
+                hasher.update(id.clone().into_bytes());
+                let hash = hasher.finalize();
+                let hex_hash = base16ct::lower::encode_string(&hash);
+                let hh = hex_hash[0..50].to_string();
+                cloned.insert(id, (hh.clone(), 0000, false));
+                cloned.insert(hh, x.to_owned());
+            }
+            new_inner_map.insert(path.clone(), new_vec);
+        }
     }
 }

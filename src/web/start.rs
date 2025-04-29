@@ -24,10 +24,12 @@ pub fn run() {
 
     let uf: UpstreamsDashMap = DashMap::new();
     let ff: UpstreamsDashMap = DashMap::new();
+    let im: UpstreamsIdMap = DashMap::new();
     let hh: Headers = DashMap::new();
 
     let uf_config = Arc::new(uf);
     let ff_config = Arc::new(ff);
+    let im_config = Arc::new(im);
     let hh_config = Arc::new(hh);
 
     let cfg = Arc::new(maincfg);
@@ -39,6 +41,7 @@ pub fn run() {
     let lb = LB {
         ump_upst: uf_config.clone(),
         ump_full: ff_config.clone(),
+        ump_byid: im_config.clone(),
         config: cfg.clone(),
         local: local.clone(),
         headers: hh_config.clone(),
@@ -47,6 +50,7 @@ pub fn run() {
     let bg = LB {
         ump_upst: uf_config.clone(),
         ump_full: ff_config.clone(),
+        ump_byid: im_config.clone(),
         config: cfg.clone(),
         local: local.clone(),
         headers: hh_config.clone(),
@@ -96,7 +100,6 @@ pub fn run() {
     proxy.add_tcp(bind_address_http.as_str());
     server.add_service(proxy);
     server.add_service(bg_srvc);
-
     // let mut prometheus_service_http = Service::prometheus_http_service();
     // prometheus_service_http.add_tcp("0.0.0.0:1234");
     // server.add_service(prometheus_service_http);

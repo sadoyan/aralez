@@ -3,8 +3,7 @@ threads: 8 # Pingora default setting
 #user: pastor # Username for running gazan after dropping root privileges, requires program to start as root
 #group: pastor # Group for running gazan after dropping root privileges, requires program to start as root
 daemon: false # Run in background
-#idle_timeout: 1000 # Pingora default setting
-upstream_keepalive_pool_size: 100 # Pingora default setting
+upstream_keepalive_pool_size: 500 # Pingora default setting
 pid_file: /tmp/gazan.pid # Pingora default setting
 error_log: /tmp/gazan_err.log # Pingora default setting
 upgrade_sock: /tmp/gazan.sock # Pingora default setting
@@ -15,6 +14,7 @@ tls_certificate: etc/server.crt # Mandatory if proxy_address_tls is set
 tls_key_file: etc/key.pem # Mandatory if proxy_address_tls is set
 upstreams_conf: etc/upstreams.yaml # the location of upstreams file
 log_level: info # info, warn, error, debug, trace, off
-hc_method: HEAD # Healthcheck method (HEAD, GET, POST are supported)
+hc_method: HEAD # Healthcheck method (HEAD, GET, POST are supported) UPPERCASE
 hc_interval: 2 #Intervak for Healthcheck in seconds
 master_key: 910517d9-f9a1-48de-8826-dbadacbd84af-cb6f830e-ab16-47ec-9d8f-0090de732774
+sticky_sessions:  # If key exists, the sticky_sessions will be enabled, regardless what is in value. Comment out/delete the line to disable.
