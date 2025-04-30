@@ -1,20 +1,20 @@
-# Default configuration file for Pingora, read only once at startup
-threads: 8 # Pingora default setting
+# Main configuration file , applied on startup
+threads: 8 # Nubber of daemon threads default setting
 #user: pastor # Username for running gazan after dropping root privileges, requires program to start as root
 #group: pastor # Group for running gazan after dropping root privileges, requires program to start as root
 daemon: false # Run in background
-upstream_keepalive_pool_size: 500 # Pingora default setting
-pid_file: /tmp/gazan.pid # Pingora default setting
-error_log: /tmp/gazan_err.log # Pingora default setting
-upgrade_sock: /tmp/gazan.sock # Pingora default setting
+upstream_keepalive_pool_size: 500 # Pool size for upstream keepalive connections
+pid_file: /tmp/gazan.pid # Path to PID file
+error_log: /tmp/gazan_err.log # Path to error log
+upgrade_sock: /tmp/gazan.sock # Path to socket file
 config_address: 0.0.0.0:3000 # HTTP API address for pushing upstreams.yaml from remote location
-proxy_address_http: 0.0.0.0:6193 # Pingora default setting
-proxy_address_tls: 0.0.0.0:6194 # Optional
+proxy_address_http: 0.0.0.0:6193 # Proxy HTTP bind address
+proxy_address_tls: 0.0.0.0:6194 # Optional, Proxy TLS bind address
 tls_certificate: etc/server.crt # Mandatory if proxy_address_tls is set
 tls_key_file: etc/key.pem # Mandatory if proxy_address_tls is set
 upstreams_conf: etc/upstreams.yaml # the location of upstreams file
 log_level: info # info, warn, error, debug, trace, off
 hc_method: HEAD # Healthcheck method (HEAD, GET, POST are supported) UPPERCASE
-hc_interval: 2 #Intervak for Healthcheck in seconds
-master_key: 910517d9-f9a1-48de-8826-dbadacbd84af-cb6f830e-ab16-47ec-9d8f-0090de732774
-sticky_sessions:  # If key exists, the sticky_sessions will be enabled, regardless what is in value. Comment out/delete the line to disable.
+hc_interval: 2 #Interval for health checks in seconds
+master_key: 910517d9-f9a1-48de-8826-dbadacbd84af-cb6f830e-ab16-47ec-9d8f-0090de732774 # Mater key for working with API server and JWT Secret
+sticky_sessions: true # Globally enables/disables Sticky session . Boolean will panic on any other than true/false .

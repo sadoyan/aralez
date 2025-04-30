@@ -12,7 +12,7 @@ impl GetHost for LB {
     fn get_host(&self, peer: &str, path: &str, backend_id: Option<&str>) -> Option<(String, u16, bool)> {
         if let Some(b) = backend_id {
             if let Some(bb) = self.ump_byid.get(b) {
-                println!("BIB :===> {:?}", Some(bb.value()));
+                // println!("BIB :===> {:?}", Some(bb.value()));
                 return Some(bb.value().clone());
             }
         }
@@ -44,7 +44,7 @@ impl GetHost for LB {
                 }
             }
         }
-        println!("BMT :===> {:?}", best_match);
+        // println!("BMT :===> {:?}", best_match);
         best_match
     }
     fn get_header(&self, peer: &str, path: &str) -> Option<Vec<(String, String)>> {

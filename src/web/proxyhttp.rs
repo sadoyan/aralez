@@ -1,4 +1,5 @@
 use crate::utils::auth::authenticate;
+use crate::utils::parceyaml::AppConfig;
 use crate::utils::tools::*;
 use crate::web::gethosts::GetHost;
 use async_trait::async_trait;
@@ -18,7 +19,8 @@ pub struct LB {
     pub ump_full: Arc<UpstreamsDashMap>,
     pub ump_byid: Arc<UpstreamsIdMap>,
     pub headers: Arc<Headers>,
-    pub config: Arc<DashMap<String, String>>,
+    // pub config: Arc<DashMap<String, String>>,
+    pub config: Arc<AppConfig>,
     pub local: Arc<(String, u16)>,
     pub proxyconf: Arc<DashMap<String, Vec<String>>>,
 }
@@ -52,7 +54,7 @@ impl ProxyHttp for LB {
 
                 let mut backend_id = None;
 
-                if let Some(_) = self.config.get("sticky_sessions") {
+                if self.config.sticky_sessions {
                     if let Some(cookies) = session.req_header().headers.get("cookie") {
                         if let Ok(cookie_str) = cookies.to_str() {
                             for cookie in cookie_str.split(';') {
@@ -132,7 +134,7 @@ impl ProxyHttp for LB {
     async fn response_filter(&self, _session: &mut Session, _upstream_response: &mut ResponseHeader, _ctx: &mut Self::CTX) -> Result<()> {
         // _upstream_response.insert_header("X-Proxied-From", "Fooooooooooooooo").unwrap();
 
-        if let Some(_) = self.config.get("sticky_sessions") {
+        if self.config.sticky_sessions {
             let backend_id = _ctx.backend_id.clone();
             if let Some(bid) = self.ump_byid.get(&backend_id) {
                 // let _ = _upstream_response.insert_header("set-cookie", format!("backend {}", bid.0));

@@ -12,8 +12,10 @@ pub fn run() {
     let file = parameters.conf.clone().unwrap();
     let maincfg = crate::utils::parceyaml::parce_main_config(file.as_str());
 
+    // println!("{:?}", maincfg);
+
     let mut local_conf: (String, u16) = ("0.0.0.0".to_string(), 0);
-    if let Some((ip, port_str)) = maincfg.get("config_address").unwrap().split_once(':') {
+    if let Some((ip, port_str)) = maincfg.config_address.split_once(':') {
         if let Ok(port) = port_str.parse::<u16>() {
             local_conf = (ip.to_string(), port);
         }
@@ -60,7 +62,7 @@ pub fn run() {
     // env_logger::Env::new();
     // env_logger::init();
 
-    let log_level = cfg.get("log_level").unwrap();
+    let log_level = cfg.log_level.clone();
     match log_level.as_str() {
         "info" => env::set_var("RUST_LOG", "info"),
         "error" => env::set_var("RUST_LOG", "error"),
@@ -82,17 +84,17 @@ pub fn run() {
 
     let bg_srvc = background_service("bgsrvc", bg);
     let mut proxy = pingora_proxy::http_proxy_service(&server.configuration, lb);
-    let bind_address_http = cfg.get("proxy_address_http").unwrap();
+    let bind_address_http = cfg.proxy_address_http.clone();
 
-    let bind_address_tls = cfg.get("proxy_address_tls");
+    let bind_address_tls = cfg.proxy_address_tls.clone();
     match bind_address_tls {
         Some(bind_address_tls) => {
-            info!("Running TLS listener on :{}", bind_address_tls.value());
-            let cert_path = cfg.get("tls_certificate").unwrap();
-            let key_path = cfg.get("tls_key_file").unwrap();
+            info!("Running TLS listener on :{}", bind_address_tls);
+            let cert_path = cfg.tls_certificate.clone().unwrap();
+            let key_path = cfg.tls_key_file.clone().unwrap();
             let mut tls_settings = pingora_core::listeners::tls::TlsSettings::intermediate(&cert_path, &key_path).unwrap();
             tls_settings.enable_h2();
-            proxy.add_tls_with_settings(bind_address_tls.value(), None, tls_settings);
+            proxy.add_tls_with_settings(&bind_address_tls, None, tls_settings);
         }
         None => {}
     }

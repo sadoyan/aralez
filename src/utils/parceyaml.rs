@@ -164,13 +164,31 @@ pub fn load_configuration(d: &str, kind: &str) -> Option<Configuration> {
     }
 }
 
-pub fn parce_main_config(path: &str) -> DashMap<String, String> {
+#[derive(Debug, Deserialize)]
+pub struct AppConfig {
+    pub sticky_sessions: bool,
+    pub hc_interval: u16,
+    pub hc_method: String,
+    pub upstreams_conf: String,
+    pub log_level: String,
+    pub config_address: String,
+    pub proxy_address_http: String,
+    pub master_key: String,
+    pub proxy_address_tls: Option<String>,
+    pub tls_certificate: Option<String>,
+    pub tls_key_file: Option<String>,
+}
+
+// pub fn parce_main_config(path: &str) -> DashMap<String, String> {
+pub fn parce_main_config(path: &str) -> AppConfig {
     info!("Parsing configuration");
     let data = fs::read_to_string(path).unwrap();
     let reply = DashMap::new();
     let cfg: HashMap<String, String> = serde_yaml::from_str(&*data).expect("Failed to parse main config file");
+    let mut cfo: AppConfig = serde_yaml::from_str(&*data).expect("Failed to parse main config file");
+    cfo.hc_method = cfo.hc_method.to_uppercase();
     for (k, v) in cfg {
         reply.insert(k.to_string(), v.to_string());
     }
-    reply
+    cfo
 }

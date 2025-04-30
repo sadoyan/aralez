@@ -7,7 +7,7 @@ use async_trait::async_trait;
 use dashmap::DashMap;
 use futures::channel::mpsc;
 use futures::StreamExt;
-use log::{error, info};
+use log::info;
 use pingora_core::server::ShutdownWatch;
 use pingora_core::services::background::BackgroundService;
 
@@ -17,42 +17,30 @@ impl BackgroundService for LB {
         info!("Starting background service");
         let (tx, mut rx) = mpsc::channel::<Configuration>(0);
 
-        let from_file = self.config.get("upstreams_conf");
-        match from_file {
-            Some(from_file) => {
-                let tx_file = tx.clone();
-                let tx_consul = tx.clone();
+        let tx_file = tx.clone();
+        let tx_consul = tx.clone();
 
-                let file_load = FromFileProvider { path: from_file.to_string() };
-                let consul_load = ConsulProvider { path: from_file.to_string() };
+        let file_load = FromFileProvider {
+            path: self.config.upstreams_conf.clone(),
+        };
+        let consul_load = ConsulProvider {
+            path: self.config.upstreams_conf.clone(),
+        };
 
-                let _ = tokio::spawn(async move { file_load.start(tx_file).await });
-                let _ = tokio::spawn(async move { consul_load.start(tx_consul).await });
-            }
-            None => {
-                error!("Can't read config file");
-            }
-        }
-        let config_address = self.config.get("config_address");
-        let masterkey = self.config.get("master_key").unwrap();
-        match config_address {
-            Some(config_address) => {
-                let api_load = APIUpstreamProvider {
-                    address: config_address.to_string(),
-                    masterkey: masterkey.value().to_string(),
-                };
-                let tx_api = tx.clone();
-                let _ = tokio::spawn(async move { api_load.start(tx_api).await });
-            }
-            None => {
-                error!("Can't read config file");
-            }
-        }
+        let _ = tokio::spawn(async move { file_load.start(tx_file).await });
+        let _ = tokio::spawn(async move { consul_load.start(tx_consul).await });
+
+        let api_load = APIUpstreamProvider {
+            address: self.config.config_address.clone(),
+            masterkey: self.config.master_key.clone(),
+        };
+        let tx_api = tx.clone();
+        let _ = tokio::spawn(async move { api_load.start(tx_api).await });
 
         let uu = self.ump_upst.clone();
         let ff = self.ump_full.clone();
         let im = self.ump_byid.clone();
-        let (hc_method, hc_interval) = (self.config.get("hc_method").unwrap().clone(), self.config.get("hc_interval").unwrap().clone());
+        let (hc_method, hc_interval) = (self.config.hc_method.clone(), self.config.hc_interval);
         let _ = tokio::spawn(async move { healthcheck::hc2(uu, ff, im, (&*hc_method.to_string(), hc_interval.to_string().parse().unwrap())).await });
 
         loop {
