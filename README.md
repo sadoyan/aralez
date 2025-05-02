@@ -161,7 +161,8 @@ curl -XPOST --data-binary @./etc/upstreams.txt 127.0.0.1:3000/conf
 - Only one method can be active at a time.
 - `basic` : Standard HTTP Basic Authentication requests.
 - `apikey` : Authentication via `x-api-key` header, which should match the value in config.
-- `jwt`: JWT authentication implemented vi `x-jwt-token` header.
+- `jwt`: JWT authentication implemented via `gazantoken=` url parameter. `/some/url?gazantoken=TOKEN`
+- `jwt`: JWT authentication implemented via `Authorization: Bearer <token>` header.
     - To obtain JWT token, you should send **generate** request to built in api server's `/jwt` endpoint.
     - `masterkey`: should match configured `masterkey` in `main.yaml` and `upstreams.yaml`.
     - `owner` : Just a placeholder, can be anything.
@@ -173,7 +174,7 @@ curl -XPOST --data-binary @./etc/upstreams.txt 127.0.0.1:3000/conf
 PAYLOAD='{
     "masterkey": "910517d9-f9a1-48de-8826-dbadacbd84af-cb6f830e-ab16-47ec-9d8f-0090de732774",
     "owner": "valod",
-    "valid": 1
+    "valid": 10
 }'
 
 TOK=`curl -s -XPOST -H "Content-Type: application/json" -d "$PAYLOAD"  http://127.0.0.1:3000/jwt  | cut -d '"' -f4`

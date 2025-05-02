@@ -2,6 +2,8 @@ use crate::utils::jwt::check_jwt;
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine;
 use pingora_proxy::Session;
+use std::collections::HashMap;
+use urlencoding::decode;
 
 trait AuthValidator {
     fn validate(&self, session: &Session) -> bool;
@@ -35,9 +37,27 @@ impl AuthValidator for ApiKeyAuth<'_> {
 impl AuthValidator for JwtAuth<'_> {
     fn validate(&self, session: &Session) -> bool {
         let jwtsecret = self.0;
-        if let Some(header) = session.get_header("x-jwt-token") {
-            let tok = header.to_str().ok().unwrap();
-            return check_jwt(tok, jwtsecret);
+        if let Some(tok) = get_query_param(session, "gazantoken") {
+            return check_jwt(tok.as_str(), jwtsecret);
+        }
+
+        // if let Some(header) = session.get_header("authorization") {
+        //     let h = header.to_str().ok().unwrap().split(" ").collect::<Vec<_>>();
+        //     match h.len() {
+        //         n => {
+        //             return check_jwt(h[n - 1], jwtsecret);
+        //         }
+        //     }
+        // }
+
+        if let Some(auth_header) = session.get_header("authorization") {
+            if let Ok(header_str) = auth_header.to_str() {
+                if let Some((scheme, token)) = header_str.split_once(' ') {
+                    if scheme.eq_ignore_ascii_case("bearer") {
+                        return check_jwt(token, jwtsecret);
+                    }
+                }
+            }
         }
         false
     }
@@ -65,4 +85,20 @@ pub fn authenticate(c: &[String], session: &Session) -> bool {
             false
         }
     }
+}
+
+pub fn get_query_param(session: &Session, key: &str) -> Option<String> {
+    let query = session.req_header().uri.query()?;
+
+    let params: HashMap<_, _> = query
+        .split('&')
+        .filter_map(|pair| {
+            let mut parts = pair.splitn(2, '=');
+            let k = parts.next()?;
+            let v = parts.next().unwrap_or(""); // Some params might have no value
+            Some((k, v))
+        })
+        .collect();
+
+    params.get(key).map(|v| decode(v).ok()).flatten().map(|s| s.to_string())
 }
