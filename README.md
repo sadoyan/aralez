@@ -184,7 +184,7 @@ echo $TOK
 **Example Request with JWT token**
 
 ```bash
-curl -H "x-jwt-token: ${TOK}" -H 'Host: myip.mydomain.com' http://127.0.0.1:6193/
+curl -H "Authorization: Bearer ${TOK}" -H 'Host: myip.mydomain.com' http://127.0.0.1:6193/
 ```
 
 **Example Request with API Key**
