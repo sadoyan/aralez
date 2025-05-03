@@ -59,10 +59,10 @@ Built on Rust, on top of **Cloudflare’s Pingora engine**, **Gazan** delivers w
 - File-based upstreams define:
     - Hostnames and routing paths
     - Backend servers (load-balanced)
-    - Optional request headers
+    - Optional request headers, specific to this upstream
     - Optional TLS for upstreams
 - Global headers (e.g., CORS) apply to all proxied responses
-- Optional authentication (Basic, API Key, JWT) — currently commented for example
+- Optional authentication (Basic, API Key, JWT)
 
 ---
 
@@ -100,6 +100,15 @@ systemctl restart gazan.service.
 A sample `upstreams.yaml` entry:
 
 ```yaml
+provider: "file"
+globals:
+  headers:
+    - "Access-Control-Allow-Origin:*"
+    - "Access-Control-Allow-Methods:POST, GET, OPTIONS"
+    - "Access-Control-Max-Age:86400"
+  authorization:
+    - "jwt"
+    - "910517d9-f9a1-48de-8826-dbadacbd84af-cb6f830e-ab16-47ec-9d8f-0090de732774"
 myhost.mydomain.com:
   paths:
     "/":
@@ -123,9 +132,13 @@ This means:
 
 - Requests to `myhost.mydomain.com/` will be load balanced to `127.0.0.1` and `127.0.0.2` servers via plain http.
 - Requests to `myhost.mydomain.com/foo` will be load balanced to `127.0.0.4` and `127.0.0.5` servers via https.
+- Global headers (CORS for this case) will be injected to all upstreams
+- Additional headers will be injected into the request for `myhost.mydomain.com`.
 - You can choose any path, deep nested paths are supported, the best match will be chosen
-- Additional headers will be injected into the request.
 - TLS is disabled for upstreams (but can be enabled).
+- All requests to servers will require JWT token authentication (You can comment out the authorization to disable it),
+    - Firs parameter specifies the mechanism of authorisation `jwt`
+    - Second is the secret key for validating `jwt` tokens
 
 ---
 
