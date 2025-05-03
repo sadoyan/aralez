@@ -196,8 +196,16 @@ echo $TOK
 
 **Example Request with JWT token**
 
+With `Authorization: Bearer` header
+
 ```bash
 curl -H "Authorization: Bearer ${TOK}" -H 'Host: myip.mydomain.com' http://127.0.0.1:6193/
+```
+
+With URL parameter (Very useful if you want to generate and share temporary links)
+
+```bash
+curl -H 'Host: myip.mydomain.com' "http://127.0.0.1:6193/?gazantoken=${TOK}`"
 ```
 
 **Example Request with API Key**
