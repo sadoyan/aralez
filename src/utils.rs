@@ -5,4 +5,5 @@ mod filewatch;
 pub mod healthcheck;
 pub mod jwt;
 pub mod parceyaml;
+pub mod structs;
 pub mod tools;

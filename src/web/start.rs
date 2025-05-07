@@ -1,5 +1,4 @@
-use crate::utils::parceyaml::Extraparams;
-use crate::utils::tools::*;
+use crate::utils::structs::{Extraparams, Headers, UpstreamsDashMap, UpstreamsIdMap};
 use crate::web::proxyhttp::LB;
 use dashmap::DashMap;
 use log::info;

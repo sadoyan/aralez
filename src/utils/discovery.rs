@@ -1,6 +1,6 @@
 use crate::utils::consul;
 use crate::utils::filewatch;
-use crate::utils::parceyaml::Configuration;
+use crate::utils::structs::Configuration;
 use crate::web::webserver;
 use async_trait::async_trait;
 use futures::channel::mpsc::Sender;

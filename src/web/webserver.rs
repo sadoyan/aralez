@@ -1,4 +1,4 @@
-use crate::utils::parceyaml::Configuration;
+use crate::utils::structs::Configuration;
 use axum::body::Body;
 use axum::extract::State;
 use axum::http::{Response, StatusCode};

@@ -1,4 +1,5 @@
-use crate::utils::parceyaml::{load_configuration, Configuration};
+use crate::utils::parceyaml::load_configuration;
+use crate::utils::structs::Configuration;
 use futures::channel::mpsc::Sender;
 use futures::SinkExt;
 use log::{error, info};

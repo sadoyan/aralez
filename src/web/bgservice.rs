@@ -1,5 +1,5 @@
 use crate::utils::discovery::{APIUpstreamProvider, ConsulProvider, Discovery, FromFileProvider};
-use crate::utils::parceyaml::Configuration;
+use crate::utils::structs::Configuration;
 use crate::utils::tools::*;
 use crate::utils::*;
 use crate::web::proxyhttp::LB;

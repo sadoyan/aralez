@@ -1,6 +1,5 @@
 use crate::utils::auth::authenticate;
-use crate::utils::parceyaml::{AppConfig, Extraparams};
-use crate::utils::tools::*;
+use crate::utils::structs::{AppConfig, Extraparams, Headers, UpstreamsDashMap, UpstreamsIdMap};
 use crate::web::gethosts::GetHost;
 use async_trait::async_trait;
 use dashmap::DashMap;

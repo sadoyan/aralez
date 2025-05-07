@@ -1,59 +1,11 @@
-use crate::utils::tools::*;
+use crate::utils::structs::*;
 use dashmap::DashMap;
 use log::{error, info, warn};
-use serde::{Deserialize, Serialize};
 use serde_yaml::Error;
 use std::collections::HashMap;
 use std::fs;
 use std::sync::atomic::AtomicUsize;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ServiceMapping {
-    pub proxy: String,
-    pub real: String,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Extraparams {
-    pub stickysessions: bool,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Consul {
-    pub servers: Option<Vec<String>>,
-    pub services: Option<Vec<ServiceMapping>>,
-    pub token: Option<String>,
-}
-#[derive(Debug, Serialize, Deserialize)]
-struct Config {
-    provider: String,
-    stickysessions: bool,
-    upstreams: Option<HashMap<String, HostConfig>>,
-    globals: Option<HashMap<String, Vec<String>>>,
-    consul: Option<Consul>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct HostConfig {
-    paths: HashMap<String, PathConfig>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct PathConfig {
-    ssl: bool,
-    servers: Vec<String>,
-    headers: Option<Vec<String>>,
-}
-pub struct Configuration {
-    pub upstreams: UpstreamsDashMap,
-    pub headers: Headers,
-    pub consul: Option<Consul>,
-    pub typecfg: String,
-    pub extraparams: Extraparams,
-    pub globals: Option<DashMap<String, Vec<String>>>,
-}
-
-// pub fn load_configuration(d: &str, kind: &str) -> Option<(UpstreamsDashMap, Headers, String)> {
 pub fn load_configuration(d: &str, kind: &str) -> Option<Configuration> {
     let mut toreturn: Configuration = Configuration {
         upstreams: Default::default(),
@@ -65,9 +17,6 @@ pub fn load_configuration(d: &str, kind: &str) -> Option<Configuration> {
     };
     toreturn.upstreams = UpstreamsDashMap::new();
     toreturn.headers = Headers::new();
-
-    // let upstreamsmap = UpstreamsDashMap::new();
-    // let headersmap = DashMap::new();
 
     let mut yaml_data = d.to_string();
     match kind {
@@ -172,21 +121,6 @@ pub fn load_configuration(d: &str, kind: &str) -> Option<Configuration> {
     }
 }
 
-#[derive(Debug, Deserialize)]
-pub struct AppConfig {
-    pub hc_interval: u16,
-    pub hc_method: String,
-    pub upstreams_conf: String,
-    pub log_level: String,
-    pub config_address: String,
-    pub proxy_address_http: String,
-    pub master_key: String,
-    pub proxy_address_tls: Option<String>,
-    pub tls_certificate: Option<String>,
-    pub tls_key_file: Option<String>,
-}
-
-// pub fn parce_main_config(path: &str) -> DashMap<String, String> {
 pub fn parce_main_config(path: &str) -> AppConfig {
     info!("Parsing configuration");
     let data = fs::read_to_string(path).unwrap();

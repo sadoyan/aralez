@@ -1,16 +1,12 @@
-use crate::utils::parceyaml::{load_configuration, Configuration, ServiceMapping};
-use crate::utils::tools::{clone_dashmap_into, compare_dashmaps, UpstreamsDashMap};
+use crate::utils::parceyaml::load_configuration;
+use crate::utils::structs::{Configuration, ServiceMapping, UpstreamsDashMap};
+use crate::utils::tools::{clone_dashmap_into, compare_dashmaps};
 use dashmap::DashMap;
 use futures::channel::mpsc::Sender;
 use futures::SinkExt;
-// use hickory_client::client::{Client, ClientHandle};
-// use hickory_client::proto::rr::{DNSClass, Name, RecordType};
-// use hickory_client::proto::runtime::TokioRuntimeProvider;
-// use hickory_client::proto::tcp::TcpClientStream;
 use log::{info, warn};
 use pingora::prelude::sleep;
 use rand::Rng;
-// use std::str::FromStr;
 use reqwest::header::{HeaderMap, HeaderValue};
 use serde::Deserialize;
 use std::collections::HashMap;
@@ -19,8 +15,6 @@ use std::time::Duration;
 
 #[derive(Debug, Deserialize)]
 struct Service {
-    // #[serde(rename = "ServiceName")]
-    // service_name: String,
     #[serde(rename = "ServiceTaggedAddresses")]
     tagged_addresses: HashMap<String, TaggedAddress>,
 }
@@ -148,20 +142,3 @@ async fn get_by_http(url: String, token: Option<String>) -> Option<DashMap<Strin
     upstreams.insert("/".to_string(), (values, AtomicUsize::new(0)));
     Some(upstreams)
 }
-
-// #[allow(dead_code)]
-// async fn get_by_dns() {
-//     let (stream, sender) = TcpClientStream::new(([192, 168, 22, 1], 53).into(), None, None, TokioRuntimeProvider::new());
-//     let client = Client::new(stream, sender, None);
-//     let (mut client, bg) = client.await.expect("connection failed");
-//     tokio::spawn(bg);
-//     let query = client.query(Name::from_str("_frontend-dev-frontend-srv._tcp.service.consul.").unwrap(), DNSClass::IN, RecordType::SRV);
-//     // let query = client.query(Name::from_str("matyan.org.").unwrap(), DNSClass::IN, RecordType::A);
-//     let response = query.await.unwrap();
-//
-//     for t in response.answers().iter() {
-//         for y in t.data().as_srv().iter() {
-//             println!("     DNS ==> {:?} : {:?}", y.target().to_utf8(), y.port());
-//         }
-//     }
-// }

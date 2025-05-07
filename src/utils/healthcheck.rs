@@ -1,3 +1,4 @@
+use crate::utils::structs::{UpstreamsDashMap, UpstreamsIdMap};
 use crate::utils::tools::*;
 use dashmap::DashMap;
 use log::{error, info, warn};

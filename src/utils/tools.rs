@@ -1,3 +1,4 @@
+use crate::utils::structs::{UpstreamsDashMap, UpstreamsIdMap};
 use dashmap::DashMap;
 use sha2::{Digest, Sha256};
 use std::any::type_name;
@@ -22,10 +23,6 @@ pub fn print_upstreams(upstreams: &UpstreamsDashMap) {
     }
 }
 
-pub type UpstreamsDashMap = DashMap<String, DashMap<String, (Vec<(String, u16, bool)>, AtomicUsize)>>;
-pub type Headers = DashMap<String, DashMap<String, Vec<(String, String)>>>;
-pub type UpstreamsIdMap = DashMap<String, (String, u16, bool)>;
-
 #[allow(dead_code)]
 pub fn typeoff<T>(_: T) {
     let to = type_name::<T>();
@@ -44,7 +41,6 @@ pub fn string_to_bool(val: Option<&str>) -> Option<bool> {
     }
 }
 
-#[allow(dead_code)]
 pub fn clone_dashmap(original: &UpstreamsDashMap) -> UpstreamsDashMap {
     let new_map: UpstreamsDashMap = DashMap::new();
 
@@ -117,7 +113,6 @@ pub fn compare_dashmaps(map1: &UpstreamsDashMap, map2: &UpstreamsDashMap) -> boo
     true
 }
 
-#[allow(dead_code)]
 pub fn merge_headers(target: &DashMap<String, Vec<(String, String)>>, source: &DashMap<String, Vec<(String, String)>>) {
     for entry in source.iter() {
         let global_key = entry.key().clone();
@@ -137,10 +132,8 @@ pub fn clone_idmap_into(original: &UpstreamsDashMap, cloned: &UpstreamsIdMap) {
             let (vec, _) = inner_entry.value();
             let new_vec = vec.clone();
             for x in vec.iter() {
-                // let id = format!("{}:{}:{}", x.0.to_string(), x.1.to_string(), x.2.to_string());
                 let mut id = String::new();
                 write!(&mut id, "{}:{}:{}", x.0, x.1, x.2).unwrap();
-
                 let mut hasher = Sha256::new();
                 hasher.update(id.clone().into_bytes());
                 let hash = hasher.finalize();
