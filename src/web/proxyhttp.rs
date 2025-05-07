@@ -19,15 +19,13 @@ pub struct LB {
     pub ump_full: Arc<UpstreamsDashMap>,
     pub ump_byid: Arc<UpstreamsIdMap>,
     pub headers: Arc<Headers>,
-    // pub config: Arc<DashMap<String, String>>,
     pub config: Arc<AppConfig>,
     pub local: Arc<(String, u16)>,
     pub proxyconf: Arc<DashMap<String, Vec<String>>>,
-    // pub extraparams: Arc<Mutex<Extraparams>>,
     pub extraparams: Arc<RwLock<Extraparams>>,
 }
 
-pub struct MyCtx {
+pub struct Context {
     backend_id: String,
 }
 
@@ -35,9 +33,9 @@ pub struct MyCtx {
 impl ProxyHttp for LB {
     // type CTX = ();
     // fn new_ctx(&self) -> Self::CTX {}
-    type CTX = MyCtx;
+    type CTX = Context;
     fn new_ctx(&self) -> Self::CTX {
-        MyCtx { backend_id: String::new() }
+        Context { backend_id: String::new() }
     }
     async fn upstream_peer(&self, session: &mut Session, _ctx: &mut Self::CTX) -> Result<Box<HttpPeer>> {
         let host_name = return_header_host(&session);
@@ -45,14 +43,6 @@ impl ProxyHttp for LB {
         match host_name {
             Some(host) => {
                 // session.req_header_mut().headers.insert("X-Host-Name", host.to_string().parse().unwrap());
-
-                // let mut backend_id = Option::<&str>::None;
-                // if let Some(_) = self.config.get("sticky_sessions") {
-                //     if let Some(cookies) = session.req_header().headers.get("cookie") {
-                //         let cookie_str = cookies.to_str().unwrap_or("").split(" ").collect::<Vec<&str>>()[1];
-                //         backend_id = Some(cookie_str);
-                //     }
-                // }
 
                 let mut backend_id = None;
                 {
