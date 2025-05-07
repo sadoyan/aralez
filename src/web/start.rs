@@ -1,3 +1,4 @@
+use crate::utils::parceyaml::Extraparams;
 use crate::utils::tools::*;
 use crate::web::proxyhttp::LB;
 use dashmap::DashMap;
@@ -6,6 +7,7 @@ use pingora_core::prelude::{background_service, Opt};
 use pingora_core::server::Server;
 use std::env;
 use std::sync::Arc;
+use tokio::sync::RwLock;
 
 pub fn run() {
     let parameters = Some(Opt::parse_args()).unwrap();
@@ -28,11 +30,13 @@ pub fn run() {
     let ff: UpstreamsDashMap = DashMap::new();
     let im: UpstreamsIdMap = DashMap::new();
     let hh: Headers = DashMap::new();
+    let ec: Extraparams = Extraparams { stickysessions: false };
 
     let uf_config = Arc::new(uf);
     let ff_config = Arc::new(ff);
     let im_config = Arc::new(im);
     let hh_config = Arc::new(hh);
+    let ec_config = Arc::new(RwLock::new(ec));
 
     let cfg = Arc::new(maincfg);
     let local = Arc::new(local_conf);
@@ -48,6 +52,7 @@ pub fn run() {
         local: local.clone(),
         headers: hh_config.clone(),
         proxyconf: pconf.clone(),
+        extraparams: ec_config.clone(),
     };
     let bg = LB {
         ump_upst: uf_config.clone(),
@@ -57,6 +62,7 @@ pub fn run() {
         local: local.clone(),
         headers: hh_config.clone(),
         proxyconf: pconf.clone(),
+        extraparams: ec_config.clone(),
     };
 
     // env_logger::Env::new();

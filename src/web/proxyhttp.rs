@@ -1,5 +1,5 @@
 use crate::utils::auth::authenticate;
-use crate::utils::parceyaml::AppConfig;
+use crate::utils::parceyaml::{AppConfig, Extraparams};
 use crate::utils::tools::*;
 use crate::web::gethosts::GetHost;
 use async_trait::async_trait;
@@ -13,6 +13,7 @@ use pingora_http::ResponseHeader;
 use pingora_proxy::{ProxyHttp, Session};
 use std::ops::Deref;
 use std::sync::Arc;
+use tokio::sync::RwLock;
 
 pub struct LB {
     pub ump_upst: Arc<UpstreamsDashMap>,
@@ -23,6 +24,8 @@ pub struct LB {
     pub config: Arc<AppConfig>,
     pub local: Arc<(String, u16)>,
     pub proxyconf: Arc<DashMap<String, Vec<String>>>,
+    // pub extraparams: Arc<Mutex<Extraparams>>,
+    pub extraparams: Arc<RwLock<Extraparams>>,
 }
 
 pub struct MyCtx {
@@ -53,15 +56,17 @@ impl ProxyHttp for LB {
                 // }
 
                 let mut backend_id = None;
-
-                if self.config.sticky_sessions {
-                    if let Some(cookies) = session.req_header().headers.get("cookie") {
-                        if let Ok(cookie_str) = cookies.to_str() {
-                            for cookie in cookie_str.split(';') {
-                                let trimmed = cookie.trim();
-                                if let Some(value) = trimmed.strip_prefix("backend_id=") {
-                                    backend_id = Some(value);
-                                    break;
+                {
+                    let read_guard = self.extraparams.read().await;
+                    if read_guard.stickysessions {
+                        if let Some(cookies) = session.req_header().headers.get("cookie") {
+                            if let Ok(cookie_str) = cookies.to_str() {
+                                for cookie in cookie_str.split(';') {
+                                    let trimmed = cookie.trim();
+                                    if let Some(value) = trimmed.strip_prefix("backend_id=") {
+                                        backend_id = Some(value);
+                                        break;
+                                    }
                                 }
                             }
                         }
@@ -134,11 +139,14 @@ impl ProxyHttp for LB {
     async fn response_filter(&self, _session: &mut Session, _upstream_response: &mut ResponseHeader, _ctx: &mut Self::CTX) -> Result<()> {
         // _upstream_response.insert_header("X-Proxied-From", "Fooooooooooooooo").unwrap();
 
-        if self.config.sticky_sessions {
-            let backend_id = _ctx.backend_id.clone();
-            if let Some(bid) = self.ump_byid.get(&backend_id) {
-                // let _ = _upstream_response.insert_header("set-cookie", format!("backend {}", bid.0));
-                let _ = _upstream_response.insert_header("set-cookie", format!("backend_id={}; Path=/; Max-Age=600; HttpOnly; SameSite=Lax", bid.0));
+        {
+            let read_guard = self.extraparams.read().await;
+            if read_guard.stickysessions {
+                let backend_id = _ctx.backend_id.clone();
+                if let Some(bid) = self.ump_byid.get(&backend_id) {
+                    // let _ = _upstream_response.insert_header("set-cookie", format!("backend {}", bid.0));
+                    let _ = _upstream_response.insert_header("set-cookie", format!("backend_id={}; Path=/; Max-Age=600; HttpOnly; SameSite=Lax", bid.0));
+                }
             }
         }
 

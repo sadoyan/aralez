@@ -101,6 +101,7 @@ A sample `upstreams.yaml` entry:
 
 ```yaml
 provider: "file"
+stickysessions: false
 globals:
   headers:
     - "Access-Control-Allow-Origin:*"
@@ -130,6 +131,7 @@ myhost.mydomain.com:
 
 This means:
 
+- Sticky sessions are disabled globally. This boolean setting applies to all upstreams.
 - Requests to `myhost.mydomain.com/` will be load balanced to `127.0.0.1` and `127.0.0.2` servers via plain http.
 - Requests to `myhost.mydomain.com/foo` will be load balanced to `127.0.0.4` and `127.0.0.5` servers via https.
 - Global headers (CORS for this case) will be injected to all upstreams

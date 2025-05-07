@@ -1,5 +1,6 @@
 # The file is under watch and hot reload , changes are applied immediately, no need to restart or reload
 provider: "file" # consul
+stickysessions: false
 globals:
   headers: # Global headers, appended for all upstreams and all paths.
     - "Access-Control-Allow-Origin:*"

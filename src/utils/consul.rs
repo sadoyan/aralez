@@ -70,6 +70,7 @@ pub async fn start(fp: String, mut toreturn: Sender<Configuration>) {
                                         headers: Default::default(),
                                         consul: None,
                                         typecfg: "".to_string(),
+                                        extraparams: config.extraparams.clone(),
                                         globals: Default::default(),
                                     };
 
@@ -94,62 +95,6 @@ pub async fn start(fp: String, mut toreturn: Sender<Configuration>) {
     }
 }
 
-/*
-async fn http_request(url: String, whitelist: Option<Vec<String>>) -> Option<UpstreamsDashMap> {
-    let client = reqwest::Client::new();
-    let to = Duration::from_secs(1);
-    let upstreams = UpstreamsDashMap::new();
-    let excludes = vec!["consul", "nomad", "nomad-client"];
-    let ss = url.clone() + "/v1/catalog/service";
-    let response = client.get(ss.clone() + "s").timeout(to).send().await;
-    match response {
-        Ok(r) => {
-            let json = r.json::<HashMap<String, Vec<String>>>().await;
-            match json {
-                Ok(_j) => {
-                    for (k, _v) in _j {
-                        match whitelist.clone() {
-                            Some(whitelist) => {
-                                if whitelist.iter().any(|i| *i == k) {
-                                    let mut pref: String = ss.clone() + "/";
-                                    pref.push_str(&k);
-                                    let list = get_by_http(pref).await;
-                                    match list {
-                                        Some(list) => {
-                                            upstreams.insert(k.to_string(), list);
-                                        }
-                                        None => {}
-                                    }
-                                }
-                            }
-                            None => {
-                                if !excludes.iter().any(|&i| i == k) {
-                                    let mut pref: String = ss.clone() + "/";
-                                    pref.push_str(&k);
-                                    let list = get_by_http(pref).await;
-                                    match list {
-                                        Some(list) => {
-                                            upstreams.insert(k.to_string(), list);
-                                        }
-                                        None => {}
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    // print_upstreams(&upstreams);
-                    Some(upstreams)
-                }
-                Err(_) => None,
-            }
-        }
-        Err(e) => {
-            println!("Error: {:?}", e);
-            None
-        }
-    }
-}
-*/
 async fn consul_request(url: String, whitelist: Option<Vec<ServiceMapping>>, token: Option<String>) -> Option<UpstreamsDashMap> {
     let upstreams = UpstreamsDashMap::new();
     let ss = url.clone() + "/v1/catalog/service/";

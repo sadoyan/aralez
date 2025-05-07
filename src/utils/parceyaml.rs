@@ -14,6 +14,11 @@ pub struct ServiceMapping {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Extraparams {
+    pub stickysessions: bool,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Consul {
     pub servers: Option<Vec<String>>,
     pub services: Option<Vec<ServiceMapping>>,
@@ -22,6 +27,7 @@ pub struct Consul {
 #[derive(Debug, Serialize, Deserialize)]
 struct Config {
     provider: String,
+    stickysessions: bool,
     upstreams: Option<HashMap<String, HostConfig>>,
     globals: Option<HashMap<String, Vec<String>>>,
     consul: Option<Consul>,
@@ -43,6 +49,7 @@ pub struct Configuration {
     pub headers: Headers,
     pub consul: Option<Consul>,
     pub typecfg: String,
+    pub extraparams: Extraparams,
     pub globals: Option<DashMap<String, Vec<String>>>,
 }
 
@@ -53,6 +60,7 @@ pub fn load_configuration(d: &str, kind: &str) -> Option<Configuration> {
         headers: Default::default(),
         consul: None,
         typecfg: "".to_string(),
+        extraparams: Extraparams { stickysessions: false },
         globals: Default::default(),
     };
     toreturn.upstreams = UpstreamsDashMap::new();
@@ -97,7 +105,7 @@ pub fn load_configuration(d: &str, kind: &str) -> Option<Configuration> {
                 }
                 global_headers.insert("/".to_string(), hl);
                 toreturn.headers.insert("GLOBAL_HEADERS".to_string(), global_headers);
-
+                toreturn.extraparams.stickysessions = parsed.stickysessions;
                 let cfg = DashMap::new();
                 if let Some(k) = globals.get("authorization") {
                     cfg.insert("authorization".to_string(), k.to_owned());
@@ -166,7 +174,6 @@ pub fn load_configuration(d: &str, kind: &str) -> Option<Configuration> {
 
 #[derive(Debug, Deserialize)]
 pub struct AppConfig {
-    pub sticky_sessions: bool,
     pub hc_interval: u16,
     pub hc_method: String,
     pub upstreams_conf: String,

@@ -22,7 +22,6 @@ pub async fn start(fp: String, mut toreturn: Sender<Configuration>) {
         }
         None => {}
     }
-
     let _watcher_handle = task::spawn_blocking({
         let parent_dir = parent_dir.to_path_buf(); // Move directory path into the closure
         move || {
