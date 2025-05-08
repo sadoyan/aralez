@@ -30,7 +30,6 @@ struct TaggedAddress {
 pub async fn start(fp: String, mut toreturn: Sender<Configuration>) {
     let config = load_configuration(fp.as_str(), "filepath");
     let headers = DashMap::new();
-
     match config {
         Some(config) => {
             if config.typecfg.to_string() != "consul" {
@@ -55,7 +54,6 @@ pub async fn start(fp: String, mut toreturn: Sender<Configuration>) {
                         }
                         let consul_data = servers.get(num).unwrap().to_string();
                         let upstreams = consul_request(consul_data, consul.services.clone(), consul.token.clone());
-
                         match upstreams.await {
                             Some(upstreams) => {
                                 if !compare_dashmaps(&upstreams, &prev_upstreams) {

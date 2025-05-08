@@ -44,6 +44,7 @@ pub struct PathConfig {
     pub servers: Vec<String>,
     pub headers: Option<Vec<String>>,
 }
+#[derive(Debug)]
 pub struct Configuration {
     pub upstreams: UpstreamsDashMap,
     pub headers: Headers,

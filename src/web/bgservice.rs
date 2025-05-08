@@ -54,14 +54,10 @@ impl BackgroundService for LB {
                             clone_dashmap_into(&ss.upstreams, &self.ump_full);
                             clone_dashmap_into(&ss.upstreams, &self.ump_upst);
                             self.proxyconf.clear();
-
-                            // println!(" ====> {:?}", self.extraparams);
                             {
                                 let mut write_guard = self.extraparams.write().await;
                                 write_guard.stickysessions = ss.extraparams.stickysessions;
                             }
-                            // println!(" ====> {:?}", self.extraparams);
-
                             match ss.globals {
                                 Some(globals) => {
                                     for (k,v) in globals {

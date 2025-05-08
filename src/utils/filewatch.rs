@@ -2,7 +2,7 @@ use crate::utils::parceyaml::load_configuration;
 use crate::utils::structs::Configuration;
 use futures::channel::mpsc::Sender;
 use futures::SinkExt;
-use log::{error, info};
+use log::{error, info, warn};
 use notify::event::ModifyKind;
 use notify::{Config, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use pingora::prelude::sleep;
@@ -15,10 +15,15 @@ pub async fn start(fp: String, mut toreturn: Sender<Configuration>) {
     let file_path = fp.as_str();
     let parent_dir = Path::new(file_path).parent().unwrap();
     let (local_tx, mut local_rx) = tokio::sync::mpsc::channel::<notify::Result<Event>>(1);
-    info!("Watching for changes in {:?}", parent_dir);
     let snd = load_configuration(file_path, "filepath");
+
     match snd {
         Some(snd) => {
+            if snd.typecfg != "file" {
+                warn!("Disabling file watcher, requested discovery type is: {}", snd.typecfg);
+                return;
+            }
+            info!("Watching for changes in {:?}", parent_dir);
             toreturn.send(snd).await.unwrap();
         }
         None => {}
