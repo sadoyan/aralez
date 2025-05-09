@@ -9,7 +9,7 @@ globals:
     - "X-Custom-Header:Something Special"
 #  authorization: #  Optional, only one of auth methods below can be active at a time
 #    - "basic"
-#    - "zangag:Anhnazand1234"
+#    - "gazan:Gazanpass1234"
 #    - "apikey"
 #    - "5a28cc4c-ce10-4ff1-824e-743c38835f5c"
 #    - "jwt"
@@ -31,7 +31,6 @@ upstreams: # If provider is files. Otherwise ignored
   myip.netangels.net: # Hostname, or header host to access the upstream
     paths: # URL path(s) for current upstream, closest match wins
       "/":
-        ssl: false # If upstream is SSL enabled
         headers: # Custom headers, set only for this Host and Path
           - "X-Proxy-From:Gazan"
         servers: # List of upstreams HOST:PORT
@@ -40,7 +39,6 @@ upstreams: # If provider is files. Otherwise ignored
           - "127.0.0.3:8000"
           - "127.0.0.4:8000"
       "/ping":
-        ssl: false
         headers:
           - "X-Some-Thing:Yaaaaaaaaaaaaaaa"
           - "X-Proxy-From:Gazan"
@@ -48,13 +46,11 @@ upstreams: # If provider is files. Otherwise ignored
           - "127.0.0.1:8000"
           - "127.0.0.2:8000"
       "/draw":
-        ssl: false
         servers:
           - "192.168.1.1:8000"
   polo.netangels.net:
     paths:
       "/":
-        ssl: false
         headers:
           - "X-Some-Thing:Yaaaaaaaaaaaaaaa"
         servers:
@@ -67,7 +63,6 @@ upstreams: # If provider is files. Otherwise ignored
   glop.netangels.net:
     paths:
       "/":
-        ssl: false
         headers:
           - "X-Hopar-From:Hopaaaaaaaaaaaar"
         servers:
@@ -76,30 +71,25 @@ upstreams: # If provider is files. Otherwise ignored
   apt.netangels.net:
     paths:
       "/":
-        ssl: true
         servers:
           - "apt.netangels.net:443"
   test.netangels.net:
     paths:
       "/":
-        ssl: false
         servers:
           - "myip.netangels.net:80"
   127.0.0.1:
     paths:
       "/":
-        ssl: false
         servers:
           - "192.168.1.5:8080"
   127.0.0.2:
     paths:
       "/":
-        ssl: false
         servers:
           - "10.0.55.171:3000"
   localpost:
     paths:
       "/":
-        ssl: false
         servers:
           - "127.0.0.1:9000"

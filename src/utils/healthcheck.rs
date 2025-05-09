@@ -20,22 +20,29 @@ pub async fn hc2(upslist: Arc<UpstreamsDashMap>, fullist: Arc<UpstreamsDashMap>,
                 for val in fclone.iter() {
                     let host = val.key();
                     let inner = DashMap::new();
+                    let mut _scheme: (String, u16, bool) = ("".to_string(), 0, false);
                     for path_entry in val.value().iter() {
                         // let inner = DashMap::new();
                         let path = path_entry.key();
                         let mut innervec= Vec::new();
-                        for k in path_entry.value().0.iter().enumerate() {
-                            let (ip, port, ssl) = k.1;
+                        for k in path_entry.value().0 .iter().enumerate() {
+                            let (ip, port, _ssl) = k.1;
                             let mut _pref = "";
-                            match ssl {
+                            let tls = detect_tls(ip, port).await;
+                            match tls {
                                 true => _pref = "https://",
                                 false => _pref = "http://",
+                            }
+                            if _pref == "https://" {
+                                _scheme = (ip.to_string(), *port, true);
+                            }else {
+                                _scheme = (ip.to_string(), *port, false);
                             }
                             let link = format!("{}{}:{}{}", _pref, ip, port, path);
                             let resp = http_request(link.as_str(), params.0, "").await;
                             match resp {
                                 true => {
-                                    innervec.push(k.1.clone());
+                                    innervec.push(_scheme.clone());
                                 }
                                 false => {
                                     warn!("Dead Upstream : {}", link);
@@ -48,8 +55,9 @@ pub async fn hc2(upslist: Arc<UpstreamsDashMap>, fullist: Arc<UpstreamsDashMap>,
                 }
 
                 if first_run == 1 {
-                    info!("Synchronising inner hashmaps");
+                    info!("Performing initial hatchecks and upstreams ssl detection");
                     clone_idmap_into(&totest, &idlist);
+                    info!("Gazan is up and ready to serve requests");
                 }
 
                 first_run+=1;
@@ -58,7 +66,7 @@ pub async fn hc2(upslist: Arc<UpstreamsDashMap>, fullist: Arc<UpstreamsDashMap>,
                     clone_dashmap_into(&totest, &upslist);
                     clone_idmap_into(&totest, &idlist);
                 }
-                // print!("{:?}", idlist);
+
             }
         }
     }
@@ -105,5 +113,24 @@ pub async fn ping_grpc(addr: &str) -> bool {
         }
     } else {
         false
+    }
+}
+
+async fn detect_tls(ip: &str, port: &u16) -> bool {
+    let url = format!("https://{}:{}", ip, port);
+    let client = Client::builder()
+        .timeout(Duration::from_secs(2))
+        .danger_accept_invalid_certs(true) // skip cert validation for testing
+        .build()
+        .unwrap();
+    match client.get(&url).send().await {
+        Ok(_) => true,
+        Err(e) => {
+            if e.is_builder() || e.is_connect() || e.to_string().contains("tls") {
+                false
+            } else {
+                false
+            }
+        }
     }
 }

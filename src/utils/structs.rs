@@ -41,7 +41,6 @@ pub struct HostConfig {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PathConfig {
-    pub ssl: bool,
     pub servers: Vec<String>,
     pub headers: Option<Vec<String>>,
 }

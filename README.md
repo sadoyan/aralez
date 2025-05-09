@@ -113,7 +113,6 @@ globals:
 myhost.mydomain.com:
   paths:
     "/":
-      ssl: false
       headers:
         - "X-Some-Thing:Yaaaaaaaaaaaaaaa"
         - "X-Proxy-From:Hopaaaaaaaaaaaar"
@@ -121,19 +120,21 @@ myhost.mydomain.com:
         - "127.0.0.1:8000"
         - "127.0.0.2:8000"
     "/foo":
-      ssl: true
       headers:
         - "X-Another-Header:Hohohohoho"
       servers:
-        - "127.0.0.4:8000"
-        - "127.0.0.5:8000"
+        - "127.0.0.4:8443"
+        - "127.0.0.5:8443"
 ```
 
 This means:
 
 - Sticky sessions are disabled globally. This boolean setting applies to all upstreams.
-- Requests to `myhost.mydomain.com/` will be load balanced to `127.0.0.1` and `127.0.0.2` servers via plain http.
-- Requests to `myhost.mydomain.com/foo` will be load balanced to `127.0.0.4` and `127.0.0.5` servers via https.
+- Requests to `myhost.mydomain.com/` will be load balanced to `127.0.0.1` and `127.0.0.2`.
+- Requests to `myhost.mydomain.com/foo` will be load balanced to `127.0.0.4` and `127.0.0.5`.
+- SSL/TLS for upstreams is detected automatically, no need to set any config parameter.
+    - Assuming the `127.0.0.5:8443` is SSL protected. It will be detected automatically.
+    - Self signed certificates are silently accepted
 - Global headers (CORS for this case) will be injected to all upstreams
 - Additional headers will be injected into the request for `myhost.mydomain.com`.
 - You can choose any path, deep nested paths are supported, the best match will be chosen
