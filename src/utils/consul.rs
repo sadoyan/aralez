@@ -63,13 +63,12 @@ pub async fn start(fp: String, mut toreturn: Sender<Configuration>) {
                                         consul: None,
                                         typecfg: "".to_string(),
                                         extraparams: config.extraparams.clone(),
-                                        globals: Default::default(),
                                     };
 
                                     clone_dashmap_into(&upstreams, &prev_upstreams);
                                     clone_dashmap_into(&upstreams, &tosend.upstreams);
                                     tosend.headers = headers.clone();
-                                    tosend.globals = config.globals.clone();
+                                    tosend.extraparams.authentication = config.extraparams.authentication.clone();
                                     tosend.typecfg = config.typecfg.clone();
                                     tosend.consul = config.consul.clone();
                                     toreturn.send(tosend).await.unwrap();

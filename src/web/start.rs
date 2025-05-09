@@ -1,56 +1,38 @@
-use crate::utils::structs::{Extraparams, Headers, UpstreamsDashMap, UpstreamsIdMap};
+use crate::utils::structs::Extraparams;
 use crate::web::proxyhttp::LB;
+use arc_swap::ArcSwap;
 use dashmap::DashMap;
 use log::info;
 use pingora_core::prelude::{background_service, Opt};
 use pingora_core::server::Server;
 use std::env;
 use std::sync::Arc;
-use tokio::sync::RwLock;
 
 pub fn run() {
     let parameters = Some(Opt::parse_args()).unwrap();
     let file = parameters.conf.clone().unwrap();
     let maincfg = crate::utils::parceyaml::parce_main_config(file.as_str());
 
-    // println!("{:?}", maincfg);
-
-    let mut local_conf: (String, u16) = ("0.0.0.0".to_string(), 0);
-    if let Some((ip, port_str)) = maincfg.config_address.split_once(':') {
-        if let Ok(port) = port_str.parse::<u16>() {
-            local_conf = (ip.to_string(), port);
-        }
-    }
-
     let mut server = Server::new(parameters).unwrap();
     server.bootstrap();
 
-    let uf: UpstreamsDashMap = DashMap::new();
-    let ff: UpstreamsDashMap = DashMap::new();
-    let im: UpstreamsIdMap = DashMap::new();
-    let hh: Headers = DashMap::new();
-    let ec: Extraparams = Extraparams { stickysessions: false };
-
-    let uf_config = Arc::new(uf);
-    let ff_config = Arc::new(ff);
-    let im_config = Arc::new(im);
-    let hh_config = Arc::new(hh);
-    let ec_config = Arc::new(RwLock::new(ec));
+    let uf_config = Arc::new(DashMap::new());
+    let ff_config = Arc::new(DashMap::new());
+    let im_config = Arc::new(DashMap::new());
+    let hh_config = Arc::new(DashMap::new());
+    let ec_config = Arc::new(ArcSwap::from_pointee(Extraparams {
+        stickysessions: false,
+        authentication: DashMap::new(),
+    }));
 
     let cfg = Arc::new(maincfg);
-    let local = Arc::new(local_conf);
-
-    let proxyconf: DashMap<String, Vec<String>> = Default::default();
-    let pconf = Arc::new(proxyconf);
 
     let lb = LB {
         ump_upst: uf_config.clone(),
         ump_full: ff_config.clone(),
         ump_byid: im_config.clone(),
         config: cfg.clone(),
-        local: local.clone(),
         headers: hh_config.clone(),
-        proxyconf: pconf.clone(),
         extraparams: ec_config.clone(),
     };
     let bg = LB {
@@ -58,9 +40,7 @@ pub fn run() {
         ump_full: ff_config.clone(),
         ump_byid: im_config.clone(),
         config: cfg.clone(),
-        local: local.clone(),
         headers: hh_config.clone(),
-        proxyconf: pconf.clone(),
         extraparams: ec_config.clone(),
     };
 

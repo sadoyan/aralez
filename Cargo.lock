@@ -762,6 +762,7 @@ dependencies = [
 name = "gazan"
 version = "0.1.0"
 dependencies = [
+ "arc-swap",
  "async-trait",
  "axum",
  "base16ct",

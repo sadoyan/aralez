@@ -13,9 +13,10 @@ pub struct ServiceMapping {
     pub real: String,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug)]
 pub struct Extraparams {
     pub stickysessions: bool,
+    pub authentication: DashMap<String, Vec<String>>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -51,7 +52,6 @@ pub struct Configuration {
     pub consul: Option<Consul>,
     pub typecfg: String,
     pub extraparams: Extraparams,
-    pub globals: Option<DashMap<String, Vec<String>>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -66,4 +66,5 @@ pub struct AppConfig {
     pub proxy_address_tls: Option<String>,
     pub tls_certificate: Option<String>,
     pub tls_key_file: Option<String>,
+    pub local_server: Option<(String, u16)>,
 }

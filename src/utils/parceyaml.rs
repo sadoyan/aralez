@@ -12,8 +12,10 @@ pub fn load_configuration(d: &str, kind: &str) -> Option<Configuration> {
         headers: Default::default(),
         consul: None,
         typecfg: "".to_string(),
-        extraparams: Extraparams { stickysessions: false },
-        globals: Default::default(),
+        extraparams: Extraparams {
+            stickysessions: false,
+            authentication: DashMap::new(),
+        },
     };
     toreturn.upstreams = UpstreamsDashMap::new();
     toreturn.headers = Headers::new();
@@ -58,9 +60,9 @@ pub fn load_configuration(d: &str, kind: &str) -> Option<Configuration> {
                 let cfg = DashMap::new();
                 if let Some(k) = globals.get("authorization") {
                     cfg.insert("authorization".to_string(), k.to_owned());
-                    toreturn.globals = Some(cfg);
+                    toreturn.extraparams.authentication = cfg;
                 } else {
-                    toreturn.globals = None;
+                    toreturn.extraparams.authentication = DashMap::new();
                 }
             }
             match parsed.provider.as_str() {
@@ -130,6 +132,11 @@ pub fn parce_main_config(path: &str) -> AppConfig {
     cfo.hc_method = cfo.hc_method.to_uppercase();
     for (k, v) in cfg {
         reply.insert(k.to_string(), v.to_string());
+    }
+    if let Some((ip, port_str)) = cfo.config_address.split_once(':') {
+        if let Ok(port) = port_str.parse::<u16>() {
+            cfo.local_server = Option::from((ip.to_string(), port));
+        }
     }
     cfo
 }

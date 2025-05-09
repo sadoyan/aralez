@@ -1,6 +1,6 @@
 # The file is under watch and hot reload , changes are applied immediately, no need to restart or reload
 provider: "file" # consul
-stickysessions: false
+stickysessions: true
 globals:
   headers: # Global headers, appended for all upstreams and all paths.
     - "Access-Control-Allow-Origin:*"
@@ -22,10 +22,10 @@ consul: # If the provider is consul. Otherwise ignored
   services: # proxy: The hostname to access proxy server, real : The real service name in Consul
     - proxy: "proxy-frontend-dev-frontend-srv"
       real: "frontend-dev-frontend-srv"
-    - proxy: "proxy-gateway-test-gateway-srv"
-      real: "gateway-test-gateway-srv"
-    - proxy: "proxy-backoffice-dev-backoffice-srv"
-      real: "backoffice-dev-backoffice-srv"
+  #    - proxy: "proxy-gateway-test-gateway-srv"
+  #      real: "gateway-test-gateway-srv"
+  #    - proxy: "proxy-backoffice-dev-backoffice-srv"
+  #      real: "backoffice-dev-backoffice-srv"
   token: "8e2db809-845b-45e1-8b47-2c8356a09da0-a4370955-18c2-4d6e-a8f8-ffcc0b47be81" # Consul server access token, If Consul auth is enabled
 upstreams: # If provider is files. Otherwise ignored
   myip.netangels.net: # Hostname, or header host to access the upstream

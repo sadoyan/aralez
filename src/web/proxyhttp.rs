@@ -1,8 +1,8 @@
 use crate::utils::auth::authenticate;
 use crate::utils::structs::{AppConfig, Extraparams, Headers, UpstreamsDashMap, UpstreamsIdMap};
 use crate::web::gethosts::GetHost;
+use arc_swap::ArcSwap;
 use async_trait::async_trait;
-use dashmap::DashMap;
 use log::{debug, warn};
 use pingora::http::RequestHeader;
 use pingora::prelude::*;
@@ -10,9 +10,7 @@ use pingora_core::listeners::ALPN;
 use pingora_core::prelude::HttpPeer;
 use pingora_http::ResponseHeader;
 use pingora_proxy::{ProxyHttp, Session};
-use std::ops::Deref;
 use std::sync::Arc;
-use tokio::sync::RwLock;
 
 pub struct LB {
     pub ump_upst: Arc<UpstreamsDashMap>,
@@ -20,9 +18,7 @@ pub struct LB {
     pub ump_byid: Arc<UpstreamsIdMap>,
     pub headers: Arc<Headers>,
     pub config: Arc<AppConfig>,
-    pub local: Arc<(String, u16)>,
-    pub proxyconf: Arc<DashMap<String, Vec<String>>>,
-    pub extraparams: Arc<RwLock<Extraparams>>,
+    pub extraparams: Arc<ArcSwap<Extraparams>>,
 }
 
 pub struct Context {
@@ -45,17 +41,14 @@ impl ProxyHttp for LB {
                 // session.req_header_mut().headers.insert("X-Host-Name", host.to_string().parse().unwrap());
 
                 let mut backend_id = None;
-                {
-                    let read_guard = self.extraparams.read().await;
-                    if read_guard.stickysessions {
-                        if let Some(cookies) = session.req_header().headers.get("cookie") {
-                            if let Ok(cookie_str) = cookies.to_str() {
-                                for cookie in cookie_str.split(';') {
-                                    let trimmed = cookie.trim();
-                                    if let Some(value) = trimmed.strip_prefix("backend_id=") {
-                                        backend_id = Some(value);
-                                        break;
-                                    }
+                if self.extraparams.load().stickysessions {
+                    if let Some(cookies) = session.req_header().headers.get("cookie") {
+                        if let Ok(cookie_str) = cookies.to_str() {
+                            for cookie in cookie_str.split(';') {
+                                let trimmed = cookie.trim();
+                                if let Some(value) = trimmed.strip_prefix("backend_id=") {
+                                    backend_id = Some(value);
+                                    break;
                                 }
                             }
                         }
@@ -76,20 +69,18 @@ impl ProxyHttp for LB {
                     }
                     None => {
                         warn!("Upstream not found. Host: {:?}, Path: {}", host, session.req_header().uri);
-                        let peer = Box::new(HttpPeer::new(self.local.deref(), false, String::new()));
-                        Ok(peer)
+                        Ok(return_no_host(&self.config.local_server))
                     }
                 }
             }
             None => {
                 warn!("Upstream not found. Host: {:?}, Path: {}", host_name, session.req_header().uri);
-                let peer = Box::new(HttpPeer::new(self.local.deref(), false, String::new()));
-                Ok(peer)
+                Ok(return_no_host(&self.config.local_server))
             }
         }
     }
     async fn request_filter(&self, session: &mut Session, _ctx: &mut Self::CTX) -> Result<bool> {
-        if let Some(auth) = self.proxyconf.get("authorization") {
+        if let Some(auth) = self.extraparams.load().authentication.get("authorization") {
             let authenticated = authenticate(&auth.value(), &session);
             if !authenticated {
                 let _ = session.respond_error(401).await;
@@ -97,11 +88,11 @@ impl ProxyHttp for LB {
                 return Ok(true);
             }
         };
-        if session.req_header().uri.path().starts_with("/denied") {
-            let _ = session.respond_error(403).await;
-            warn!("Forbidden: {:?}, {}", session.client_addr(), session.req_header().uri.path().to_string());
-            return Ok(true);
-        };
+        // if session.req_header().uri.path().starts_with("/denied") {
+        //     let _ = session.respond_error(403).await;
+        //     warn!("Forbidden: {:?}, {}", session.client_addr(), session.req_header().uri.path().to_string());
+        //     return Ok(true);
+        // };
         Ok(false)
     }
     async fn upstream_request_filter(&self, _session: &mut Session, _upstream_request: &mut RequestHeader, _ctx: &mut Self::CTX) -> Result<()> {
@@ -128,14 +119,11 @@ impl ProxyHttp for LB {
     async fn response_filter(&self, _session: &mut Session, _upstream_response: &mut ResponseHeader, _ctx: &mut Self::CTX) -> Result<()> {
         // _upstream_response.insert_header("X-Proxied-From", "Fooooooooooooooo").unwrap();
 
-        {
-            let read_guard = self.extraparams.read().await;
-            if read_guard.stickysessions {
-                let backend_id = _ctx.backend_id.clone();
-                if let Some(bid) = self.ump_byid.get(&backend_id) {
-                    // let _ = _upstream_response.insert_header("set-cookie", format!("backend {}", bid.0));
-                    let _ = _upstream_response.insert_header("set-cookie", format!("backend_id={}; Path=/; Max-Age=600; HttpOnly; SameSite=Lax", bid.0));
-                }
+        if self.extraparams.load().stickysessions {
+            let backend_id = _ctx.backend_id.clone();
+            if let Some(bid) = self.ump_byid.get(&backend_id) {
+                // let _ = _upstream_response.insert_header("set-cookie", format!("backend {}", bid.0));
+                let _ = _upstream_response.insert_header("set-cookie", format!("backend_id={}; Path=/; Max-Age=600; HttpOnly; SameSite=Lax", bid.0));
             }
         }
 
@@ -189,5 +177,12 @@ fn return_header_host(session: &Session) -> Option<&str> {
             }
             None => None,
         }
+    }
+}
+
+fn return_no_host(inp: &Option<(String, u16)>) -> Box<HttpPeer> {
+    match inp {
+        Some(t) => Box::new(HttpPeer::new(t, false, String::new())),
+        None => Box::new(HttpPeer::new(("0.0.0.0", 0), false, String::new())),
     }
 }

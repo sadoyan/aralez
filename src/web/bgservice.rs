@@ -10,6 +10,7 @@ use futures::StreamExt;
 use log::info;
 use pingora_core::server::ShutdownWatch;
 use pingora_core::services::background::BackgroundService;
+use std::sync::Arc;
 
 #[async_trait]
 impl BackgroundService for LB {
@@ -53,19 +54,11 @@ impl BackgroundService for LB {
                         Some(ss) => {
                             clone_dashmap_into(&ss.upstreams, &self.ump_full);
                             clone_dashmap_into(&ss.upstreams, &self.ump_upst);
-                            self.proxyconf.clear();
-                            {
-                                let mut write_guard = self.extraparams.write().await;
-                                write_guard.stickysessions = ss.extraparams.stickysessions;
-                            }
-                            match ss.globals {
-                                Some(globals) => {
-                                    for (k,v) in globals {
-                                        self.proxyconf.insert(k, v);
-                                    }
-                                }
-                                None => {}
-                            }
+                            let current = self.extraparams.load_full();
+                            let mut new = (*current).clone();
+                            new.stickysessions = ss.extraparams.stickysessions;
+                            new.authentication = ss.extraparams.authentication.clone();
+                            self.extraparams.store(Arc::new(new));
                             self.headers.clear();
 
                             for entry in ss.upstreams.iter() {
