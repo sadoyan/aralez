@@ -7,20 +7,34 @@ Gazan is a Reverse proxy, service mesh based on Cloudflare's Pingora
 **What Gazan means?**
 <ins>Gazan = Գազան = beast / wild animal in Armenian / Often used as a synonym to something great.</ins>.
 
-Built on Rust, on top of **Cloudflare’s Pingora engine**, **Gazan** delivers world-class performance, security, and scalability — right out of the box.
+Built on Rust, on top of **Cloudflare’s Pingora engine**, **Gazan** delivers world-class performance, security and scalability — right out of the box.
 
 ---
 
+## 🔧 Key Features
+
+- **Dynamic Config Reloads** — Upstreams can be updated live via API, no restart required
+- **TLS Termination** — Built-in OpenSSL support
+- **Upstreams TLS detection** — Gazan will automatically detect if upstreams uses secure connection
+- **Authentication** — Supports Basic Auth, API tokens, and JWT verification
+- **Load Balancing Strategies**
+    - Round-robin
+    - Failover with health checks
+    - Sticky sessions via cookies
+- **Unified Port** — Serve HTTP and WebSocket traffic over the same connection
+- **Memory Safe** — Created purely on Rust
+- **High Performance** — Built with [Pingora](https://github.com/cloudflare/pingora) and tokio for async I/O
+
 ## 🌍 Highlights
 
-- ⚙️ **Upstream Providers:** Supports `file`-based static upstreams, dynamic service discovery via `Consul`, and upcoming `Kubernetes` integration
+- ⚙️ **Upstream Providers:** Supports `file`-based static upstreams, dynamic service discovery via `Consul`
 - 🔁 **Hot Reloading:** Modify upstreams on the fly via `upstreams.yaml` — no restart needed
 - 🔮 **Automatic WebSocket Support:** Zero config — connection upgrades are handled seamlessly
 - 🔮 **Automatic GRPC Support:** Zero config, Requires `ssl` to proxy, gRPC is handled seamlessly
 - 🔮 **Upstreams Session Stickiness:** Enable/Disable Sticky session support with single parameter in config file
 - 🔐 **TLS Termination:** Fully supports TLS for incoming and upstream traffic
-- 🛡️ **Built-in Auth Support:** Basic Auth, JWT, API key
-- 🧠 **CORS & Header Injection:** Global and per-route header configuration
+- 🛡️ **Built-in Authentication** Basic Auth, JWT, API key
+- 🧠 **Header Injection:** Global and per-route header configuration
 - 🧪 **Health Checks:** Pluggable health check methods for upstreams
 - 🛰️ **Remote Config Push:** Lightweight HTTP API to update configs from CI/CD or other systems
 
@@ -60,7 +74,6 @@ Built on Rust, on top of **Cloudflare’s Pingora engine**, **Gazan** delivers w
     - Hostnames and routing paths
     - Backend servers (load-balanced)
     - Optional request headers, specific to this upstream
-    - Optional TLS for upstreams
 - Global headers (e.g., CORS) apply to all proxied responses
 - Optional authentication (Basic, API Key, JWT)
 
@@ -127,18 +140,17 @@ myhost.mydomain.com:
         - "127.0.0.5:8443"
 ```
 
-This means:
+**This means:**
 
-- Sticky sessions are disabled globally. This boolean setting applies to all upstreams.
-- Requests to `myhost.mydomain.com/` will be load balanced to `127.0.0.1` and `127.0.0.2`.
-- Requests to `myhost.mydomain.com/foo` will be load balanced to `127.0.0.4` and `127.0.0.5`.
+- Sticky sessions are disabled globally. This setting applies to all upstreams.
+- Requests to `myhost.mydomain.com/` will be proxied to `127.0.0.1` and `127.0.0.2`.
+- Requests to `myhost.mydomain.com/foo` will be proxied to `127.0.0.4` and `127.0.0.5`.
 - SSL/TLS for upstreams is detected automatically, no need to set any config parameter.
-    - Assuming the `127.0.0.5:8443` is SSL protected. It will be detected automatically.
-    - Self signed certificates are silently accepted
+    - Assuming the `127.0.0.5:8443` is SSL protected. The inner traffic will use TLS.
+    - Self signed certificates are silently accepted.
 - Global headers (CORS for this case) will be injected to all upstreams
 - Additional headers will be injected into the request for `myhost.mydomain.com`.
-- You can choose any path, deep nested paths are supported, the best match will be chosen
-- TLS is disabled for upstreams (but can be enabled).
+- You can choose any path, deep nested paths are supported, the best match is chosen.
 - All requests to servers will require JWT token authentication (You can comment out the authorization to disable it),
     - Firs parameter specifies the mechanism of authorisation `jwt`
     - Second is the secret key for validating `jwt` tokens
@@ -149,12 +161,13 @@ This means:
 
 - Changes to `upstreams.yaml` are applied immediately.
 - No need to restart the proxy — just save the file.
+- If `consul` provider is chosen, upstreams will be periodically update from Consul's API.
 
 ---
 
 ## 🔐 TLS Support
 
-To enable TLS for Proxy server: Currently only OpenSSL is supported, working on Boringssl and Rustls
+To enable TLS for A proxy server: Currently only OpenSSL is supported, working on Boringssl and Rustls
 
 1. Set `proxy_address_tls` in `main.yaml`
 2. Provide `tls_certificate` and `tls_key_file`
@@ -239,4 +252,3 @@ curl  -u username:password -H 'Host: myip.mydomain.com' http://127.0.0.1:6193/
 - Transparent, fully automatic gRPC proxy.
 - Sticky session support.
 - HTTP2 ready.
-- Upcoming Kubernetes integration
