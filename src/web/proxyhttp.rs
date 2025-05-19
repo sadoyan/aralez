@@ -33,52 +33,6 @@ impl ProxyHttp for LB {
     fn new_ctx(&self) -> Self::CTX {
         Context { backend_id: String::new() }
     }
-    async fn upstream_peer(&self, session: &mut Session, _ctx: &mut Self::CTX) -> Result<Box<HttpPeer>> {
-        let host_name = return_header_host(&session);
-
-        match host_name {
-            Some(host) => {
-                // session.req_header_mut().headers.insert("X-Host-Name", host.to_string().parse().unwrap());
-
-                let mut backend_id = None;
-                if self.extraparams.load().stickysessions {
-                    if let Some(cookies) = session.req_header().headers.get("cookie") {
-                        if let Ok(cookie_str) = cookies.to_str() {
-                            for cookie in cookie_str.split(';') {
-                                let trimmed = cookie.trim();
-                                if let Some(value) = trimmed.strip_prefix("backend_id=") {
-                                    backend_id = Some(value);
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                }
-
-                let ddr = self.get_host(host, host, backend_id);
-
-                match ddr {
-                    Some((host, port, ssl)) => {
-                        // let mut peer = Box::new(HttpPeer::new((host, port), ssl, String::new()));
-                        let mut peer = Box::new(HttpPeer::new((host.clone(), port.clone()), ssl, String::new()));
-                        if session.is_http2() {
-                            peer.options.alpn = ALPN::H2;
-                        }
-                        _ctx.backend_id = format!("{}:{}:{}", host.clone(), port.clone(), ssl);
-                        Ok(peer)
-                    }
-                    None => {
-                        warn!("Upstream not found. Host: {:?}, Path: {}", host, session.req_header().uri);
-                        Ok(return_no_host(&self.config.local_server))
-                    }
-                }
-            }
-            None => {
-                warn!("Upstream not found. Host: {:?}, Path: {}", host_name, session.req_header().uri);
-                Ok(return_no_host(&self.config.local_server))
-            }
-        }
-    }
     async fn request_filter(&self, session: &mut Session, _ctx: &mut Self::CTX) -> Result<bool> {
         if let Some(auth) = self.extraparams.load().authentication.get("authorization") {
             let authenticated = authenticate(&auth.value(), &session);
@@ -95,6 +49,58 @@ impl ProxyHttp for LB {
         // };
         Ok(false)
     }
+    async fn upstream_peer(&self, session: &mut Session, _ctx: &mut Self::CTX) -> Result<Box<HttpPeer>> {
+        let host_name = return_header_host(&session);
+
+        match host_name {
+            Some(hostname) => {
+                // session.req_header_mut().headers.insert("X-Host-Name", host.to_string().parse().unwrap());
+                let mut backend_id = None;
+                if self.extraparams.load().stickysessions {
+                    if let Some(cookies) = session.req_header().headers.get("cookie") {
+                        if let Ok(cookie_str) = cookies.to_str() {
+                            for cookie in cookie_str.split(';') {
+                                let trimmed = cookie.trim();
+                                if let Some(value) = trimmed.strip_prefix("backend_id=") {
+                                    backend_id = Some(value);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                let ddr = self.get_host(hostname, hostname, backend_id);
+
+                match ddr {
+                    Some((address, port, ssl, is_h2)) => {
+                        let mut peer = Box::new(HttpPeer::new((address.clone(), port.clone()), ssl, String::new()));
+                        // if session.is_http2() {
+                        if is_h2 {
+                            peer.options.alpn = ALPN::H2;
+                        }
+                        if ssl {
+                            peer.sni = hostname.to_string();
+                            peer.options.verify_cert = false;
+                            peer.options.verify_hostname = false;
+                        }
+                        // println!("    ==> {} ==> {} => {} => {:?}", hostname, address.as_str(), peer.options.alpn, is_h2);
+                        _ctx.backend_id = format!("{}:{}:{}", address.clone(), port.clone(), ssl);
+                        Ok(peer)
+                    }
+                    None => {
+                        warn!("Upstream not found. Host: {:?}, Path: {}", hostname, session.req_header().uri);
+                        Ok(return_no_host(&self.config.local_server))
+                    }
+                }
+            }
+            None => {
+                warn!("Upstream not found. Host: {:?}, Path: {}", host_name, session.req_header().uri);
+                Ok(return_no_host(&self.config.local_server))
+            }
+        }
+    }
+
     async fn upstream_request_filter(&self, _session: &mut Session, _upstream_request: &mut RequestHeader, _ctx: &mut Self::CTX) -> Result<()> {
         let clientip = _session.client_addr();
         match clientip {
@@ -118,7 +124,6 @@ impl ProxyHttp for LB {
 
     async fn response_filter(&self, _session: &mut Session, _upstream_response: &mut ResponseHeader, _ctx: &mut Self::CTX) -> Result<()> {
         // _upstream_response.insert_header("X-Proxied-From", "Fooooooooooooooo").unwrap();
-
         if self.extraparams.load().stickysessions {
             let backend_id = _ctx.backend_id.clone();
             if let Some(bid) = self.ump_byid.get(&backend_id) {

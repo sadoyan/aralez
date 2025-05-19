@@ -1,5 +1,5 @@
 # Main configuration file , applied on startup
-threads: 8 # Nubber of daemon threads default setting
+threads: 12 # Nubber of daemon threads default setting
 #user: pastor # Username for running gazan after dropping root privileges, requires program to start as root
 #group: pastor # Group for running gazan after dropping root privileges, requires program to start as root
 daemon: false # Run in background

@@ -8,12 +8,12 @@ globals:
     - "Access-Control-Max-Age:86400"
     - "X-Custom-Header:Something Special"
 #  authorization: #  Optional, only one of auth methods below can be active at a time
-#    - "basic"
-#    - "gazan:Gazanpass1234"
-#    - "apikey"
-#    - "5a28cc4c-ce10-4ff1-824e-743c38835f5c"
 #    - "jwt"
 #    - "910517d9-f9a1-48de-8826-dbadacbd84af-cb6f830e-ab16-47ec-9d8f-0090de732774"
+#    - "basic"
+#    - "zangag:Anhnazand1234"
+#    - "apikey"
+#    - "5a28cc4c-ce10-4ff1-824e-743c38835f5c"
 consul: # If the provider is consul. Otherwise ignored
   servers:
     - "http://master1:8500"
@@ -68,11 +68,6 @@ upstreams: # If provider is files. Otherwise ignored
         servers:
           - "192.168.1.10:8000"
           - "192.168.1.1:8000"
-  apt.netangels.net:
-    paths:
-      "/":
-        servers:
-          - "apt.netangels.net:443"
   test.netangels.net:
     paths:
       "/":
@@ -93,3 +88,13 @@ upstreams: # If provider is files. Otherwise ignored
       "/":
         servers:
           - "127.0.0.1:9000"
+  ajbever.com:
+    paths:
+      "/":
+        servers:
+          - "ajbever.com:443"
+  apt.netangels.net:
+    paths:
+      "/":
+        servers:
+          - "85.17.24.1:443"

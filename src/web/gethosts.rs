@@ -4,12 +4,12 @@ use std::sync::atomic::Ordering;
 
 #[async_trait]
 pub trait GetHost {
-    fn get_host(&self, peer: &str, path: &str, backend_id: Option<&str>) -> Option<(String, u16, bool)>;
+    fn get_host(&self, peer: &str, path: &str, backend_id: Option<&str>) -> Option<(String, u16, bool, bool)>;
     fn get_header(&self, peer: &str, path: &str) -> Option<Vec<(String, String)>>;
 }
 #[async_trait]
 impl GetHost for LB {
-    fn get_host(&self, peer: &str, path: &str, backend_id: Option<&str>) -> Option<(String, u16, bool)> {
+    fn get_host(&self, peer: &str, path: &str, backend_id: Option<&str>) -> Option<(String, u16, bool, bool)> {
         if let Some(b) = backend_id {
             if let Some(bb) = self.ump_byid.get(b) {
                 // println!("BIB :===> {:?}", Some(bb.value()));
@@ -19,7 +19,7 @@ impl GetHost for LB {
 
         let host_entry = self.ump_upst.get(peer)?;
         let mut current_path = path.to_string();
-        let mut best_match: Option<(String, u16, bool)> = None;
+        let mut best_match: Option<(String, u16, bool, bool)> = None;
         loop {
             if let Some(entry) = host_entry.get(&current_path) {
                 let (servers, index) = entry.value();

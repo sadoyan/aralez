@@ -87,7 +87,7 @@ pub fn load_configuration(d: &str, kind: &str) -> Option<Configuration> {
                                     if let Some((ip, port_str)) = server.split_once(':') {
                                         if let Ok(port) = port_str.parse::<u16>() {
                                             // server_list.push((ip.to_string(), port, path_config.ssl));
-                                            server_list.push((ip.to_string(), port, true));
+                                            server_list.push((ip.to_string(), port, true, false));
                                         }
                                     }
                                 }

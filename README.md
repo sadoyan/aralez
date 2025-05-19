@@ -27,16 +27,16 @@ Built on Rust, on top of **Cloudflare’s Pingora engine**, **Gazan** delivers w
 
 ## 🌍 Highlights
 
-- ⚙️ **Upstream Providers:** Supports `file`-based static upstreams, dynamic service discovery via `Consul`
-- 🔁 **Hot Reloading:** Modify upstreams on the fly via `upstreams.yaml` — no restart needed
-- 🔮 **Automatic WebSocket Support:** Zero config — connection upgrades are handled seamlessly
-- 🔮 **Automatic GRPC Support:** Zero config, Requires `ssl` to proxy, gRPC is handled seamlessly
-- 🔮 **Upstreams Session Stickiness:** Enable/Disable Sticky session support with single parameter in config file
-- 🔐 **TLS Termination:** Fully supports TLS for incoming and upstream traffic
-- 🛡️ **Built-in Authentication** Basic Auth, JWT, API key
-- 🧠 **Header Injection:** Global and per-route header configuration
-- 🧪 **Health Checks:** Pluggable health check methods for upstreams
-- 🛰️ **Remote Config Push:** Lightweight HTTP API to update configs from CI/CD or other systems
+- ⚙️ **Upstream Providers:** Supports `file`-based static upstreams, dynamic service discovery via `Consul`.
+- 🔁 **Hot Reloading:** Modify upstreams on the fly via `upstreams.yaml` — no restart needed.
+- 🔮 **Automatic WebSocket Support:** Zero config — connection upgrades are handled seamlessly.
+- 🔮 **Automatic GRPC Support:** Zero config, Requires `ssl` to proxy, gRPC is handled seamlessly.
+- 🔮 **Upstreams Session Stickiness:** Enable/Disable Sticky sessions.
+- 🔐 **TLS Termination:** Fully supports TLS for incoming and upstream traffic.
+- 🛡️ **Built-in Authentication** Basic Auth, JWT, API key.
+- 🧠 **Header Injection:** Global and per-route header configuration.
+- 🧪 **Health Checks:** Pluggable health check methods for upstreams.
+- 🛰️ **Remote Config Push:** Lightweight HTTP API to update configs from CI/CD or other systems.
 
 ---
 
@@ -82,7 +82,16 @@ Built on Rust, on top of **Cloudflare’s Pingora engine**, **Gazan** delivers w
 ## 🛠 Installation
 
 Download the prebuilt binary for your architecture from releases section of [GitHub](https://github.com/sadoyan/gazan/releases) repo
-Make the binary executable `chmod 755 ./gazan` and run .
+Make the binary executable `chmod 755 ./gazan-VERSION` and run.
+
+File names:
+
+| File Name                | Description                                                   |
+|--------------------------|---------------------------------------------------------------|
+| `gazan-x86_64-musl.gz`   | Static Linux x86_64 binary, without any system dependency     |
+| `gazan-x86_64-glibc.gz`  | Dynamic Linux x86_64 binary, with minimal system dependencies |
+| `gazan-aarch64-musl.gz`  | Static Linux ARM64 binary, without any system dependency      |
+| `gazan-aarch64-glibc.gz` | Dynamic Linux ARM64 binary, with minimal system dependencies  |
 
 ## 🔌 Running the Proxy
 

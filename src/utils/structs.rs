@@ -3,9 +3,9 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::atomic::AtomicUsize;
 
-pub type UpstreamsDashMap = DashMap<String, DashMap<String, (Vec<(String, u16, bool)>, AtomicUsize)>>;
+pub type UpstreamsDashMap = DashMap<String, DashMap<String, (Vec<(String, u16, bool, bool)>, AtomicUsize)>>;
+pub type UpstreamsIdMap = DashMap<String, (String, u16, bool, bool)>;
 pub type Headers = DashMap<String, DashMap<String, Vec<(String, String)>>>;
-pub type UpstreamsIdMap = DashMap<String, (String, u16, bool)>;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ServiceMapping {

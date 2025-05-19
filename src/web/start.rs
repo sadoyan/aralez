@@ -5,10 +5,12 @@ use dashmap::DashMap;
 use log::info;
 use pingora_core::prelude::{background_service, Opt};
 use pingora_core::server::Server;
+use rustls::crypto::ring::default_provider;
 use std::env;
 use std::sync::Arc;
 
 pub fn run() {
+    default_provider().install_default().expect("Failed to install rustls crypto provider");
     let parameters = Some(Opt::parse_args()).unwrap();
     let file = parameters.conf.clone().unwrap();
     let maincfg = crate::utils::parceyaml::parce_main_config(file.as_str());
