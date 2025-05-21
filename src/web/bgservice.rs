@@ -79,8 +79,8 @@ impl BackgroundService for LB {
                                     }
                                 }
                             }
-                            info!("Upstreams list is changed, updating to:");
-                            print_upstreams(&self.ump_full);
+                            // info!("Upstreams list is changed, updating to:");
+                            // print_upstreams(&self.ump_full);
                         }
                         None => {}
                     }

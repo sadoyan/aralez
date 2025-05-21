@@ -75,7 +75,8 @@ pub async fn hc2(upslist: Arc<UpstreamsDashMap>, fullist: Arc<UpstreamsDashMap>,
                 if first_run == 1 {
                     info!("Performing initial hatchecks and upstreams ssl detection");
                     clone_idmap_into(&totest, &idlist);
-                    info!("Gazan is up and ready to serve requests");
+                    info!("Gazan is up and ready to serve requests, the upstreams list is:");
+                    print_upstreams(&totest)
                 }
 
                 first_run+=1;
