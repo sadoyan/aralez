@@ -5,12 +5,12 @@ use dashmap::DashMap;
 use log::info;
 use pingora_core::prelude::{background_service, Opt};
 use pingora_core::server::Server;
-use rustls::crypto::ring::default_provider;
+// use rustls::crypto::ring::default_provider;
 use std::env;
 use std::sync::Arc;
 
 pub fn run() {
-    default_provider().install_default().expect("Failed to install rustls crypto provider");
+    // default_provider().install_default().expect("Failed to install rustls crypto provider");
     let parameters = Some(Opt::parse_args()).unwrap();
     let file = parameters.conf.clone().unwrap();
     let maincfg = crate::utils::parceyaml::parce_main_config(file.as_str());
@@ -50,16 +50,18 @@ pub fn run() {
     // env_logger::init();
 
     let log_level = cfg.log_level.clone();
-    match log_level.as_str() {
-        "info" => env::set_var("RUST_LOG", "info"),
-        "error" => env::set_var("RUST_LOG", "error"),
-        "warn" => env::set_var("RUST_LOG", "warn"),
-        "debug" => env::set_var("RUST_LOG", "debug"),
-        "trace" => env::set_var("RUST_LOG", "trace"),
-        "off" => env::set_var("RUST_LOG", "off"),
-        _ => {
-            println!("Error reading log level, defaulting to: INFO");
-            env::set_var("RUST_LOG", "info")
+    unsafe {
+        match log_level.as_str() {
+            "info" => env::set_var("RUST_LOG", "info"),
+            "error" => env::set_var("RUST_LOG", "error"),
+            "warn" => env::set_var("RUST_LOG", "warn"),
+            "debug" => env::set_var("RUST_LOG", "debug"),
+            "trace" => env::set_var("RUST_LOG", "trace"),
+            "off" => env::set_var("RUST_LOG", "off"),
+            _ => {
+                println!("Error reading log level, defaulting to: INFO");
+                env::set_var("RUST_LOG", "info")
+            }
         }
     }
     env_logger::builder()

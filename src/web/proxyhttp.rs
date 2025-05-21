@@ -84,7 +84,13 @@ impl ProxyHttp for LB {
                             peer.options.verify_cert = false;
                             peer.options.verify_hostname = false;
                         }
-                        // println!("    ==> {} ==> {} => {} => {:?}", hostname, address.as_str(), peer.options.alpn, is_h2);
+                        // info!(
+                        //     "upstream peer: hostname {}, address{}, alpn {}, h2 {:?}",
+                        //     hostname,
+                        //     address.as_str(),
+                        //     peer.options.alpn,
+                        //     is_h2
+                        // );
                         _ctx.backend_id = format!("{}:{}:{}", address.clone(), port.clone(), ssl);
                         Ok(peer)
                     }
