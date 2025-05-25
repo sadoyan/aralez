@@ -16,8 +16,8 @@ pub fn print_upstreams(upstreams: &UpstreamsDashMap) {
             let path = path_entry.key();
             println!(" Path: {}", path);
 
-            for (ip, port, ssl, vers) in path_entry.value().0.clone() {
-                println!("    ===> IP: {}, Port: {}, SSL: {}, H2: {}", ip, port, ssl, vers);
+            for (ip, port, ssl, vers, to_https) in path_entry.value().0.clone() {
+                println!("    ===> IP: {}, Port: {}, SSL: {}, H2: {}, To HTTPS: {}", ip, port, ssl, vers, to_https);
             }
         }
     }
@@ -139,7 +139,7 @@ pub fn clone_idmap_into(original: &UpstreamsDashMap, cloned: &UpstreamsIdMap) {
                 let hash = hasher.finalize();
                 let hex_hash = base16ct::lower::encode_string(&hash);
                 let hh = hex_hash[0..50].to_string();
-                cloned.insert(id, (hh.clone(), 0000, false, false));
+                cloned.insert(id, (hh.clone(), 0000, false, false, false));
                 cloned.insert(hh, x.to_owned());
             }
             new_inner_map.insert(path.clone(), new_vec);

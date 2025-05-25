@@ -109,7 +109,7 @@ async fn consul_request(url: String, whitelist: Option<Vec<ServiceMapping>>, tok
     Some(upstreams)
 }
 
-async fn get_by_http(url: String, token: Option<String>) -> Option<DashMap<String, (Vec<(String, u16, bool, bool)>, AtomicUsize)>> {
+async fn get_by_http(url: String, token: Option<String>) -> Option<DashMap<String, (Vec<(String, u16, bool, bool, bool)>, AtomicUsize)>> {
     let client = reqwest::Client::new();
     let mut headers = HeaderMap::new();
     if let Some(token) = token {
@@ -118,7 +118,7 @@ async fn get_by_http(url: String, token: Option<String>) -> Option<DashMap<Strin
     let to = Duration::from_secs(1);
     let u = client.get(url).timeout(to).send();
     let mut values = Vec::new();
-    let upstreams: DashMap<String, (Vec<(String, u16, bool, bool)>, AtomicUsize)> = DashMap::new();
+    let upstreams: DashMap<String, (Vec<(String, u16, bool, bool, bool)>, AtomicUsize)> = DashMap::new();
     match u.await {
         Ok(r) => {
             let jason = r.json::<Vec<Service>>().await;
@@ -127,7 +127,7 @@ async fn get_by_http(url: String, token: Option<String>) -> Option<DashMap<Strin
                     for service in whitelist {
                         let addr = service.tagged_addresses.get("lan_ipv4").unwrap().address.clone();
                         let prt = service.tagged_addresses.get("lan_ipv4").unwrap().port.clone();
-                        let to_add = (addr, prt, false, false);
+                        let to_add = (addr, prt, false, false, false);
                         values.push(to_add);
                     }
                 }

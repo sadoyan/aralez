@@ -4,11 +4,10 @@ use crate::web::gethosts::GetHost;
 use arc_swap::ArcSwap;
 use async_trait::async_trait;
 use log::{debug, warn};
-use pingora::http::RequestHeader;
+use pingora::http::{RequestHeader, ResponseHeader, StatusCode};
 use pingora::prelude::*;
 use pingora_core::listeners::ALPN;
 use pingora_core::prelude::HttpPeer;
-use pingora_http::ResponseHeader;
 use pingora_proxy::{ProxyHttp, Session};
 use std::sync::Arc;
 
@@ -23,6 +22,8 @@ pub struct LB {
 
 pub struct Context {
     backend_id: String,
+    to_https: bool,
+    redirect_to: String,
 }
 
 #[async_trait]
@@ -31,7 +32,11 @@ impl ProxyHttp for LB {
     // fn new_ctx(&self) -> Self::CTX {}
     type CTX = Context;
     fn new_ctx(&self) -> Self::CTX {
-        Context { backend_id: String::new() }
+        Context {
+            backend_id: String::new(),
+            to_https: false,
+            redirect_to: String::new(),
+        }
     }
     async fn request_filter(&self, session: &mut Session, _ctx: &mut Self::CTX) -> Result<bool> {
         if let Some(auth) = self.extraparams.load().authentication.get("authorization") {
@@ -42,6 +47,7 @@ impl ProxyHttp for LB {
                 return Ok(true);
             }
         };
+
         // if session.req_header().uri.path().starts_with("/denied") {
         //     let _ = session.respond_error(403).await;
         //     warn!("Forbidden: {:?}, {}", session.client_addr(), session.req_header().uri.path().to_string());
@@ -73,7 +79,7 @@ impl ProxyHttp for LB {
                 let ddr = self.get_host(hostname, hostname, backend_id);
 
                 match ddr {
-                    Some((address, port, ssl, is_h2)) => {
+                    Some((address, port, ssl, is_h2, to_https)) => {
                         let mut peer = Box::new(HttpPeer::new((address.clone(), port.clone()), ssl, String::new()));
                         // if session.is_http2() {
                         if is_h2 {
@@ -84,14 +90,34 @@ impl ProxyHttp for LB {
                             peer.options.verify_cert = false;
                             peer.options.verify_hostname = false;
                         }
-                        // info!(
-                        //     "upstream peer: hostname {}, address{}, alpn {}, h2 {:?}",
-                        //     hostname,
-                        //     address.as_str(),
-                        //     peer.options.alpn,
-                        //     is_h2
-                        // );
+                        // println!("{}, {}, alpn {}, h2 {:?}, to_https {}", hostname, address.as_str(), peer.options.alpn, is_h2, _to_https);
+                        // let mut gogo = false;
+                        // let mut location = String::new();
+                        if to_https {
+                            if let Some(stream) = session.stream() {
+                                if stream.get_ssl().is_none() {
+                                    if let Some(addr) = session.server_addr() {
+                                        if let Some((host, _)) = addr.to_string().split_once(':') {
+                                            let uri = session.req_header().uri.path_and_query().map_or("/", |pq| pq.as_str());
+                                            let port = self.config.proxy_port_tls.unwrap_or(443);
+                                            // let location = format!("https://{}:{}{}", host, port, uri);
+                                            // println!("Redirect: {} => {}", hostname, location);
+                                            // gogo = true;
+                                            _ctx.to_https = true;
+                                            _ctx.redirect_to = format!("https://{}:{}{}", host, port, uri);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // if gogo {
+                        //     println!("Redirect: {} => {}", hostname, location);
+                        //     let _ = session.respond_error(301).await;
+                        //     warn!("Forbidden: {:?}, {}", session.client_addr(), session.req_header().uri.path().to_string());
+                        // }
                         _ctx.backend_id = format!("{}:{}:{}", address.clone(), port.clone(), ssl);
+                        // println!("{:?}, {:?}", session.request_summary(), session.server_addr());
                         Ok(peer)
                     }
                     None => {
@@ -107,9 +133,8 @@ impl ProxyHttp for LB {
         }
     }
 
-    async fn upstream_request_filter(&self, _session: &mut Session, _upstream_request: &mut RequestHeader, _ctx: &mut Self::CTX) -> Result<()> {
-        let clientip = _session.client_addr();
-        match clientip {
+    async fn upstream_request_filter(&self, session: &mut Session, _upstream_request: &mut RequestHeader, _ctx: &mut Self::CTX) -> Result<()> {
+        match session.client_addr() {
             Some(ip) => {
                 let inet = ip.as_inet();
                 match inet {
@@ -128,7 +153,7 @@ impl ProxyHttp for LB {
         Ok(())
     }
 
-    async fn response_filter(&self, _session: &mut Session, _upstream_response: &mut ResponseHeader, _ctx: &mut Self::CTX) -> Result<()> {
+    async fn response_filter(&self, session: &mut Session, _upstream_response: &mut ResponseHeader, _ctx: &mut Self::CTX) -> Result<()> {
         // _upstream_response.insert_header("X-Proxied-From", "Fooooooooooooooo").unwrap();
         if self.extraparams.load().stickysessions {
             let backend_id = _ctx.backend_id.clone();
@@ -138,10 +163,20 @@ impl ProxyHttp for LB {
             }
         }
 
-        let host_name = return_header_host(&_session);
-        match host_name {
+        if _ctx.to_https {
+            // println!("{} => {}", _ctx.to_https, _ctx.redirect_to);
+            let mut redirect_response = ResponseHeader::build(StatusCode::MOVED_PERMANENTLY, None)?;
+            redirect_response.insert_header("Location", _ctx.redirect_to.clone())?;
+            redirect_response.insert_header("Content-Length", "0")?;
+            session.write_response_header(Box::new(redirect_response), false).await?;
+            // return Ok(());
+            // let response = session.write_response_header(Box::new(redirect_response), false).await?;
+            // return Ok(response);
+        }
+
+        match return_header_host(&session) {
             Some(host) => {
-                let path = _session.req_header().uri.path();
+                let path = session.req_header().uri.path();
                 let host_header = host;
                 let split_header = host_header.split_once(':');
                 match split_header {

@@ -73,6 +73,7 @@ pub fn load_configuration(d: &str, kind: &str) -> Option<Configuration> {
                             let path_map = DashMap::new();
                             let header_list = DashMap::new();
                             for (path, path_config) in host_config.paths {
+                                // println!("{:?}", path_config);
                                 let mut server_list = Vec::new();
                                 let mut hl = Vec::new();
                                 if let Some(headers) = &path_config.headers {
@@ -86,8 +87,9 @@ pub fn load_configuration(d: &str, kind: &str) -> Option<Configuration> {
                                 for server in path_config.servers {
                                     if let Some((ip, port_str)) = server.split_once(':') {
                                         if let Ok(port) = port_str.parse::<u16>() {
-                                            // server_list.push((ip.to_string(), port, path_config.ssl));
-                                            server_list.push((ip.to_string(), port, true, false));
+                                            // let to_https = matches!(path_config.to_https, Some(true));
+                                            let to_https = path_config.to_https.unwrap_or(false);
+                                            server_list.push((ip.to_string(), port, true, false, to_https));
                                         }
                                     }
                                 }
@@ -139,5 +141,12 @@ pub fn parce_main_config(path: &str) -> AppConfig {
             cfo.local_server = Option::from((ip.to_string(), port));
         }
     }
+    if let Some(tlsport_cfg) = cfo.proxy_address_tls.clone() {
+        if let Some((_, port_str)) = tlsport_cfg.split_once(':') {
+            if let Ok(port) = port_str.parse::<u16>() {
+                cfo.proxy_port_tls = Some(port);
+            }
+        }
+    };
     cfo
 }

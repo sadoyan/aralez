@@ -20,13 +20,13 @@ pub async fn hc2(upslist: Arc<UpstreamsDashMap>, fullist: Arc<UpstreamsDashMap>,
                 for val in fclone.iter() {
                     let host = val.key();
                     let inner = DashMap::new();
-                    let mut _scheme: (String, u16, bool, bool) = ("".to_string(), 0, false, false);
+                    let mut _scheme: (String, u16, bool, bool, bool) = ("".to_string(), 0, false, false, false);
                     for path_entry in val.value().iter() {
                         // let inner = DashMap::new();
                         let path = path_entry.key();
                         let mut innervec= Vec::new();
                         for k in path_entry.value().0 .iter().enumerate() {
-                            let (ip, port, _ssl, _version) = k.1;
+                            let (ip, port, _ssl, _version, _redir) = k.1;
                             let mut _link = String::new();
                             let tls = detect_tls(ip, port).await;
                             let mut is_h2 = false;
@@ -52,13 +52,13 @@ pub async fn hc2(upslist: Arc<UpstreamsDashMap>, fullist: Arc<UpstreamsDashMap>,
                             // }else {
                             //     _scheme = (ip.to_string(), *port, false);
                             // }
-                            _scheme = (ip.to_string(), *port, tls.0, is_h2);
+                            _scheme = (ip.to_string(), *port, tls.0, is_h2, *_redir);
                             // let link = format!("{}{}:{}{}", _pref, ip, port, path);
                             let resp = http_request(_link.as_str(), params.0, "").await;
                             match resp.0 {
                                 true => {
                                     if resp.1 {
-                                        _scheme = (ip.to_string(), *port, tls.0, true);
+                                        _scheme = (ip.to_string(), *port, tls.0, true,  *_redir);
                                     }
                                     innervec.push(_scheme.clone());
                                 }

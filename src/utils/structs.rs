@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::atomic::AtomicUsize;
 
-pub type InnerMap = (String, u16, bool, bool);
+pub type InnerMap = (String, u16, bool, bool, bool);
 pub type UpstreamsDashMap = DashMap<String, DashMap<String, (Vec<InnerMap>, AtomicUsize)>>;
 pub type UpstreamsIdMap = DashMap<String, InnerMap>;
 pub type Headers = DashMap<String, DashMap<String, Vec<(String, String)>>>;
@@ -43,6 +43,7 @@ pub struct HostConfig {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PathConfig {
     pub servers: Vec<String>,
+    pub to_https: Option<bool>,
     pub headers: Option<Vec<String>>,
 }
 #[derive(Debug)]
@@ -64,6 +65,7 @@ pub struct AppConfig {
     pub proxy_address_http: String,
     pub master_key: String,
     pub proxy_address_tls: Option<String>,
+    pub proxy_port_tls: Option<u16>,
     pub tls_certificate: Option<String>,
     pub tls_key_file: Option<String>,
     pub local_server: Option<(String, u16)>,
