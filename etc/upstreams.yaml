@@ -10,9 +10,9 @@ headers:
 authorization:
   type: "jwt"
   creds: "910517d9-f9a1-48de-8826-dbadacbd84af-cb6f830e-ab16-47ec-9d8f-0090de732774"
-#  name: "basic"
+#  type: "basic"
 #  creds: "user:Passw0rd"
-#  name: "apikey"
+#  type: "apikey"
 #  creds: "5ecbf799-1343-4e94-a9b5-e278af5cd313-56b45249-1839-4008-a450-a60dc76d2bae"
 consul: # If the provider is consul. Otherwise, ignored.
   servers:
