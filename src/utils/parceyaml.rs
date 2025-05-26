@@ -47,12 +47,10 @@ pub fn load_configuration(d: &str, kind: &str) -> Option<Configuration> {
         Ok(parsed) => {
             let global_headers = DashMap::new();
             let mut hl = Vec::new();
-            if let Some(globals) = &parsed.globals {
-                for headers in globals.get("headers").iter().by_ref() {
-                    for header in headers.iter() {
-                        if let Some((key, val)) = header.split_once(':') {
-                            hl.push((key.to_string(), val.to_string()));
-                        }
+            if let Some(headers) = &parsed.headers {
+                for header in headers.iter() {
+                    if let Some((key, val)) = header.split_once(':') {
+                        hl.push((key.to_string(), val.to_string()));
                     }
                 }
                 global_headers.insert("/".to_string(), hl);
@@ -60,15 +58,16 @@ pub fn load_configuration(d: &str, kind: &str) -> Option<Configuration> {
 
                 toreturn.extraparams.sticky_sessions = parsed.sticky_sessions;
                 toreturn.extraparams.to_ssl = parsed.to_ssl;
-
-                let cfg = DashMap::new();
-                if let Some(k) = globals.get("authorization") {
-                    cfg.insert("authorization".to_string(), k.to_owned());
-                    toreturn.extraparams.authentication = cfg;
-                } else {
-                    toreturn.extraparams.authentication = DashMap::new();
-                }
             }
+            if let Some(auth) = &parsed.authorization {
+                let name = auth.get("type").unwrap().to_string();
+                let creds = auth.get("creds").unwrap().to_string();
+                let val: Vec<String> = vec![name, creds];
+                toreturn.extraparams.authentication.insert("authorization".to_string(), val);
+            } else {
+                toreturn.extraparams.authentication = DashMap::new();
+            }
+
             match parsed.provider.as_str() {
                 "file" => {
                     toreturn.typecfg = "file".to_string();
@@ -77,7 +76,6 @@ pub fn load_configuration(d: &str, kind: &str) -> Option<Configuration> {
                             let path_map = DashMap::new();
                             let header_list = DashMap::new();
                             for (path, path_config) in host_config.paths {
-                                // println!("{:?}", path_config);
                                 let mut server_list = Vec::new();
                                 let mut hl = Vec::new();
                                 if let Some(headers) = &path_config.headers {

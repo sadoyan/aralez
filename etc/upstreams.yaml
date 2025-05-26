@@ -1,37 +1,34 @@
-# The file is under watch and hot reload , changes are applied immediately, no need to restart or reload
+# The file under watch and hot reload, changes are applied immediately, no need to restart or reload.
 provider: "file" # consul
-stickysessions: true
-globals:
-  headers: # Global headers, appended for all upstreams and all paths.
-    - "Access-Control-Allow-Origin:*"
-    - "Access-Control-Allow-Methods:POST, GET, OPTIONS"
-    - "Access-Control-Max-Age:86400"
-    - "X-Custom-Header:Something Special"
-#  authorization: #  Optional, only one of auth methods below can be active at a time
-#    - "basic"
-#    - "gazan:Gazanpass1234"
-#    - "apikey"
-#    - "5a28cc4c-ce10-4ff1-824e-743c38835f5c"
-#    - "jwt"
-#    - "910517d9-f9a1-48de-8826-dbadacbd84af-cb6f830e-ab16-47ec-9d8f-0090de732774"
-consul: # If the provider is consul. Otherwise ignored
+sticky_sessions: false
+to_ssl: false
+headers:
+  - "Access-Control-Allow-Origin:*"
+  - "Access-Control-Allow-Methods:POST, GET, OPTIONS"
+  - "Access-Control-Max-Age:86400"
+  - "X-Custom-Header:Something Special"
+authorization:
+  type: "jwt"
+  creds: "910517d9-f9a1-48de-8826-dbadacbd84af-cb6f830e-ab16-47ec-9d8f-0090de732774"
+#  name: "basic"
+#  creds: "user:Passw0rd"
+#  name: "apikey"
+#  creds: "5ecbf799-1343-4e94-a9b5-e278af5cd313-56b45249-1839-4008-a450-a60dc76d2bae"
+consul: # If the provider is consul. Otherwise, ignored.
   servers:
     - "http://master1:8500"
     - "http://192.168.22.1:8500"
-    - "http://master1.digitai.local:8500"
-  services: # proxy: The hostname to access proxy server, real : The real service name in Consul
+    - "http://master1.foo.local:8500"
+  services: # proxy: The hostname to access the proxy server, real : The real service name in Consul database.
     - proxy: "proxy-frontend-dev-frontend-srv"
       real: "frontend-dev-frontend-srv"
-  #    - proxy: "proxy-gateway-test-gateway-srv"
-  #      real: "gateway-test-gateway-srv"
-  #    - proxy: "proxy-backoffice-dev-backoffice-srv"
-  #      real: "backoffice-dev-backoffice-srv"
   token: "8e2db809-845b-45e1-8b47-2c8356a09da0-a4370955-18c2-4d6e-a8f8-ffcc0b47be81" # Consul server access token, If Consul auth is enabled
-upstreams: # If provider is files. Otherwise ignored
-  myip.netangels.net: # Hostname, or header host to access the upstream
-    paths: # URL path(s) for current upstream, closest match wins
+upstreams:
+  myip.mydomain.com:
+    paths:
       "/":
-        headers: # Custom headers, set only for this Host and Path
+        to_https: false
+        headers:
           - "X-Proxy-From:Gazan"
         servers: # List of upstreams HOST:PORT
           - "127.0.0.1:8000"
@@ -39,6 +36,7 @@ upstreams: # If provider is files. Otherwise ignored
           - "127.0.0.3:8000"
           - "127.0.0.4:8000"
       "/ping":
+        to_https: true
         headers:
           - "X-Some-Thing:Yaaaaaaaaaaaaaaa"
           - "X-Proxy-From:Gazan"
@@ -48,7 +46,7 @@ upstreams: # If provider is files. Otherwise ignored
       "/draw":
         servers:
           - "192.168.1.1:8000"
-  polo.netangels.net:
+  polo.mydomain.com:
     paths:
       "/":
         headers:
@@ -60,36 +58,3 @@ upstreams: # If provider is files. Otherwise ignored
           - "127.0.0.2:8000"
           - "127.0.0.3:8000"
           - "127.0.0.4:8000"
-  glop.netangels.net:
-    paths:
-      "/":
-        headers:
-          - "X-Hopar-From:Hopaaaaaaaaaaaar"
-        servers:
-          - "192.168.1.10:8000"
-          - "192.168.1.1:8000"
-  apt.netangels.net:
-    paths:
-      "/":
-        servers:
-          - "apt.netangels.net:443"
-  test.netangels.net:
-    paths:
-      "/":
-        servers:
-          - "myip.netangels.net:80"
-  127.0.0.1:
-    paths:
-      "/":
-        servers:
-          - "192.168.1.5:8080"
-  127.0.0.2:
-    paths:
-      "/":
-        servers:
-          - "10.0.55.171:3000"
-  localpost:
-    paths:
-      "/":
-        servers:
-          - "127.0.0.1:9000"

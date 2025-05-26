@@ -34,6 +34,8 @@ pub struct Config {
     pub to_ssl: Option<bool>,
     pub upstreams: Option<HashMap<String, HostConfig>>,
     pub globals: Option<HashMap<String, Vec<String>>>,
+    pub headers: Option<Vec<String>>,
+    pub authorization: Option<HashMap<String, String>>,
     pub consul: Option<Consul>,
 }
 

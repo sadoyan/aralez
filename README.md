@@ -125,14 +125,13 @@ A sample `upstreams.yaml` entry:
 provider: "file"
 sticky_sessions: false
 to_ssl: false
-globals:
-  headers:
-    - "Access-Control-Allow-Origin:*"
-    - "Access-Control-Allow-Methods:POST, GET, OPTIONS"
-    - "Access-Control-Max-Age:86400"
-  authorization:
-    - "jwt"
-    - "910517d9-f9a1-48de-8826-dbadacbd84af-cb6f830e-ab16-47ec-9d8f-0090de732774"
+headers:
+  - "Access-Control-Allow-Origin:*"
+  - "Access-Control-Allow-Methods:POST, GET, OPTIONS"
+  - "Access-Control-Max-Age:86400"
+authorization:
+  type: "jwt"
+  creds: "910517d9-f9a1-48de-8826-dbadacbd84af-cb6f830e-ab16-47ec-9d8f-0090de732774"
 myhost.mydomain.com:
   paths:
     "/":
