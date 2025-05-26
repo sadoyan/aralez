@@ -56,7 +56,8 @@ impl BackgroundService for LB {
                             clone_dashmap_into(&ss.upstreams, &self.ump_upst);
                             let current = self.extraparams.load_full();
                             let mut new = (*current).clone();
-                            new.stickysessions = ss.extraparams.stickysessions;
+                            new.sticky_sessions = ss.extraparams.sticky_sessions;
+                            new.to_ssl = ss.extraparams.to_ssl;
                             new.authentication = ss.extraparams.authentication.clone();
                             self.extraparams.store(Arc::new(new));
                             self.headers.clear();

@@ -13,7 +13,8 @@ pub fn load_configuration(d: &str, kind: &str) -> Option<Configuration> {
         consul: None,
         typecfg: "".to_string(),
         extraparams: Extraparams {
-            stickysessions: false,
+            sticky_sessions: false,
+            to_ssl: None,
             authentication: DashMap::new(),
         },
     };
@@ -56,7 +57,10 @@ pub fn load_configuration(d: &str, kind: &str) -> Option<Configuration> {
                 }
                 global_headers.insert("/".to_string(), hl);
                 toreturn.headers.insert("GLOBAL_HEADERS".to_string(), global_headers);
-                toreturn.extraparams.stickysessions = parsed.stickysessions;
+
+                toreturn.extraparams.sticky_sessions = parsed.sticky_sessions;
+                toreturn.extraparams.to_ssl = parsed.to_ssl;
+
                 let cfg = DashMap::new();
                 if let Some(k) = globals.get("authorization") {
                     cfg.insert("authorization".to_string(), k.to_owned());

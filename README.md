@@ -123,7 +123,8 @@ A sample `upstreams.yaml` entry:
 
 ```yaml
 provider: "file"
-stickysessions: false
+sticky_sessions: false
+to_ssl: false
 globals:
   headers:
     - "Access-Control-Allow-Origin:*"
@@ -135,6 +136,7 @@ globals:
 myhost.mydomain.com:
   paths:
     "/":
+      to_https: false
       headers:
         - "X-Some-Thing:Yaaaaaaaaaaaaaaa"
         - "X-Proxy-From:Hopaaaaaaaaaaaar"
@@ -142,6 +144,7 @@ myhost.mydomain.com:
         - "127.0.0.1:8000"
         - "127.0.0.2:8000"
     "/foo":
+      to_https: true
       headers:
         - "X-Another-Header:Hohohohoho"
       servers:
@@ -151,15 +154,17 @@ myhost.mydomain.com:
 
 **This means:**
 
-- Sticky sessions are disabled globally. This setting applies to all upstreams.
+- Sticky sessions are disabled globally. This setting applies to all upstreams. If enabled all requests will be 301 redirected to HTTPS.
+- HTTP to HTTPS redirect disabled globally, but can be overridden by `to_https` setting per upstream.
 - Requests to `myhost.mydomain.com/` will be proxied to `127.0.0.1` and `127.0.0.2`.
+- Plain HTTP to `myhost.mydomain.com/foo` will get 301 redirect to configured TLS port of Gazan.
 - Requests to `myhost.mydomain.com/foo` will be proxied to `127.0.0.4` and `127.0.0.5`.
 - SSL/TLS for upstreams is detected automatically, no need to set any config parameter.
     - Assuming the `127.0.0.5:8443` is SSL protected. The inner traffic will use TLS.
     - Self signed certificates are silently accepted.
 - Global headers (CORS for this case) will be injected to all upstreams
 - Additional headers will be injected into the request for `myhost.mydomain.com`.
-- You can choose any path, deep nested paths are supported, the best match is chosen.
+- You can choose any path, deep nested paths are supported, the best match chosen.
 - All requests to servers will require JWT token authentication (You can comment out the authorization to disable it),
     - Firs parameter specifies the mechanism of authorisation `jwt`
     - Second is the secret key for validating `jwt` tokens
