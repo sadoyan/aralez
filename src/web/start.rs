@@ -1,3 +1,4 @@
+// use rustls::crypto::ring::default_provider;
 use crate::utils::structs::Extraparams;
 use crate::web::proxyhttp::LB;
 use arc_swap::ArcSwap;
@@ -5,7 +6,6 @@ use dashmap::DashMap;
 use log::info;
 use pingora_core::prelude::{background_service, Opt};
 use pingora_core::server::Server;
-// use rustls::crypto::ring::default_provider;
 use std::env;
 use std::sync::Arc;
 
@@ -92,8 +92,5 @@ pub fn run() {
     proxy.add_tcp(bind_address_http.as_str());
     server.add_service(proxy);
     server.add_service(bg_srvc);
-    // let mut prometheus_service_http = Service::prometheus_http_service();
-    // prometheus_service_http.add_tcp("0.0.0.0:1234");
-    // server.add_service(prometheus_service_http);
     server.run_forever();
 }

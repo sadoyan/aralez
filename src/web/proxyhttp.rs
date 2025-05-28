@@ -1,4 +1,5 @@
 use crate::utils::auth::authenticate;
+use crate::utils::metrics::*;
 use crate::utils::structs::{AppConfig, Extraparams, Headers, UpstreamsDashMap, UpstreamsIdMap};
 use crate::web::gethosts::GetHost;
 use arc_swap::ArcSwap;
@@ -10,6 +11,7 @@ use pingora_core::listeners::ALPN;
 use pingora_core::prelude::HttpPeer;
 use pingora_proxy::{ProxyHttp, Session};
 use std::sync::Arc;
+use tokio::time::Instant;
 
 pub struct LB {
     pub ump_upst: Arc<UpstreamsDashMap>,
@@ -24,6 +26,7 @@ pub struct Context {
     backend_id: String,
     to_https: bool,
     redirect_to: String,
+    start_time: Instant,
 }
 
 #[async_trait]
@@ -36,6 +39,7 @@ impl ProxyHttp for LB {
             backend_id: String::new(),
             to_https: false,
             redirect_to: String::new(),
+            start_time: Instant::now(),
         }
     }
     async fn request_filter(&self, session: &mut Session, _ctx: &mut Self::CTX) -> Result<bool> {
@@ -51,7 +55,6 @@ impl ProxyHttp for LB {
     }
     async fn upstream_peer(&self, session: &mut Session, ctx: &mut Self::CTX) -> Result<Box<HttpPeer>> {
         let host_name = return_header_host(&session);
-
         match host_name {
             Some(hostname) => {
                 // session.req_header_mut().headers.insert("X-Host-Name", host.to_string().parse().unwrap());
@@ -183,6 +186,11 @@ impl ProxyHttp for LB {
     async fn logging(&self, session: &mut Session, _e: Option<&pingora::Error>, ctx: &mut Self::CTX) {
         let response_code = session.response_written().map_or(0, |resp| resp.status.as_u16());
         debug!("{}, response code: {response_code}", self.request_summary(session, ctx));
+
+        let method = session.req_header().method.to_string();
+        let status = session.response_written().map(|resp| resp.status.as_u16()).unwrap_or(0);
+        let latency = ctx.start_time.elapsed();
+        calc_metrics(method, status, latency);
     }
 }
 

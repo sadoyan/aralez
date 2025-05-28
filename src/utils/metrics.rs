@@ -1,0 +1,58 @@
+use prometheus::{register_histogram, register_int_counter, register_int_counter_vec, Histogram, IntCounter, IntCounterVec};
+use std::time::Duration;
+
+lazy_static::lazy_static! {
+    pub static ref REQUEST_COUNT: IntCounter = register_int_counter!(
+        "gazan_requests_total",
+        "Total number of requests handled by Gazan"
+    ).unwrap();
+      pub static ref RESPONSE_CODES: IntCounterVec = register_int_counter_vec!(
+        "gazan_responses_total",
+        "Responses grouped by status code",
+        &["status"]
+    ).unwrap();
+    pub static ref REQUEST_LATENCY:  Histogram = register_histogram!(
+        "gazan_request_latency_seconds",
+        "Request latency in seconds",
+        vec![0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0]
+    ).unwrap();
+    pub static ref RESPONSE_LATENCY: Histogram = register_histogram!(
+        "gazan_response_latency_seconds",
+        "Response latency in seconds",
+        vec![0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.0, 5.0]
+    ).unwrap();
+    pub static ref REQUESTS_BY_METHOD: IntCounterVec = register_int_counter_vec!(
+        "gazan_requests_by_method_total",
+        "Number of requests by HTTP method",
+        &["method"]
+    ).unwrap();
+    pub static ref ERROR_COUNT: IntCounter = register_int_counter!(
+        "gazan_errors_total",
+        "Total number of errors"
+    ).unwrap();
+}
+
+pub fn calc_metrics(method: String, code: u16, latency: Duration) {
+    REQUEST_COUNT.inc();
+    let timer = REQUEST_LATENCY.start_timer();
+    timer.observe_duration();
+    RESPONSE_CODES.with_label_values(&[&code.to_string()]).inc();
+    REQUESTS_BY_METHOD.with_label_values(&[&method]).inc();
+    RESPONSE_LATENCY.observe(latency.as_secs_f64());
+}
+
+/*
+tokio::spawn(async move {
+    let mut interval = tokio::time::interval(std::time::Duration::from_secs(5));
+    loop {
+        interval.tick().await;
+
+        // read Pingora stats
+        let stats = pingora.get_stats();
+
+        // update Prometheus metrics accordingly
+        REQUEST_COUNT.set(stats.requests_total);
+        // ... etc
+    }
+});
+*/

@@ -40,4 +40,6 @@ urlencoding = "2.1.3"
 arc-swap = "1.7.1"
 #rustls = { version = "0.23.27", features = ["ring"] }
 mimalloc = { version = "0.1.46", default-features = false }
+prometheus = "0.14.0"
+lazy_static = "1.5.0"
 

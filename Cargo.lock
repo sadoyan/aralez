@@ -818,6 +818,7 @@ dependencies = [
  "env_logger",
  "futures",
  "jsonwebtoken",
+ "lazy_static",
  "log",
  "mimalloc",
  "notify",
@@ -825,6 +826,7 @@ dependencies = [
  "pingora-core",
  "pingora-http",
  "pingora-proxy",
+ "prometheus 0.14.0",
  "rand 0.9.1",
  "reqwest",
  "serde",
@@ -1874,7 +1876,7 @@ dependencies = [
  "pingora-pool",
  "pingora-runtime",
  "pingora-timeout",
- "prometheus",
+ "prometheus 0.13.4",
  "rand 0.8.5",
  "regex",
  "serde",
@@ -2121,8 +2123,23 @@ dependencies = [
  "lazy_static",
  "memchr",
  "parking_lot",
- "protobuf",
+ "protobuf 2.28.0",
  "thiserror 1.0.69",
+]
+
+[[package]]
+name = "prometheus"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3ca5326d8d0b950a9acd87e6a3f94745394f62e4dae1b1ee22b2bc0c394af43a"
+dependencies = [
+ "cfg-if",
+ "fnv",
+ "lazy_static",
+ "memchr",
+ "parking_lot",
+ "protobuf 3.7.2",
+ "thiserror 2.0.12",
 ]
 
 [[package]]
@@ -2139,6 +2156,26 @@ name = "protobuf"
 version = "2.28.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "106dd99e98437432fed6519dedecfade6a06a73bb7b2a1e019fdd2bee5778d94"
+
+[[package]]
+name = "protobuf"
+version = "3.7.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d65a1d4ddae7d8b5de68153b48f6aa3bba8cb002b243dbdbc55a5afbc98f99f4"
+dependencies = [
+ "once_cell",
+ "protobuf-support",
+ "thiserror 1.0.69",
+]
+
+[[package]]
+name = "protobuf-support"
+version = "3.7.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3e36c2f31e0a47f9280fb347ef5e461ffcd2c52dd520d8e216b52f93b0b0d7d6"
+dependencies = [
+ "thiserror 1.0.69",
+]
 
 [[package]]
 name = "quote"
@@ -2352,7 +2389,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -2719,7 +2756,7 @@ dependencies = [
  "getrandom 0.3.1",
  "once_cell",
  "rustix",
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
