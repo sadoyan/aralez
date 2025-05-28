@@ -24,7 +24,7 @@ pub fn run() {
     let hh_config = Arc::new(DashMap::new());
     let ec_config = Arc::new(ArcSwap::from_pointee(Extraparams {
         sticky_sessions: false,
-        to_ssl: None,
+        to_https: None,
         authentication: DashMap::new(),
     }));
 

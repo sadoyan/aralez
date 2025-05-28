@@ -57,7 +57,7 @@ impl BackgroundService for LB {
                             let current = self.extraparams.load_full();
                             let mut new = (*current).clone();
                             new.sticky_sessions = ss.extraparams.sticky_sessions;
-                            new.to_ssl = ss.extraparams.to_ssl;
+                            new.to_https = ss.extraparams.to_https;
                             new.authentication = ss.extraparams.authentication.clone();
                             self.extraparams.store(Arc::new(new));
                             self.headers.clear();

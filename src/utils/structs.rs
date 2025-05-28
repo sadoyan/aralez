@@ -17,7 +17,7 @@ pub struct ServiceMapping {
 #[derive(Clone, Debug)]
 pub struct Extraparams {
     pub sticky_sessions: bool,
-    pub to_ssl: Option<bool>,
+    pub to_https: Option<bool>,
     pub authentication: DashMap<String, Vec<String>>,
 }
 
@@ -31,7 +31,7 @@ pub struct Consul {
 pub struct Config {
     pub provider: String,
     pub sticky_sessions: bool,
-    pub to_ssl: Option<bool>,
+    pub to_https: Option<bool>,
     pub upstreams: Option<HashMap<String, HostConfig>>,
     pub globals: Option<HashMap<String, Vec<String>>>,
     pub headers: Option<Vec<String>>,

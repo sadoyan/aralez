@@ -86,7 +86,7 @@ impl ProxyHttp for LB {
                             peer.options.verify_hostname = false;
                         }
                         // println!("{}, {}, alpn {}, h2 {:?}, to_https {}", hostname, address.as_str(), peer.options.alpn, is_h2, _to_https);
-                        if self.extraparams.load().to_ssl.unwrap_or(false) || to_https {
+                        if self.extraparams.load().to_https.unwrap_or(false) || to_https {
                             if let Some(stream) = session.stream() {
                                 if stream.get_ssl().is_none() {
                                     if let Some(addr) = session.server_addr() {
@@ -142,22 +142,15 @@ impl ProxyHttp for LB {
         if self.extraparams.load().sticky_sessions {
             let backend_id = ctx.backend_id.clone();
             if let Some(bid) = self.ump_byid.get(&backend_id) {
-                // let _ = _upstream_response.insert_header("set-cookie", format!("backend {}", bid.0));
                 let _ = _upstream_response.insert_header("set-cookie", format!("backend_id={}; Path=/; Max-Age=600; HttpOnly; SameSite=Lax", bid.0));
             }
         }
-
         if ctx.to_https {
-            // println!("{} => {}", ctx.to_https, ctx.redirect_to);
             let mut redirect_response = ResponseHeader::build(StatusCode::MOVED_PERMANENTLY, None)?;
             redirect_response.insert_header("Location", ctx.redirect_to.clone())?;
             redirect_response.insert_header("Content-Length", "0")?;
             session.write_response_header(Box::new(redirect_response), false).await?;
-            // return Ok(());
-            // let response = session.write_response_header(Box::new(redirect_response), false).await?;
-            // return Ok(response);
         }
-
         match return_header_host(&session) {
             Some(host) => {
                 let path = session.req_header().uri.path();

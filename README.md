@@ -124,7 +124,7 @@ A sample `upstreams.yaml` entry:
 ```yaml
 provider: "file"
 sticky_sessions: false
-to_ssl: false
+to_https: false
 headers:
   - "Access-Control-Allow-Origin:*"
   - "Access-Control-Allow-Methods:POST, GET, OPTIONS"
