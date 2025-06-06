@@ -95,7 +95,7 @@ impl ProxyHttp for LB {
                                     if let Some(addr) = session.server_addr() {
                                         if let Some((host, _)) = addr.to_string().split_once(':') {
                                             let uri = session.req_header().uri.path_and_query().map_or("/", |pq| pq.as_str());
-                                            let port = self.config.proxy_port_tls.unwrap_or(443);
+                                            let port = self.config.proxy_port_tls.unwrap_or(403);
                                             ctx.to_https = true;
                                             ctx.redirect_to = format!("https://{}:{}{}", host, port, uri);
                                         }
@@ -186,11 +186,13 @@ impl ProxyHttp for LB {
     async fn logging(&self, session: &mut Session, _e: Option<&pingora::Error>, ctx: &mut Self::CTX) {
         let response_code = session.response_written().map_or(0, |resp| resp.status.as_u16());
         debug!("{}, response code: {response_code}", self.request_summary(session, ctx));
-
-        let method = session.req_header().method.to_string();
-        let status = session.response_written().map(|resp| resp.status.as_u16()).unwrap_or(0);
-        let latency = ctx.start_time.elapsed();
-        calc_metrics(method, status, latency);
+        let m = &MetricTypes {
+            method: session.req_header().method.to_string(),
+            code: session.response_written().map(|resp| resp.status.as_str().to_owned()).unwrap_or("0".to_string()),
+            latency: ctx.start_time.elapsed(),
+            version: session.req_header().version,
+        };
+        calc_metrics(m);
     }
 }
 

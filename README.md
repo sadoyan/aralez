@@ -57,15 +57,26 @@ Built on Rust, on top of **Cloudflare’s Pingora engine**, **Gazan** delivers w
 
 ### 🔧 `main.yaml`
 
-- `proxy_address_http`: `0.0.0.0:6193` (HTTP listener)
-- `proxy_address_tls`: `0.0.0.0:6194` (TLS listener, optional)
-- `config_address`: `0.0.0.0:3000` (HTTP API for remote config push)
-- `upstreams_conf`: `etc/upstreams.yaml` (location of upstreams config)
-- `log_level`: `info` (verbosity of logs)
-- `hc_method`: `HEAD`, `hc_interval`: `2s` (upstream health checks)
-- `user` Optional. Drop privileges to regular user. To bind to privileged ports. Requires to start as root.
-- `group` Optional. Drop privileges to regular group
-- Other defaults: thread count, keep-alive pool size, etc.
+| Key                              | Example Value                        | Description                                                                                            |
+|----------------------------------|--------------------------------------|--------------------------------------------------------------------------------------------------------|
+| **threads**                      | 12                                   | Static Linux x86_64 binary, without any system dependency                                              |
+| **user**                         | gazan                                | Optional, Username for running gazan after dropping root privileges, requires program to start as root |
+| **group**                        | gazan                                | Optional,Group for running gazan after dropping root privileges, requires program to start as root     |
+| **daemon**                       | false                                | Run in background (boolean)                                                                            |
+| **upstream_keepalive_pool_size** | 500                                  | Pool size for upstream keepalive connections                                                           |
+| **pid_file**                     | /tmp/gazan.pid                       | Path to PID file                                                                                       |
+| **error_log**                    | /tmp/gazan_err.log                   | Path to error log file                                                                                 |
+| **upgrade_sock**                 | /tmp/gazan.sock                      | Path to live upgrade socket file                                                                       |
+| **config_address**               | 0.0.0.0:3000                         | HTTP API address for pushing upstreams.yaml from remote location                                       |
+| **proxy_address_http**           | 0.0.0.0:6193                         | Gazan HTTP bind address                                                                                |
+| **proxy_address_tls**            | 0.0.0.0:6194                         | Gazan HTTPS bind address (Optional)                                                                    |
+| **tls_certificate**              | etc/server.crt                       | TLS cerficate file path Mandatory if proxy_address_tls is set, else optional                           |
+| **tls_key_file**                 | etc/key.pe                           | TLS Key file path Mandatory if proxy_address_tls is set, else optional                                 |
+| **upstreams_conf**               | etc/upstreams.yaml                   | The location of upstreams file                                                                         |
+| **log_level**                    | info                                 | Log level , possible values : info, warn, error, debug, trace, off                                     |
+| **hc_method**                    | HEAD                                 | Healthcheck method (HEAD, GET, POST are supported) UPPERCASE                                           |
+| **hc_interval**                  | 2                                    | Interval for health checks in seconds                                                                  |
+| **master_key**                   | 5aeff7f9-7b94-447c-af60-e8c488544a3e | Mater key for working with API server and JWT Secret generation                                        |
 
 ### 🌐 `upstreams.yaml`
 
@@ -189,10 +200,11 @@ To enable TLS for A proxy server: Currently only OpenSSL is supported, working o
 
 ## 📡 Remote Config API
 
-You can push new `upstreams.yaml` over HTTP to `config_address` (`:3000` by default). Useful for CI/CD automation or remote config updates.
+Push new `upstreams.yaml` over HTTP to `config_address` (`:3000` by default). Useful for CI/CD automation or remote config updates.
+URL parameter. `key=MASTERKEY` is required. `MASTERKEY` is the value of `master_key` in the `main.yaml`
 
 ```bash
-curl -XPOST --data-binary @./etc/upstreams.txt 127.0.0.1:3000/conf
+curl -XPOST --data-binary @./etc/upstreams.txt 127.0.0.1:3000/conf?key=${MSATERKEY}
 ```
 
 ---
@@ -214,7 +226,7 @@ curl -XPOST --data-binary @./etc/upstreams.txt 127.0.0.1:3000/conf
 
 ```bash
 PAYLOAD='{
-    "masterkey": "910517d9-f9a1-48de-8826-dbadacbd84af-cb6f830e-ab16-47ec-9d8f-0090de732774",
+    "master_key": "910517d9-f9a1-48de-8826-dbadacbd84af-cb6f830e-ab16-47ec-9d8f-0090de732774",
     "owner": "valod",
     "valid": 10
 }'

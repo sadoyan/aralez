@@ -1,6 +1,13 @@
+use pingora_http::Version;
 use prometheus::{register_histogram, register_int_counter, register_int_counter_vec, Histogram, IntCounter, IntCounterVec};
 use std::time::Duration;
 
+pub struct MetricTypes {
+    pub method: String,
+    pub code: String,
+    pub latency: Duration,
+    pub version: Version,
+}
 lazy_static::lazy_static! {
     pub static ref REQUEST_COUNT: IntCounter = register_int_counter!(
         "gazan_requests_total",
@@ -26,12 +33,35 @@ lazy_static::lazy_static! {
         "Number of requests by HTTP method",
         &["method"]
     ).unwrap();
+    pub static ref REQUESTS_BY_VERSION: IntCounterVec = register_int_counter_vec!(
+        "gazan_requests_by_version_total",
+        "Number of requests by HTTP versions",
+        &["version"]
+    ).unwrap();
     pub static ref ERROR_COUNT: IntCounter = register_int_counter!(
         "gazan_errors_total",
         "Total number of errors"
     ).unwrap();
 }
 
+pub fn calc_metrics(metric_types: &MetricTypes) {
+    REQUEST_COUNT.inc();
+    let timer = REQUEST_LATENCY.start_timer();
+    timer.observe_duration();
+
+    let version_str = match &metric_types.version {
+        &Version::HTTP_11 => "HTTP/1.1",
+        &Version::HTTP_2 => "HTTP/2.0",
+        &Version::HTTP_3 => "HTTP/3.0",
+        &Version::HTTP_10 => "HTTP/1.0",
+        _ => "Unknown",
+    };
+    REQUESTS_BY_VERSION.with_label_values(&[&version_str]).inc();
+    RESPONSE_CODES.with_label_values(&[&metric_types.code.to_string()]).inc();
+    REQUESTS_BY_METHOD.with_label_values(&[&metric_types.method]).inc();
+    RESPONSE_LATENCY.observe(metric_types.latency.as_secs_f64());
+}
+/*
 pub fn calc_metrics(method: String, code: u16, latency: Duration) {
     REQUEST_COUNT.inc();
     let timer = REQUEST_LATENCY.start_timer();
@@ -41,7 +71,6 @@ pub fn calc_metrics(method: String, code: u16, latency: Duration) {
     RESPONSE_LATENCY.observe(latency.as_secs_f64());
 }
 
-/*
 tokio::spawn(async move {
     let mut interval = tokio::time::interval(std::time::Duration::from_secs(5));
     loop {

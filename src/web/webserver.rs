@@ -1,6 +1,6 @@
 use crate::utils::structs::Configuration;
 use axum::body::Body;
-use axum::extract::State;
+use axum::extract::{Query, State};
 use axum::http::{Response, StatusCode};
 use axum::response::IntoResponse;
 use axum::routing::{delete, get, head, post, put};
@@ -11,6 +11,7 @@ use jsonwebtoken::{encode, EncodingKey, Header};
 use log::{error, info, warn};
 use prometheus::{gather, Encoder, TextEncoder};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::net::TcpListener;
 
@@ -26,9 +27,18 @@ struct OutToken {
     token: String,
 }
 
+#[derive(Clone)]
+struct AppState {
+    master_key: String,
+    config_sender: Sender<Configuration>,
+}
+
 #[allow(unused_mut)]
 pub async fn run_server(bindaddress: String, master_key: String, mut to_return: Sender<Configuration>) {
-    let mut tr = to_return.clone();
+    let app_state = AppState {
+        master_key: master_key.clone(),
+        config_sender: to_return.clone(),
+    };
     let app = Router::new()
         .route("/{*wildcard}", get(senderror))
         .route("/{*wildcard}", post(senderror))
@@ -36,38 +46,30 @@ pub async fn run_server(bindaddress: String, master_key: String, mut to_return: 
         .route("/{*wildcard}", head(senderror))
         .route("/{*wildcard}", delete(senderror))
         .route("/jwt", post(jwt_gen))
+        .route("/conf", post(conf))
         .route("/metrics", get(metrics))
-        .with_state(master_key.clone())
-        .route(
-            "/conf",
-            post(|up: String| async move {
-                let serverlist = crate::utils::parceyaml::load_configuration(up.as_str(), "content");
-
-                match serverlist {
-                    Some(serverlist) => {
-                        let _ = tr.send(serverlist).await.unwrap();
-                        Response::builder().status(StatusCode::CREATED).body(Body::from("Config, conf file, updated!\n")).unwrap()
-                    }
-                    None => Response::builder()
-                        .status(StatusCode::INTERNAL_SERVER_ERROR)
-                        .body(Body::from("Failed to parce config file!\n"))
-                        .unwrap(),
-                }
-            })
-            .with_state("state"),
-        );
+        .with_state(app_state);
     let listener = TcpListener::bind(bindaddress.clone()).await.unwrap();
     info!("Starting the API server on: {}", bindaddress);
     axum::serve(listener, app).await.unwrap();
 }
 
-#[allow(dead_code)]
-async fn senderror() -> impl IntoResponse {
-    Response::builder().status(StatusCode::BAD_GATEWAY).body(Body::from("No live upstream found!\n")).unwrap()
+async fn conf(State(mut st): State<AppState>, Query(params): Query<HashMap<String, String>>, content: String) -> impl IntoResponse {
+    if let Some(s) = params.get("key") {
+        if s.to_owned() == st.master_key.to_owned() {
+            if let Some(serverlist) = crate::utils::parceyaml::load_configuration(content.as_str(), "content") {
+                st.config_sender.send(serverlist).await.unwrap();
+                return Response::builder().status(StatusCode::OK).body(Body::from("Config, conf file, updated !\n")).unwrap();
+            } else {
+                return Response::builder().status(StatusCode::BAD_GATEWAY).body(Body::from("Failed to parse config!\n")).unwrap();
+            };
+        }
+    }
+    Response::builder().status(StatusCode::FORBIDDEN).body(Body::from("Access Denied !\n")).unwrap()
 }
 
-async fn jwt_gen(State(master_key): State<String>, Json(payload): Json<InputKey>) -> (StatusCode, Json<OutToken>) {
-    if payload.master_key == master_key {
+async fn jwt_gen(State(state): State<AppState>, Json(payload): Json<InputKey>) -> (StatusCode, Json<OutToken>) {
+    if payload.master_key == state.master_key {
         let now = SystemTime::now() + Duration::from_secs(payload.valid * 60);
         let a = now.duration_since(UNIX_EPOCH).unwrap().as_secs();
         let claim = crate::utils::jwt::Claims { user: payload.owner, exp: a };
@@ -110,4 +112,9 @@ async fn metrics() -> impl IntoResponse {
         .header("Content-Type", encoder.format_type())
         .body(Body::from(buffer))
         .unwrap()
+}
+
+#[allow(dead_code)]
+async fn senderror() -> impl IntoResponse {
+    Response::builder().status(StatusCode::BAD_GATEWAY).body(Body::from("No live upstream found!\n")).unwrap()
 }
