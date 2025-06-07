@@ -7,6 +7,10 @@ Exposed to `http://config_address/metrics`
 
 By default `http://127.0.0.1:3000/metrics`
 
+# 📊 Example Grafana dashboard during stress test :
+
+![Gazan](https://netangels.net/utils/dash.png)
+
 ---
 
 ## 🛠️ Prometheus Metrics
