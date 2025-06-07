@@ -17,6 +17,10 @@ Built on Rust, on top of **Cloudflare’s Pingora engine**, **Gazan** delivers w
 - **TLS Termination** — Built-in OpenSSL support.
 - **Upstreams TLS detection** — Gazan will automatically detect if upstreams uses secure connection.
 - **Authentication** — Supports Basic Auth, API tokens, and JWT verification.
+    - **Basic Auth**
+    - **API Key** via `x-api-key` header
+    - **JWT Auth**, with tokens issued by Gazan itself via `/jwt` API
+        - ⬇️ See below for examples and implementation details.
 - **Load Balancing Strategies**
     - Round-robin
     - Failover with health checks
@@ -61,7 +65,7 @@ Built on Rust, on top of **Cloudflare’s Pingora engine**, **Gazan** delivers w
 
 | Key                              | Example Value                        | Description                                                                                     |
 |----------------------------------|--------------------------------------|-------------------------------------------------------------------------------------------------|
-| **threads**                      | 12                                   | Nubber of running daemon threads. Optional, defaults to 1                                       |
+| **threads**                      | 12                                   | Number of running daemon threads. Optional, defaults to 1                                       |
 | **user**                         | gazan                                | Optional, Username for running gazan after dropping root privileges, requires to launch as root |
 | **group**                        | gazan                                | Optional,Group for running gazan after dropping root privileges, requires to launch as root     |
 | **daemon**                       | false                                | Run in background (boolean)                                                                     |
@@ -73,7 +77,7 @@ Built on Rust, on top of **Cloudflare’s Pingora engine**, **Gazan** delivers w
 | **proxy_address_http**           | 0.0.0.0:6193                         | Gazan HTTP bind address                                                                         |
 | **proxy_address_tls**            | 0.0.0.0:6194                         | Gazan HTTPS bind address (Optional)                                                             |
 | **tls_certificate**              | etc/server.crt                       | TLS certificate file path. Mandatory if proxy_address_tls is set, else optional                 |
-| **tls_key_file**                 | etc/key.pe                           | TLS Key file path. Mandatory if proxy_address_tls is set, else optional                         |
+| **tls_key_file**                 | etc/key.pem                          | TLS Key file path. Mandatory if proxy_address_tls is set, else optional                         |
 | **upstreams_conf**               | etc/upstreams.yaml                   | The location of upstreams file                                                                  |
 | **log_level**                    | info                                 | Log level , possible values : info, warn, error, debug, trace, off                              |
 | **hc_method**                    | HEAD                                 | Healthcheck method (HEAD, GET, POST are supported) UPPERCASE                                    |
@@ -206,7 +210,7 @@ Push new `upstreams.yaml` over HTTP to `config_address` (`:3000` by default). Us
 URL parameter. `key=MASTERKEY` is required. `MASTERKEY` is the value of `master_key` in the `main.yaml`
 
 ```bash
-curl -XPOST --data-binary @./etc/upstreams.txt 127.0.0.1:3000/conf?key=${MSATERKEY}
+curl -XPOST --data-binary @./etc/upstreams.txt 127.0.0.1:3000/conf?key=${MASTERKEY}
 ```
 
 ---
@@ -224,7 +228,7 @@ curl -XPOST --data-binary @./etc/upstreams.txt 127.0.0.1:3000/conf?key=${MSATERK
     - `owner` : Just a placeholder, can be anything.
     - `valid` : Time in minutes during which the generated token will be valid.
 
-**Example JWT token generateion request**
+**Example JWT token generation request**
 
 ```bash
 PAYLOAD='{
@@ -280,7 +284,52 @@ curl  -u username:password -H 'Host: myip.mydomain.com' http://127.0.0.1:6193/
 - Sticky session support.
 - HTTP2 ready.
 
+📊 Why Choose Gazan? – Feature Comparison
+
+| Feature                    | **Gazan**               | **Nginx**                | **HAProxy**             | **Traefik**     |
+|----------------------------|-------------------------|--------------------------|-------------------------|-----------------|
+| **Hot Reload**             | ✅ Yes (live, API/file)  | ⚠️ Reloads config        | ⚠️ Reloads config       | ✅ Yes (dynamic) |
+| **JWT Auth**               | ✅ Built-in              | ❌ External scripts       | ❌ External Lua or agent | ⚠️ With plugins |
+| **WebSocket Support**      | ✅ Automatic             | ⚠️ Manual config         | ✅ Yes                   | ✅ Yes           |
+| **gRPC Support**           | ✅ Automatic (no config) | ⚠️ Manual + HTTP/2 + TLS | ⚠️ Complex setup        | ✅ Native        |
+| **TLS Termination**        | ✅ Built-in (OpenSSL)    | ✅ Yes                    | ✅ Yes                   | ✅ Yes           |
+| **TLS Upstream Detection** | ✅ Automatic             | ❌                        | ❌                       | ❌               |
+| **HTTP/2 Support**         | ✅ Automatic             | ⚠️ Requires extra config | ⚠️ Requires build flags | ✅ Native        |
+| **Sticky Sessions**        | ✅ Cookie-based          | ⚠️ In plus version only  | ✅                       | ✅               |
+| **Built With**             | 🦀 Rust                 | C                        | C                       | Go              |
+
 ## 💡 Simple benchmark by [Oha](https://github.com/hatoo/oha)
+
+⚠️ These benchmarks use :
+
+- 3 async Rust echo servers on a local network with 1Gbit as upstreams.
+- A dedicated server for running **Gazan**
+- A dedicated server for running **Oha**
+- The following upstreams configuration.
+- 9 test URLs from simple `/` to nested up to 7 subpaths.
+
+```yaml
+  myhost.mydomain.com:
+    paths:
+      "/":
+        to_https: false
+        headers:
+          - "X-Proxy-From:Gazan"
+        servers:
+          - "192.168.211.211:8000"
+          - "192.168.211.212:8000"
+          - "192.168.211.213:8000"
+      "/ping":
+        to_https: false
+        headers:
+          - "X-Some-Thing:Yaaaaaaaaaaaaaaa"
+          - "X-Proxy-From:Gazan"
+        servers:
+          - "192.168.211.211:8000"
+          - "192.168.211.212:8000"
+```
+
+## 💡 Results reflect synthetic performance under optimal conditions.
 
 - CPU : Intel(R) Xeon(R) CPU E3-1270 v6 @ 3.80GHz
 - 300 : simultaneous connections
