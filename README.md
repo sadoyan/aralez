@@ -13,26 +13,28 @@ Built on Rust, on top of **Cloudflare’s Pingora engine**, **Gazan** delivers w
 
 ## 🔧 Key Features
 
-- **Dynamic Config Reloads** — Upstreams can be updated live via API, no restart required
-- **TLS Termination** — Built-in OpenSSL support
-- **Upstreams TLS detection** — Gazan will automatically detect if upstreams uses secure connection
-- **Authentication** — Supports Basic Auth, API tokens, and JWT verification
+- **Dynamic Config Reloads** — Upstreams can be updated live via API, no restart required.
+- **TLS Termination** — Built-in OpenSSL support.
+- **Upstreams TLS detection** — Gazan will automatically detect if upstreams uses secure connection.
+- **Authentication** — Supports Basic Auth, API tokens, and JWT verification.
 - **Load Balancing Strategies**
     - Round-robin
     - Failover with health checks
     - Sticky sessions via cookies
-- **Unified Port** — Serve HTTP and WebSocket traffic over the same connection
-- **Memory Safe** — Created purely on Rust
-- **High Performance** — Built with [Pingora](https://github.com/cloudflare/pingora) and tokio for async I/O
+- **Unified Port** — Serve HTTP and WebSocket traffic over the same connection.
+- **Memory Safe** — Created purely on Rust.
+- **High Performance** — Built with [Pingora](https://github.com/cloudflare/pingora) and tokio for async I/O.
 
 ## 🌍 Highlights
 
-- ⚙️ **Upstream Providers:** Supports `file`-based static upstreams, dynamic service discovery via `Consul`.
+- ⚙️ **Upstream Providers:**
+    - `file` Upstreams are declared in config file.
+    - `consul` Upstreams are dynamically updated from Hashicorp Consul.
 - 🔁 **Hot Reloading:** Modify upstreams on the fly via `upstreams.yaml` — no restart needed.
 - 🔮 **Automatic WebSocket Support:** Zero config — connection upgrades are handled seamlessly.
-- 🔮 **Automatic GRPC Support:** Zero config, Requires `ssl` to proxy, gRPC is handled seamlessly.
-- 🔮 **Upstreams Session Stickiness:** Enable/Disable Sticky sessions.
-- 🔐 **TLS Termination:** Fully supports TLS for incoming and upstream traffic.
+- 🔮 **Automatic GRPC Support:** Zero config, Requires `ssl` to proxy, gRPC handled seamlessly.
+- 🔮 **Upstreams Session Stickiness:** Enable/Disable Sticky sessions globally.
+- 🔐 **TLS Termination:** Fully supports TLS for upstreams and downstreams.
 - 🛡️ **Built-in Authentication** Basic Auth, JWT, API key.
 - 🧠 **Header Injection:** Global and per-route header configuration.
 - 🧪 **Health Checks:** Pluggable health check methods for upstreams.
@@ -57,26 +59,26 @@ Built on Rust, on top of **Cloudflare’s Pingora engine**, **Gazan** delivers w
 
 ### 🔧 `main.yaml`
 
-| Key                              | Example Value                        | Description                                                                                            |
-|----------------------------------|--------------------------------------|--------------------------------------------------------------------------------------------------------|
-| **threads**                      | 12                                   | Static Linux x86_64 binary, without any system dependency                                              |
-| **user**                         | gazan                                | Optional, Username for running gazan after dropping root privileges, requires program to start as root |
-| **group**                        | gazan                                | Optional,Group for running gazan after dropping root privileges, requires program to start as root     |
-| **daemon**                       | false                                | Run in background (boolean)                                                                            |
-| **upstream_keepalive_pool_size** | 500                                  | Pool size for upstream keepalive connections                                                           |
-| **pid_file**                     | /tmp/gazan.pid                       | Path to PID file                                                                                       |
-| **error_log**                    | /tmp/gazan_err.log                   | Path to error log file                                                                                 |
-| **upgrade_sock**                 | /tmp/gazan.sock                      | Path to live upgrade socket file                                                                       |
-| **config_address**               | 0.0.0.0:3000                         | HTTP API address for pushing upstreams.yaml from remote location                                       |
-| **proxy_address_http**           | 0.0.0.0:6193                         | Gazan HTTP bind address                                                                                |
-| **proxy_address_tls**            | 0.0.0.0:6194                         | Gazan HTTPS bind address (Optional)                                                                    |
-| **tls_certificate**              | etc/server.crt                       | TLS cerficate file path Mandatory if proxy_address_tls is set, else optional                           |
-| **tls_key_file**                 | etc/key.pe                           | TLS Key file path Mandatory if proxy_address_tls is set, else optional                                 |
-| **upstreams_conf**               | etc/upstreams.yaml                   | The location of upstreams file                                                                         |
-| **log_level**                    | info                                 | Log level , possible values : info, warn, error, debug, trace, off                                     |
-| **hc_method**                    | HEAD                                 | Healthcheck method (HEAD, GET, POST are supported) UPPERCASE                                           |
-| **hc_interval**                  | 2                                    | Interval for health checks in seconds                                                                  |
-| **master_key**                   | 5aeff7f9-7b94-447c-af60-e8c488544a3e | Mater key for working with API server and JWT Secret generation                                        |
+| Key                              | Example Value                        | Description                                                                                     |
+|----------------------------------|--------------------------------------|-------------------------------------------------------------------------------------------------|
+| **threads**                      | 12                                   | Nubber of running daemon threads. Optional, defaults to 1                                       |
+| **user**                         | gazan                                | Optional, Username for running gazan after dropping root privileges, requires to launch as root |
+| **group**                        | gazan                                | Optional,Group for running gazan after dropping root privileges, requires to launch as root     |
+| **daemon**                       | false                                | Run in background (boolean)                                                                     |
+| **upstream_keepalive_pool_size** | 500                                  | Pool size for upstream keepalive connections                                                    |
+| **pid_file**                     | /tmp/gazan.pid                       | Path to PID file                                                                                |
+| **error_log**                    | /tmp/gazan_err.log                   | Path to error log file                                                                          |
+| **upgrade_sock**                 | /tmp/gazan.sock                      | Path to live upgrade socket file                                                                |
+| **config_address**               | 0.0.0.0:3000                         | HTTP API address for pushing upstreams.yaml from remote location                                |
+| **proxy_address_http**           | 0.0.0.0:6193                         | Gazan HTTP bind address                                                                         |
+| **proxy_address_tls**            | 0.0.0.0:6194                         | Gazan HTTPS bind address (Optional)                                                             |
+| **tls_certificate**              | etc/server.crt                       | TLS certificate file path. Mandatory if proxy_address_tls is set, else optional                 |
+| **tls_key_file**                 | etc/key.pe                           | TLS Key file path. Mandatory if proxy_address_tls is set, else optional                         |
+| **upstreams_conf**               | etc/upstreams.yaml                   | The location of upstreams file                                                                  |
+| **log_level**                    | info                                 | Log level , possible values : info, warn, error, debug, trace, off                              |
+| **hc_method**                    | HEAD                                 | Healthcheck method (HEAD, GET, POST are supported) UPPERCASE                                    |
+| **hc_interval**                  | 2                                    | Interval for health checks in seconds                                                           |
+| **master_key**                   | 5aeff7f9-7b94-447c-af60-e8c488544a3e | Master key for working with API server and JWT Secret generation                                |
 
 ### 🌐 `upstreams.yaml`
 
@@ -217,8 +219,8 @@ curl -XPOST --data-binary @./etc/upstreams.txt 127.0.0.1:3000/conf?key=${MSATERK
 - `apikey` : Authentication via `x-api-key` header, which should match the value in config.
 - `jwt`: JWT authentication implemented via `gazantoken=` url parameter. `/some/url?gazantoken=TOKEN`
 - `jwt`: JWT authentication implemented via `Authorization: Bearer <token>` header.
-    - To obtain JWT token, you should send **generate** request to built in api server's `/jwt` endpoint.
-    - `masterkey`: should match configured `masterkey` in `main.yaml` and `upstreams.yaml`.
+    - To obtain JWT a token, you should send **generate** request to built in api server's `/jwt` endpoint.
+    - `master_key`: should match configured `masterkey` in `main.yaml` and `upstreams.yaml`.
     - `owner` : Just a placeholder, can be anything.
     - `valid` : Time in minutes during which the generated token will be valid.
 
