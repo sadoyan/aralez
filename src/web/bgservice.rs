@@ -34,6 +34,9 @@ impl BackgroundService for LB {
         let api_load = APIUpstreamProvider {
             address: self.config.config_address.clone(),
             masterkey: self.config.master_key.clone(),
+            tls_address: self.config.config_tls_address.clone(),
+            tls_certificate: self.config.config_tls_certificate.clone(),
+            tls_key_file: self.config.config_tls_key_file.clone(),
         };
         let tx_api = tx.clone();
         let _ = tokio::spawn(async move { api_load.start(tx_api).await });

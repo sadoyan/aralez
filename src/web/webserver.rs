@@ -1,3 +1,4 @@
+use crate::utils::discovery::APIUpstreamProvider;
 use crate::utils::structs::Configuration;
 use axum::body::Body;
 use axum::extract::{Query, State};
@@ -5,6 +6,7 @@ use axum::http::{Response, StatusCode};
 use axum::response::IntoResponse;
 use axum::routing::{delete, get, head, post, put};
 use axum::{Json, Router};
+use axum_server::tls_openssl::OpenSSLConfig;
 use futures::channel::mpsc::Sender;
 use futures::SinkExt;
 use jsonwebtoken::{encode, EncodingKey, Header};
@@ -12,6 +14,7 @@ use log::{error, info, warn};
 use prometheus::{gather, Encoder, TextEncoder};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::net::SocketAddr;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::net::TcpListener;
 
@@ -34,9 +37,9 @@ struct AppState {
 }
 
 #[allow(unused_mut)]
-pub async fn run_server(bindaddress: String, master_key: String, mut to_return: Sender<Configuration>) {
+pub async fn run_server(config: &APIUpstreamProvider, mut to_return: Sender<Configuration>) {
     let app_state = AppState {
-        master_key: master_key.clone(),
+        master_key: config.masterkey.clone(),
         config_sender: to_return.clone(),
     };
     let app = Router::new()
@@ -49,8 +52,21 @@ pub async fn run_server(bindaddress: String, master_key: String, mut to_return: 
         .route("/conf", post(conf))
         .route("/metrics", get(metrics))
         .with_state(app_state);
-    let listener = TcpListener::bind(bindaddress.clone()).await.unwrap();
-    info!("Starting the API server on: {}", bindaddress);
+
+    if let Some(value) = &config.tls_address {
+        let cf = OpenSSLConfig::from_pem_file(config.tls_certificate.clone().unwrap(), config.tls_key_file.clone().unwrap()).unwrap();
+        let addr: SocketAddr = value.parse().expect("Unable to parse socket address");
+        let tls_app = app.clone();
+        tokio::spawn(async move {
+            if let Err(e) = axum_server::bind_openssl(addr, cf).serve(tls_app.into_make_service()).await {
+                eprintln!("TLS server failed: {}", e);
+            }
+        });
+        info!("Starting the TLS API server on: {}", value);
+    }
+
+    let listener = TcpListener::bind(config.address.clone()).await.unwrap();
+    info!("Starting the API server on: {}", config.address);
     axum::serve(listener, app).await.unwrap();
 }
 

@@ -25,6 +25,7 @@ log = "0.4.27"
 futures = "0.3.31"
 notify = "8.0.0"
 axum = { version = "0.8.4" }
+axum-server = { version = "0.7.2", features = ["tls-openssl"] }
 reqwest = { version = "0.12.15", features = ["json", "native-tls-alpn"] }
 #reqwest = { version = "0.12.15", features = ["json", "rustls-tls"] }
 #reqwest = { version = "0.12.15", default-features = false, features = ["rustls-tls", "json"] }

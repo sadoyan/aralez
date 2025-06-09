@@ -8,6 +8,9 @@ pid_file: /tmp/gazan.pid # Path to PID file
 error_log: /tmp/gazan_err.log # Path to error log
 upgrade_sock: /tmp/gazan.sock # Path to socket file
 config_address: 0.0.0.0:3000 # HTTP API address for pushing upstreams.yaml from remote location
+config_tls_address: 0.0.0.0:3001 # HTTP TLS API address for pushing upstreams.yaml from remote location
+config_tls_certificate: etc/server.crt # Mandatory if config_tls_address is set
+config_tls_key_file: etc/key.pem # Mandatory if config_tls_address is set
 proxy_address_http: 0.0.0.0:6193 # Proxy HTTP bind address
 proxy_address_tls: 0.0.0.0:6194 # Optional, Proxy TLS bind address
 tls_certificate: etc/server.crt # Mandatory if proxy_address_tls is set

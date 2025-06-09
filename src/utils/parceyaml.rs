@@ -150,5 +150,15 @@ pub fn parce_main_config(path: &str) -> AppConfig {
             }
         }
     };
+    // match cfo.config_tls_address.clone() {
+    //     Some(tls_cert) => {
+    //         if let Some((ip, port_str)) = tls_cert.split_once(':') {
+    //             if let Ok(port) = port_str.parse::<u16>() {
+    //                 cfo.local_tls_server = Option::from((ip.to_string(), port));
+    //             }
+    //         }
+    //     }
+    //     None => {}
+    // };
     cfo
 }
