@@ -75,8 +75,8 @@ Built on Rust, on top of **Cloudflare’s Pingora engine**, **Gazan** delivers w
 | **upgrade_sock**                 | /tmp/gazan.sock                      | Path to live upgrade socket file                                                                |
 | **config_address**               | 0.0.0.0:3000                         | HTTP API address for pushing upstreams.yaml from remote location                                |
 | **config_tls_address**           | 0.0.0.0:3001                         | HTTPS API address for pushing upstreams.yaml from remote location                               |
-| **config_address**               | etc/server.crt                       | Certificate file path for API. Mandatory if proxy_address_tls is set, else optional             |
-| **config_address**               | etc/key.pem                          | Private Key file path. Mandatory if proxy_address_tls is set, else optional                     |
+| **config_tls_certificate**       | etc/server.crt                       | Certificate file path for API. Mandatory if proxy_address_tls is set, else optional             |
+| **config_tls_key_file**          | etc/key.pem                          | Private Key file path. Mandatory if proxy_address_tls is set, else optional                     |
 | **proxy_address_http**           | 0.0.0.0:6193                         | Gazan HTTP bind address                                                                         |
 | **proxy_address_tls**            | 0.0.0.0:6194                         | Gazan HTTPS bind address (Optional)                                                             |
 | **tls_certificate**              | etc/server.crt                       | TLS certificate file path. Mandatory if proxy_address_tls is set, else optional                 |
