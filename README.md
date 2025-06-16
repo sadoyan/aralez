@@ -5,7 +5,7 @@
 Aralez is a Reverse proxy, service mesh based on Cloudflare's Pingora
 
 **What Aralez means?**
-<ins>Aralez = Գազան = beast / wild animal in Armenian / Often used as a synonym to something great.</ins>.
+<ins>Aralez = Արալեզ winged dog-like creatures or spirits in Armenian mythology that descend upon dead heroes to lick their wounds in order to resurrect them.</ins>.
 
 Built on Rust, on top of **Cloudflare’s Pingora engine**, **Aralez** delivers world-class performance, security and scalability — right out of the box.
 
