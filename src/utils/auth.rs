@@ -37,7 +37,7 @@ impl AuthValidator for ApiKeyAuth<'_> {
 impl AuthValidator for JwtAuth<'_> {
     fn validate(&self, session: &Session) -> bool {
         let jwtsecret = self.0;
-        if let Some(tok) = get_query_param(session, "gazantoken") {
+        if let Some(tok) = get_query_param(session, "araleztoken") {
             return check_jwt(tok.as_str(), jwtsecret);
         }
 

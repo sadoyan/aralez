@@ -1,13 +1,13 @@
-![Gazan](https://netangels.net/utils/gazan-white.jpg)
+![Aralez](https://netangels.net/utils/aralez-white.jpg)
 
-# Gazan - The beast-mode reverse proxy.
+# Aralez - The beast-mode reverse proxy.
 
-Gazan is a Reverse proxy, service mesh based on Cloudflare's Pingora
+Aralez is a Reverse proxy, service mesh based on Cloudflare's Pingora
 
-**What Gazan means?**
-<ins>Gazan = Գազան = beast / wild animal in Armenian / Often used as a synonym to something great.</ins>.
+**What Aralez means?**
+<ins>Aralez = Գազան = beast / wild animal in Armenian / Often used as a synonym to something great.</ins>.
 
-Built on Rust, on top of **Cloudflare’s Pingora engine**, **Gazan** delivers world-class performance, security and scalability — right out of the box.
+Built on Rust, on top of **Cloudflare’s Pingora engine**, **Aralez** delivers world-class performance, security and scalability — right out of the box.
 
 ---
 
@@ -15,11 +15,11 @@ Built on Rust, on top of **Cloudflare’s Pingora engine**, **Gazan** delivers w
 
 - **Dynamic Config Reloads** — Upstreams can be updated live via API, no restart required.
 - **TLS Termination** — Built-in OpenSSL support.
-- **Upstreams TLS detection** — Gazan will automatically detect if upstreams uses secure connection.
+- **Upstreams TLS detection** — Aralez will automatically detect if upstreams uses secure connection.
 - **Authentication** — Supports Basic Auth, API tokens, and JWT verification.
     - **Basic Auth**
     - **API Key** via `x-api-key` header
-    - **JWT Auth**, with tokens issued by Gazan itself via `/jwt` API
+    - **JWT Auth**, with tokens issued by Aralez itself via `/jwt` API
         - ⬇️ See below for examples and implementation details.
 - **Load Balancing Strategies**
     - Round-robin
@@ -63,29 +63,28 @@ Built on Rust, on top of **Cloudflare’s Pingora engine**, **Gazan** delivers w
 
 ### 🔧 `main.yaml`
 
-| Key                              | Example Value                        | Description                                                                                     |
-|----------------------------------|--------------------------------------|-------------------------------------------------------------------------------------------------|
-| **threads**                      | 12                                   | Number of running daemon threads. Optional, defaults to 1                                       |
-| **user**                         | gazan                                | Optional, Username for running gazan after dropping root privileges, requires to launch as root |
-| **group**                        | gazan                                | Optional,Group for running gazan after dropping root privileges, requires to launch as root     |
-| **daemon**                       | false                                | Run in background (boolean)                                                                     |
-| **upstream_keepalive_pool_size** | 500                                  | Pool size for upstream keepalive connections                                                    |
-| **pid_file**                     | /tmp/gazan.pid                       | Path to PID file                                                                                |
-| **error_log**                    | /tmp/gazan_err.log                   | Path to error log file                                                                          |
-| **upgrade_sock**                 | /tmp/gazan.sock                      | Path to live upgrade socket file                                                                |
-| **config_address**               | 0.0.0.0:3000                         | HTTP API address for pushing upstreams.yaml from remote location                                |
-| **config_tls_address**           | 0.0.0.0:3001                         | HTTPS API address for pushing upstreams.yaml from remote location                               |
-| **config_tls_certificate**       | etc/server.crt                       | Certificate file path for API. Mandatory if proxy_address_tls is set, else optional             |
-| **config_tls_key_file**          | etc/key.pem                          | Private Key file path. Mandatory if proxy_address_tls is set, else optional                     |
-| **proxy_address_http**           | 0.0.0.0:6193                         | Gazan HTTP bind address                                                                         |
-| **proxy_address_tls**            | 0.0.0.0:6194                         | Gazan HTTPS bind address (Optional)                                                             |
-| **tls_certificate**              | etc/server.crt                       | TLS certificate file path. Mandatory if proxy_address_tls is set, else optional                 |
-| **tls_key_file**                 | etc/key.pem                          | TLS Key file path. Mandatory if proxy_address_tls is set, else optional                         |
-| **upstreams_conf**               | etc/upstreams.yaml                   | The location of upstreams file                                                                  |
-| **log_level**                    | info                                 | Log level , possible values : info, warn, error, debug, trace, off                              |
-| **hc_method**                    | HEAD                                 | Healthcheck method (HEAD, GET, POST are supported) UPPERCASE                                    |
-| **hc_interval**                  | 2                                    | Interval for health checks in seconds                                                           |
-| **master_key**                   | 5aeff7f9-7b94-447c-af60-e8c488544a3e | Master key for working with API server and JWT Secret generation                                |
+| Key                              | Example Value                        | Description                                                                                      |
+|----------------------------------|--------------------------------------|--------------------------------------------------------------------------------------------------|
+| **threads**                      | 12                                   | Number of running daemon threads. Optional, defaults to 1                                        |
+| **user**                         | aralez                               | Optional, Username for running aralez after dropping root privileges, requires to launch as root |
+| **group**                        | aralez                               | Optional,Group for running aralez after dropping root privileges, requires to launch as root     |
+| **daemon**                       | false                                | Run in background (boolean)                                                                      |
+| **upstream_keepalive_pool_size** | 500                                  | Pool size for upstream keepalive connections                                                     |
+| **pid_file**                     | /tmp/aralez.pid                      | Path to PID file                                                                                 |
+| **error_log**                    | /tmp/aralez_err.log                  | Path to error log file                                                                           |
+| **upgrade_sock**                 | /tmp/aralez.sock                     | Path to live upgrade socket file                                                                 |
+| **config_address**               | 0.0.0.0:3000                         | HTTP API address for pushing upstreams.yaml from remote location                                 |
+| **config_tls_address**           | 0.0.0.0:3001                         | HTTPS API address for pushing upstreams.yaml from remote location                                |
+| **config_tls_certificate**       | etc/server.crt                       | Certificate file path for API. Mandatory if proxy_address_tls is set, else optional              |
+| **config_tls_key_file**          | etc/key.pem                          | Private Key file path. Mandatory if proxy_address_tls is set, else optional                      |
+| **proxy_address_http**           | 0.0.0.0:6193                         | Aralez HTTP bind address                                                                         |
+| **proxy_address_tls**            | 0.0.0.0:6194                         | Aralez HTTPS bind address (Optional)                                                             |
+| **proxy_certificates**           | etc/certs/                           | The directory containing certificate and key files. In a format {NAME}.crt, {NAME}.key.          |
+| **upstreams_conf**               | etc/upstreams.yaml                   | The location of upstreams file                                                                   |
+| **log_level**                    | info                                 | Log level , possible values : info, warn, error, debug, trace, off                               |
+| **hc_method**                    | HEAD                                 | Healthcheck method (HEAD, GET, POST are supported) UPPERCASE                                     |
+| **hc_interval**                  | 2                                    | Interval for health checks in seconds                                                            |
+| **master_key**                   | 5aeff7f9-7b94-447c-af60-e8c488544a3e | Master key for working with API server and JWT Secret generation                                 |
 
 ### 🌐 `upstreams.yaml`
 
@@ -101,40 +100,40 @@ Built on Rust, on top of **Cloudflare’s Pingora engine**, **Gazan** delivers w
 
 ## 🛠 Installation
 
-Download the prebuilt binary for your architecture from releases section of [GitHub](https://github.com/sadoyan/gazan/releases) repo
-Make the binary executable `chmod 755 ./gazan-VERSION` and run.
+Download the prebuilt binary for your architecture from releases section of [GitHub](https://github.com/sadoyan/aralez/releases) repo
+Make the binary executable `chmod 755 ./aralez-VERSION` and run.
 
 File names:
 
-| File Name                | Description                                                   |
-|--------------------------|---------------------------------------------------------------|
-| `gazan-x86_64-musl.gz`   | Static Linux x86_64 binary, without any system dependency     |
-| `gazan-x86_64-glibc.gz`  | Dynamic Linux x86_64 binary, with minimal system dependencies |
-| `gazan-aarch64-musl.gz`  | Static Linux ARM64 binary, without any system dependency      |
-| `gazan-aarch64-glibc.gz` | Dynamic Linux ARM64 binary, with minimal system dependencies  |
+| File Name                 | Description                                                   |
+|---------------------------|---------------------------------------------------------------|
+| `aralez-x86_64-musl.gz`   | Static Linux x86_64 binary, without any system dependency     |
+| `aralez-x86_64-glibc.gz`  | Dynamic Linux x86_64 binary, with minimal system dependencies |
+| `aralez-aarch64-musl.gz`  | Static Linux ARM64 binary, without any system dependency      |
+| `aralez-aarch64-glibc.gz` | Dynamic Linux ARM64 binary, with minimal system dependencies  |
 
 ## 🔌 Running the Proxy
 
 ```bash
-./gazan -c path/to/main.yaml
+./aralez -c path/to/main.yaml
 ```
 
 ## 🔌 Systemd integration
 
 ```bash
-cat > /etc/systemd/system/gazan.service <<EOF
+cat > /etc/systemd/system/aralez.service <<EOF
 [Service]
 Type=forking
-PIDFile=/run/gazan.pid
-ExecStart=/bin/gazan -d -c /etc/gazan.conf
+PIDFile=/run/aralez.pid
+ExecStart=/bin/aralez -d -c /etc/aralez.conf
 ExecReload=kill -QUIT $MAINPID
-ExecReload=/bin/gazan -u -d -c /etc/gazan.conf
+ExecReload=/bin/aralez -u -d -c /etc/aralez.conf
 EOF
 ```
 
 ```bash
-systemctl enable gazan.service.
-systemctl restart gazan.service.
+systemctl enable aralez.service.
+systemctl restart aralez.service.
 ```
 
 ## 💡 Example
@@ -176,7 +175,7 @@ myhost.mydomain.com:
 - Sticky sessions are disabled globally. This setting applies to all upstreams. If enabled all requests will be 301 redirected to HTTPS.
 - HTTP to HTTPS redirect disabled globally, but can be overridden by `to_https` setting per upstream.
 - Requests to `myhost.mydomain.com/` will be proxied to `127.0.0.1` and `127.0.0.2`.
-- Plain HTTP to `myhost.mydomain.com/foo` will get 301 redirect to configured TLS port of Gazan.
+- Plain HTTP to `myhost.mydomain.com/foo` will get 301 redirect to configured TLS port of Aralez.
 - Requests to `myhost.mydomain.com/foo` will be proxied to `127.0.0.4` and `127.0.0.5`.
 - SSL/TLS for upstreams is detected automatically, no need to set any config parameter.
     - Assuming the `127.0.0.5:8443` is SSL protected. The inner traffic will use TLS.
@@ -224,7 +223,7 @@ curl -XPOST --data-binary @./etc/upstreams.txt 127.0.0.1:3000/conf?key=${MASTERK
 - Only one method can be active at a time.
 - `basic` : Standard HTTP Basic Authentication requests.
 - `apikey` : Authentication via `x-api-key` header, which should match the value in config.
-- `jwt`: JWT authentication implemented via `gazantoken=` url parameter. `/some/url?gazantoken=TOKEN`
+- `jwt`: JWT authentication implemented via `araleztoken=` url parameter. `/some/url?araleztoken=TOKEN`
 - `jwt`: JWT authentication implemented via `Authorization: Bearer <token>` header.
     - To obtain JWT a token, you should send **generate** request to built in api server's `/jwt` endpoint.
     - `master_key`: should match configured `masterkey` in `main.yaml` and `upstreams.yaml`.
@@ -255,7 +254,7 @@ curl -H "Authorization: Bearer ${TOK}" -H 'Host: myip.mydomain.com' http://127.0
 With URL parameter (Very useful if you want to generate and share temporary links)
 
 ```bash
-curl -H 'Host: myip.mydomain.com' "http://127.0.0.1:6193/?gazantoken=${TOK}`"
+curl -H 'Host: myip.mydomain.com' "http://127.0.0.1:6193/?araleztoken=${TOK}`"
 ```
 
 **Example Request with API Key**
@@ -287,27 +286,27 @@ curl  -u username:password -H 'Host: myip.mydomain.com' http://127.0.0.1:6193/
 - Sticky session support.
 - HTTP2 ready.
 
-📊 Why Choose Gazan? – Feature Comparison
+📊 Why Choose Aralez? – Feature Comparison
 
-| Feature                    | **Gazan**                                                           | **Nginx**                | **HAProxy**             | **Traefik**     |
-|----------------------------|---------------------------------------------------------------------|--------------------------|-------------------------|-----------------|
-| **Hot Reload**             | ✅ Yes (live, API/file)                                              | ⚠️ Reloads config        | ⚠️ Reloads config       | ✅ Yes (dynamic) |
-| **JWT Auth**               | ✅ Built-in                                                          | ❌ External scripts       | ❌ External Lua or agent | ⚠️ With plugins |
-| **WebSocket Support**      | ✅ Automatic                                                         | ⚠️ Manual config         | ✅ Yes                   | ✅ Yes           |
-| **gRPC Support**           | ✅ Automatic (no config)                                             | ⚠️ Manual + HTTP/2 + TLS | ⚠️ Complex setup        | ✅ Native        |
-| **TLS Termination**        | ✅ Built-in (OpenSSL)                                                | ✅ Yes                    | ✅ Yes                   | ✅ Yes           |
-| **TLS Upstream Detection** | ✅ Automatic                                                         | ❌                        | ❌                       | ❌               |
-| **HTTP/2 Support**         | ✅ Automatic                                                         | ⚠️ Requires extra config | ⚠️ Requires build flags | ✅ Native        |
-| **Sticky Sessions**        | ✅ Cookie-based                                                      | ⚠️ In plus version only  | ✅                       | ✅               |
-| **Prometheus Metrics**     | ✅ [Built in](https://github.com/sadoyan/gazan/blob/main/METRICS.md) | ⚠️ With Lua or exporter  | ⚠️ With external script | ✅ Native        |
-| **Built With**             | 🦀 Rust                                                             | C                        | C                       | Go              |
+| Feature                    | **Aralez**                                                           | **Nginx**                | **HAProxy**             | **Traefik**     |
+|----------------------------|----------------------------------------------------------------------|--------------------------|-------------------------|-----------------|
+| **Hot Reload**             | ✅ Yes (live, API/file)                                               | ⚠️ Reloads config        | ⚠️ Reloads config       | ✅ Yes (dynamic) |
+| **JWT Auth**               | ✅ Built-in                                                           | ❌ External scripts       | ❌ External Lua or agent | ⚠️ With plugins |
+| **WebSocket Support**      | ✅ Automatic                                                          | ⚠️ Manual config         | ✅ Yes                   | ✅ Yes           |
+| **gRPC Support**           | ✅ Automatic (no config)                                              | ⚠️ Manual + HTTP/2 + TLS | ⚠️ Complex setup        | ✅ Native        |
+| **TLS Termination**        | ✅ Built-in (OpenSSL)                                                 | ✅ Yes                    | ✅ Yes                   | ✅ Yes           |
+| **TLS Upstream Detection** | ✅ Automatic                                                          | ❌                        | ❌                       | ❌               |
+| **HTTP/2 Support**         | ✅ Automatic                                                          | ⚠️ Requires extra config | ⚠️ Requires build flags | ✅ Native        |
+| **Sticky Sessions**        | ✅ Cookie-based                                                       | ⚠️ In plus version only  | ✅                       | ✅               |
+| **Prometheus Metrics**     | ✅ [Built in](https://github.com/sadoyan/aralez/blob/main/METRICS.md) | ⚠️ With Lua or exporter  | ⚠️ With external script | ✅ Native        |
+| **Built With**             | 🦀 Rust                                                              | C                        | C                       | Go              |
 
 ## 💡 Simple benchmark by [Oha](https://github.com/hatoo/oha)
 
 ⚠️ These benchmarks use :
 
 - 3 async Rust echo servers on a local network with 1Gbit as upstreams.
-- A dedicated server for running **Gazan**
+- A dedicated server for running **Aralez**
 - A dedicated server for running **Oha**
 - The following upstreams configuration.
 - 9 test URLs from simple `/` to nested up to 7 subpaths.
@@ -318,7 +317,7 @@ curl  -u username:password -H 'Host: myip.mydomain.com' http://127.0.0.1:6193/
       "/":
         to_https: false
         headers:
-          - "X-Proxy-From:Gazan"
+          - "X-Proxy-From:Aralez"
         servers:
           - "192.168.211.211:8000"
           - "192.168.211.212:8000"
@@ -327,7 +326,7 @@ curl  -u username:password -H 'Host: myip.mydomain.com' http://127.0.0.1:6193/
         to_https: false
         headers:
           - "X-Some-Thing:Yaaaaaaaaaaaaaaa"
-          - "X-Proxy-From:Gazan"
+          - "X-Proxy-From:Aralez"
         servers:
           - "192.168.211.211:8000"
           - "192.168.211.212:8000"
@@ -338,7 +337,7 @@ curl  -u username:password -H 'Host: myip.mydomain.com' http://127.0.0.1:6193/
 - CPU : Intel(R) Xeon(R) CPU E3-1270 v6 @ 3.80GHz
 - 300 : simultaneous connections
 - Duration : 10 Minutes
-- Binary : gazan-x86_64-glibc
+- Binary : aralez-x86_64-glibc
 
 ```
 Summary:
@@ -389,12 +388,12 @@ Error distribution:
   [158] aborted due to deadline
 ```
 
-![Gazan](https://netangels.net/utils/glibc10.png)
+![Aralez](https://netangels.net/utils/glibc10.png)
 
 - CPU : Intel(R) Xeon(R) CPU E3-1270 v6 @ 3.80GHz
 - 300 : simultaneous connections
 - Duration : 10 Minutes
-- Binary : gazan-x86_64-musl
+- Binary : aralez-x86_64-musl
 
 ```
 Summary:
@@ -445,4 +444,4 @@ Error distribution:
   [228] aborted due to deadline
 ```
 
-![Gazan](https://netangels.net/utils/musl10.png)
+![Aralez](https://netangels.net/utils/musl10.png)

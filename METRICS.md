@@ -1,6 +1,6 @@
-# 📈 Gazan Prometheus Metrics Reference
+# 📈 Aralez Prometheus Metrics Reference
 
-This document outlines Prometheus metrics for the [Gazan](https://github.com/sadoyan/gazan) reverse proxy.
+This document outlines Prometheus metrics for the [Aralez](https://github.com/sadoyan/aralez) reverse proxy.
 These metrics can be used for monitoring, alerting and performance analysis.
 
 Exposed to `http://config_address/metrics`
@@ -9,26 +9,26 @@ By default `http://127.0.0.1:3000/metrics`
 
 # 📊 Example Grafana dashboard during stress test :
 
-![Gazan](https://netangels.net/utils/dash.png)
+![Aralez](https://netangels.net/utils/dash.png)
 
 ---
 
 ## 🛠️ Prometheus Metrics
 
-### 1. `gazan_requests_total`
+### 1. `aralez_requests_total`
 
 - **Type**: `Counter`
-- **Purpose**: Total amount requests served by Gazan.
+- **Purpose**: Total amount requests served by Aralez.
 
 **PromQL example:**
 
 ```promql
-rate(gazan_requests_total[5m])
+rate(aralez_requests_total[5m])
 ```
 
 ---
 
-### 2. `gazan_errors_total`
+### 2. `aralez_errors_total`
 
 - **Type**: `Counter`
 - **Purpose**: Count of requests that resulted in an error.
@@ -36,12 +36,12 @@ rate(gazan_requests_total[5m])
 **PromQL example:**
 
 ```promql
-rate(gazan_errors_total[5m])
+rate(aralez_errors_total[5m])
 ```
 
 ---
 
-### 3. `gazan_responses_total{status="200"}`
+### 3. `aralez_responses_total{status="200"}`
 
 - **Type**: `CounterVec`
 - **Purpose**: Count of responses by HTTP status code.
@@ -49,14 +49,14 @@ rate(gazan_errors_total[5m])
 **PromQL example:**
 
 ```promql
-rate(gazan_responses_total{status=~"5.."}[5m]) > 0
+rate(aralez_responses_total{status=~"5.."}[5m]) > 0
 ```
 
 > Useful for alerting on 5xx errors.
 
 ---
 
-### 4. `gazan_response_latency_seconds`
+### 4. `aralez_response_latency_seconds`
 
 - **Type**: `Histogram`
 - **Purpose**: Tracks the latency of responses in seconds.
@@ -64,13 +64,13 @@ rate(gazan_responses_total{status=~"5.."}[5m]) > 0
 **Example bucket output:**
 
 ```prometheus
-gazan_response_latency_seconds_bucket{le="0.01"}  15
-gazan_response_latency_seconds_bucket{le="0.1"}   120
-gazan_response_latency_seconds_bucket{le="0.25"}  245
-gazan_response_latency_seconds_bucket{le="0.5"}   500
+aralez_response_latency_seconds_bucket{le="0.01"}  15
+aralez_response_latency_seconds_bucket{le="0.1"}   120
+aralez_response_latency_seconds_bucket{le="0.25"}  245
+aralez_response_latency_seconds_bucket{le="0.5"}   500
 ...
-gazan_response_latency_seconds_count  1023
-gazan_response_latency_seconds_sum    42.6
+aralez_response_latency_seconds_count  1023
+aralez_response_latency_seconds_sum    42.6
 ```
 
 | Metric                  | Meaning                                                       |
@@ -91,14 +91,14 @@ gazan_response_latency_seconds_sum    42.6
 🔹 **95th percentile latency**
 
 ```promql
-histogram_quantile(0.95, rate(gazan_response_latency_seconds_bucket[5m]))
+histogram_quantile(0.95, rate(aralez_response_latency_seconds_bucket[5m]))
 
 ```
 
 🔹 **Average latency**
 
 ```promql
-rate(gazan_response_latency_seconds_sum[5m]) / rate(gazan_response_latency_seconds_count[5m])
+rate(aralez_response_latency_seconds_sum[5m]) / rate(aralez_response_latency_seconds_count[5m])
 ```
 
 ---
@@ -112,9 +112,9 @@ rate(gazan_response_latency_seconds_sum[5m]) / rate(gazan_response_latency_secon
 
 | Metric Name                           | Type       | What it Tells You         |
 |---------------------------------------|------------|---------------------------|
-| `gazan_requests_total`                | Counter    | Total requests served     |
-| `gazan_errors_total`                  | Counter    | Number of failed requests |
-| `gazan_responses_total{status="200"}` | CounterVec | Response status breakdown |
-| `gazan_response_latency_seconds`      | Histogram  | How fast responses are    |
+| `aralez_requests_total`                | Counter    | Total requests served     |
+| `aralez_errors_total`                  | Counter    | Number of failed requests |
+| `aralez_responses_total{status="200"}` | CounterVec | Response status breakdown |
+| `aralez_response_latency_seconds`      | Histogram  | How fast responses are    |
 
 📘 *Last updated: May 2025*

@@ -1,9 +1,13 @@
 // use rustls::crypto::ring::default_provider;
 use crate::utils::structs::Extraparams;
+use crate::utils::tls;
+use crate::utils::tools::listdir;
 use crate::web::proxyhttp::LB;
 use arc_swap::ArcSwap;
 use dashmap::DashMap;
 use log::info;
+use openssl::ssl::{SslAlert, SslRef};
+use pingora_core::listeners::tls::TlsSettings;
 use pingora_core::prelude::{background_service, Opt};
 use pingora_core::server::Server;
 use std::env;
@@ -77,13 +81,22 @@ pub fn run() {
     let bind_address_http = cfg.proxy_address_http.clone();
 
     let bind_address_tls = cfg.proxy_address_tls.clone();
+    // let foo = crate::utils::tls::build_ssl_context_builder();
     match bind_address_tls {
         Some(bind_address_tls) => {
             info!("Running TLS listener on :{}", bind_address_tls);
-            let cert_path = cfg.tls_certificate.clone().unwrap();
-            let key_path = cfg.tls_key_file.clone().unwrap();
-            let mut tls_settings = pingora_core::listeners::tls::TlsSettings::intermediate(&cert_path, &key_path).unwrap();
+            // let cert_path = cfg.tls_certificate.clone().unwrap();
+            // let key_path = cfg.tls_key_file.clone().unwrap();
+            // let mut tls_settings = tls::TlsSettings::intermediate(&cert_path, &key_path).unwrap();
+            // tls_settings.enable_h2();
+            // proxy.add_tls_with_settings(&bind_address_tls, None, tls_settings);
+
+            let certificate_configs = listdir(cfg.proxy_certificates.clone().unwrap());
+            let certificates = tls::Certificates::new(&certificate_configs);
+            let mut tls_settings = TlsSettings::intermediate(&certificates.default_cert_path, &certificates.default_key_path).expect("unable to load or parse cert/key");
             tls_settings.enable_h2();
+            tls_settings.set_servername_callback(move |ssl_ref: &mut SslRef, ssl_alert: &mut SslAlert| certificates.server_name_callback(ssl_ref, ssl_alert));
+            tls_settings.set_alpn_select_callback(tls::prefer_h2);
             proxy.add_tls_with_settings(&bind_address_tls, None, tls_settings);
         }
         None => {}

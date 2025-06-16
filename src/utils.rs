@@ -7,4 +7,5 @@ pub mod jwt;
 pub mod metrics;
 pub mod parceyaml;
 pub mod structs;
+pub mod tls;
 pub mod tools;

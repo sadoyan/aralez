@@ -4,7 +4,7 @@ use axum::body::Body;
 use axum::extract::{Query, State};
 use axum::http::{Response, StatusCode};
 use axum::response::IntoResponse;
-use axum::routing::{delete, get, head, post, put};
+use axum::routing::{get, post};
 use axum::{Json, Router};
 use axum_server::tls_openssl::OpenSSLConfig;
 use futures::channel::mpsc::Sender;
@@ -43,11 +43,11 @@ pub async fn run_server(config: &APIUpstreamProvider, mut to_return: Sender<Conf
         config_sender: to_return.clone(),
     };
     let app = Router::new()
-        .route("/{*wildcard}", get(senderror))
-        .route("/{*wildcard}", post(senderror))
-        .route("/{*wildcard}", put(senderror))
-        .route("/{*wildcard}", head(senderror))
-        .route("/{*wildcard}", delete(senderror))
+        // .route("/{*wildcard}", get(senderror))
+        // .route("/{*wildcard}", post(senderror))
+        // .route("/{*wildcard}", put(senderror))
+        // .route("/{*wildcard}", head(senderror))
+        // .route("/{*wildcard}", delete(senderror))
         .route("/jwt", post(jwt_gen))
         .route("/conf", post(conf))
         .route("/metrics", get(metrics))
@@ -130,7 +130,7 @@ async fn metrics() -> impl IntoResponse {
         .unwrap()
 }
 
-#[allow(dead_code)]
-async fn senderror() -> impl IntoResponse {
-    Response::builder().status(StatusCode::BAD_GATEWAY).body(Body::from("No live upstream found!\n")).unwrap()
-}
+// #[allow(dead_code)]
+// async fn senderror() -> impl IntoResponse {
+//     Response::builder().status(StatusCode::BAD_GATEWAY).body(Body::from("No live upstream found!\n")).unwrap()
+// }

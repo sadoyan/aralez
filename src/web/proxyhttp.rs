@@ -4,9 +4,11 @@ use crate::utils::structs::{AppConfig, Extraparams, Headers, UpstreamsDashMap, U
 use crate::web::gethosts::GetHost;
 use arc_swap::ArcSwap;
 use async_trait::async_trait;
+use axum::body::Bytes;
 use log::{debug, warn};
 use pingora::http::{RequestHeader, ResponseHeader, StatusCode};
 use pingora::prelude::*;
+use pingora::ErrorSource::Upstream;
 use pingora_core::listeners::ALPN;
 use pingora_core::prelude::HttpPeer;
 use pingora_proxy::{ProxyHttp, Session};
@@ -108,14 +110,26 @@ impl ProxyHttp for LB {
                         Ok(peer)
                     }
                     None => {
-                        warn!("Upstream not found. Host: {:?}, Path: {}", hostname, session.req_header().uri);
-                        Ok(return_no_host(&self.config.local_server))
+                        session.respond_error_with_body(502, Bytes::from("502 Bad Gateway\n")).await.expect("Failed to send error");
+                        Err(Box::new(Error {
+                            etype: HTTPStatus(502),
+                            esource: Upstream,
+                            retry: RetryType::Decided(false),
+                            cause: None,
+                            context: Option::from(ImmutStr::Static("Upstream not found")),
+                        }))
                     }
                 }
             }
             None => {
-                warn!("Upstream not found. Host: {:?}, Path: {}", host_name, session.req_header().uri);
-                Ok(return_no_host(&self.config.local_server))
+                session.respond_error_with_body(502, Bytes::from("502 Bad Gateway\n")).await.expect("Failed to send error");
+                Err(Box::new(Error {
+                    etype: HTTPStatus(502),
+                    esource: Upstream,
+                    retry: RetryType::Decided(false),
+                    cause: None,
+                    context: None,
+                }))
             }
         }
     }
@@ -213,9 +227,9 @@ fn return_header_host(session: &Session) -> Option<&str> {
     }
 }
 
-fn return_no_host(inp: &Option<(String, u16)>) -> Box<HttpPeer> {
-    match inp {
-        Some(t) => Box::new(HttpPeer::new(t, false, String::new())),
-        None => Box::new(HttpPeer::new(("0.0.0.0", 0), false, String::new())),
-    }
-}
+// fn return_no_host(inp: &Option<(String, u16)>) -> Box<HttpPeer> {
+//     match inp {
+//         Some(t) => Box::new(HttpPeer::new(t, false, String::new())),
+//         None => Box::new(HttpPeer::new(("0.0.0.0", 0), false, String::new())),
+//     }
+// }

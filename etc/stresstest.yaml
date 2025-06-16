@@ -11,7 +11,7 @@ upstreams:
       "/":
         ssl: false
         headers:
-          - "X-Proxy-From:Gazan"
+          - "X-Proxy-From:Aralez"
         servers:
           - "192.168.221.213:8000"
           - "192.168.221.214:8000"

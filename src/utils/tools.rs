@@ -1,9 +1,11 @@
 use crate::utils::structs::{UpstreamsDashMap, UpstreamsIdMap};
+use crate::utils::tls;
 use dashmap::DashMap;
 use sha2::{Digest, Sha256};
 use std::any::type_name;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fmt::Write;
+use std::fs;
 use std::sync::atomic::AtomicUsize;
 
 #[allow(dead_code)]
@@ -145,4 +147,34 @@ pub fn clone_idmap_into(original: &UpstreamsDashMap, cloned: &UpstreamsIdMap) {
             new_inner_map.insert(path.clone(), new_vec);
         }
     }
+}
+
+pub fn listdir(dir: String) -> Vec<tls::CertificateConfig> {
+    let mut f = HashMap::new();
+    let mut certificate_configs: Vec<tls::CertificateConfig> = vec![];
+    let paths = fs::read_dir(dir).unwrap();
+    for path in paths {
+        let path_str = path.unwrap().path().to_str().unwrap().to_owned();
+        if path_str.ends_with(".crt") {
+            let name = path_str.replace(".crt", "");
+            let mut inner = vec![];
+            let domain = name.split("/").collect::<Vec<&str>>();
+            inner.push(name.clone() + ".crt");
+            inner.push(name.clone() + ".key");
+            f.insert(domain[domain.len() - 1].to_owned(), inner);
+            let y = tls::CertificateConfig {
+                cert_path: name.clone() + ".crt",
+                key_path: name.clone() + ".key",
+            };
+            certificate_configs.push(y);
+        }
+    }
+    for (_, v) in f.iter() {
+        let y = tls::CertificateConfig {
+            cert_path: v[0].clone(),
+            key_path: v[1].clone(),
+        };
+        certificate_configs.push(y);
+    }
+    certificate_configs
 }
