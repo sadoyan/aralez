@@ -1,11 +1,9 @@
 ![Aralez](https://netangels.net/utils/aralez-white.jpg)
 
-# Aralez - The beast-mode reverse proxy.
-
-Aralez is a Reverse proxy, service mesh based on Cloudflare's Pingora
+# Aralez (Արալեզ), Reverse proxy and service mesh built on top of Cloudflare's Pingora
 
 **What Aralez means?**
-<ins>Aralez = Արալեզ winged dog-like creatures or spirits in Armenian mythology that descend upon dead heroes to lick their wounds in order to resurrect them.</ins>.
+<ins>Aralez = Արալեզ. Named after the legendary Armenian guardian spirit, winged dog-like creature, that descend upon fallen heroes to lick their wounds and resurrect them.</ins>.
 
 Built on Rust, on top of **Cloudflare’s Pingora engine**, **Aralez** delivers world-class performance, security and scalability — right out of the box.
 
