@@ -1,17 +1,19 @@
 // use rustls::crypto::ring::default_provider;
 use crate::utils::structs::Extraparams;
 use crate::utils::tls;
-use crate::utils::tools::listdir;
+use crate::utils::tls::CertificateConfig;
+use crate::utils::tools::*;
 use crate::web::proxyhttp::LB;
 use arc_swap::ArcSwap;
 use dashmap::DashMap;
 use log::info;
-use openssl::ssl::{SslAlert, SslRef};
+use pingora::tls::ssl::{SslAlert, SslRef};
 use pingora_core::listeners::tls::TlsSettings;
 use pingora_core::prelude::{background_service, Opt};
 use pingora_core::server::Server;
-use std::env;
+use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::Arc;
+use std::{env, thread};
 
 pub fn run() {
     // default_provider().install_default().expect("Failed to install rustls crypto provider");
@@ -42,14 +44,15 @@ pub fn run() {
         headers: hh_config.clone(),
         extraparams: ec_config.clone(),
     };
-    let bg = LB {
-        ump_upst: uf_config.clone(),
-        ump_full: ff_config.clone(),
-        ump_byid: im_config.clone(),
-        config: cfg.clone(),
-        headers: hh_config.clone(),
-        extraparams: ec_config.clone(),
-    };
+    // let bg = LB {
+    //     ump_upst: uf_config.clone(),
+    //     ump_full: ff_config.clone(),
+    //     ump_byid: im_config.clone(),
+    //     config: cfg.clone(),
+    //     headers: hh_config.clone(),
+    //     extraparams: ec_config.clone(),
+    //     config_rx: Arc::from(Mutex::new(rx)),
+    // };
 
     // env_logger::Env::new();
     // env_logger::init();
@@ -69,35 +72,49 @@ pub fn run() {
             }
         }
     }
-    env_logger::builder()
-        // .format_timestamp(None)
-        // .format_module_path(false)
-        // .format_source_path(false)
-        // .format_target(false)
-        .init();
+    env_logger::builder().init();
 
-    let bg_srvc = background_service("bgsrvc", bg);
-    let mut proxy = pingora_proxy::http_proxy_service(&server.configuration, lb);
+    let bg_srvc = background_service("bgsrvc", lb.clone());
+    let mut proxy = pingora_proxy::http_proxy_service(&server.configuration, lb.clone());
     let bind_address_http = cfg.proxy_address_http.clone();
 
     let bind_address_tls = cfg.proxy_address_tls.clone();
-    // let foo = crate::utils::tls::build_ssl_context_builder();
     match bind_address_tls {
         Some(bind_address_tls) => {
-            info!("Running TLS listener on :{}", bind_address_tls);
-            // let cert_path = cfg.tls_certificate.clone().unwrap();
-            // let key_path = cfg.tls_key_file.clone().unwrap();
-            // let mut tls_settings = tls::TlsSettings::intermediate(&cert_path, &key_path).unwrap();
-            // tls_settings.enable_h2();
-            // proxy.add_tls_with_settings(&bind_address_tls, None, tls_settings);
+            let (tx, rx): (Sender<Vec<CertificateConfig>>, Receiver<Vec<CertificateConfig>>) = channel();
+            let certs_path = cfg.proxy_certificates.clone().unwrap();
+            thread::spawn(move || {
+                watch_folder(certs_path, tx).unwrap();
+            });
+            let certificate_configs = rx.recv().unwrap();
+            let first_set = tls::Certificates::new(&certificate_configs).unwrap_or_else(|| panic!("Unable to load initial certificate info"));
+            let certificates = Arc::new(ArcSwap::from_pointee(first_set));
+            let certs_for_callback = certificates.clone();
 
-            let certificate_configs = listdir(cfg.proxy_certificates.clone().unwrap());
-            let certificates = tls::Certificates::new(&certificate_configs);
-            let mut tls_settings = TlsSettings::intermediate(&certificates.default_cert_path, &certificates.default_key_path).expect("unable to load or parse cert/key");
-            tls_settings.enable_h2();
-            tls_settings.set_servername_callback(move |ssl_ref: &mut SslRef, ssl_alert: &mut SslAlert| certificates.server_name_callback(ssl_ref, ssl_alert));
+            let certs_for_watcher = certificates.clone();
+            let new_certs = tls::Certificates::new(&certificate_configs);
+            certs_for_watcher.store(Arc::new(new_certs.unwrap()));
+
+            let mut tls_settings =
+                TlsSettings::intermediate(&certs_for_callback.load().default_cert_path, &certs_for_callback.load().default_key_path).expect("unable to load or parse cert/key");
+
+            tls_settings.set_servername_callback(move |ssl_ref: &mut SslRef, ssl_alert: &mut SslAlert| certs_for_callback.load().server_name_callback(ssl_ref, ssl_alert));
             tls_settings.set_alpn_select_callback(tls::prefer_h2);
             proxy.add_tls_with_settings(&bind_address_tls, None, tls_settings);
+
+            let certs_for_watcher = certificates.clone();
+            thread::spawn(move || {
+                while let Ok(new_configs) = rx.recv() {
+                    let new_certs = tls::Certificates::new(&new_configs);
+                    match new_certs {
+                        Some(new_certs) => {
+                            certs_for_watcher.store(Arc::new(new_certs));
+                            info!("Reload TLS certificates from {}", cfg.proxy_certificates.clone().unwrap())
+                        }
+                        None => {}
+                    };
+                }
+            });
         }
         None => {}
     }

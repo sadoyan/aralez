@@ -78,3 +78,9 @@ pub struct AppConfig {
     pub local_server: Option<(String, u16)>,
     pub proxy_certificates: Option<String>,
 }
+
+// #[derive(Debug)]
+// pub struct CertificateMove {
+//     pub cert_tx: Sender<CertificateConfig>,
+//     pub cert_rx: Receiver<CertificateConfig>,
+// }

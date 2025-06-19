@@ -15,6 +15,7 @@ use pingora_proxy::{ProxyHttp, Session};
 use std::sync::Arc;
 use tokio::time::Instant;
 
+#[derive(Clone)]
 pub struct LB {
     pub ump_upst: Arc<UpstreamsDashMap>,
     pub ump_full: Arc<UpstreamsDashMap>,

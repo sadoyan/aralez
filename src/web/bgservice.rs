@@ -30,6 +30,8 @@ impl BackgroundService for LB {
 
         let _ = tokio::spawn(async move { file_load.start(tx_file).await });
         let _ = tokio::spawn(async move { consul_load.start(tx_consul).await });
+        // let _ = tokio::spawn(tls::watch_certs(self.config.proxy_certificates.clone().unwrap(), self.cert_tx.clone()));
+        // let _ = tokio::spawn(tls::watch_certs(self.config.proxy_certificates.clone().unwrap(), self.cert_tx.clone())).await;
 
         let api_load = APIUpstreamProvider {
             address: self.config.config_address.clone(),

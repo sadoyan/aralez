@@ -1,12 +1,17 @@
 use crate::utils::structs::{UpstreamsDashMap, UpstreamsIdMap};
 use crate::utils::tls;
+use crate::utils::tls::CertificateConfig;
 use dashmap::DashMap;
+use log::{error, info};
+use notify::{event::ModifyKind, Config, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use sha2::{Digest, Sha256};
 use std::any::type_name;
 use std::collections::{HashMap, HashSet};
 use std::fmt::Write;
 use std::fs;
 use std::sync::atomic::AtomicUsize;
+use std::sync::mpsc::{channel, Sender};
+use std::time::{Duration, Instant};
 
 #[allow(dead_code)]
 pub fn print_upstreams(upstreams: &UpstreamsDashMap) {
@@ -162,7 +167,7 @@ pub fn listdir(dir: String) -> Vec<tls::CertificateConfig> {
             inner.push(name.clone() + ".crt");
             inner.push(name.clone() + ".key");
             f.insert(domain[domain.len() - 1].to_owned(), inner);
-            let y = tls::CertificateConfig {
+            let y = CertificateConfig {
                 cert_path: name.clone() + ".crt",
                 key_path: name.clone() + ".key",
             };
@@ -170,11 +175,38 @@ pub fn listdir(dir: String) -> Vec<tls::CertificateConfig> {
         }
     }
     for (_, v) in f.iter() {
-        let y = tls::CertificateConfig {
+        let y = CertificateConfig {
             cert_path: v[0].clone(),
             key_path: v[1].clone(),
         };
         certificate_configs.push(y);
     }
     certificate_configs
+}
+
+pub fn watch_folder(path: String, sender: Sender<Vec<CertificateConfig>>) -> notify::Result<()> {
+    let (tx, rx) = channel();
+    let mut watcher = RecommendedWatcher::new(tx, Config::default())?;
+    watcher.watch(path.as_ref(), RecursiveMode::Recursive)?;
+    info!("Watching for certificates in : {}", path);
+    let certificate_configs = listdir(path.clone());
+    sender.send(certificate_configs)?;
+    let mut start = Instant::now();
+    loop {
+        match rx.recv_timeout(Duration::from_secs(1)) {
+            Ok(Ok(event)) => match &event.kind {
+                EventKind::Modify(ModifyKind::Data(_)) | EventKind::Create(_) | EventKind::Remove(_) => {
+                    if start.elapsed() > Duration::from_secs(1) {
+                        start = Instant::now();
+                        let certificate_configs = listdir(path.clone());
+                        sender.send(certificate_configs)?;
+                        info!("Certificate changed: {:?}, {:?}", event.kind, event.paths);
+                    }
+                }
+                _ => {}
+            },
+            Ok(Err(e)) => error!("Watch error: {:?}", e),
+            Err(_) => {}
+        }
+    }
 }
