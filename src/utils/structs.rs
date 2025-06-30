@@ -73,14 +73,6 @@ pub struct AppConfig {
     pub config_tls_key_file: Option<String>,
     pub proxy_address_tls: Option<String>,
     pub proxy_port_tls: Option<u16>,
-    // pub tls_certificate: Option<String>,
-    // pub tls_key_file: Option<String>,
     pub local_server: Option<(String, u16)>,
     pub proxy_certificates: Option<String>,
 }
-
-// #[derive(Debug)]
-// pub struct CertificateMove {
-//     pub cert_tx: Sender<CertificateConfig>,
-//     pub cert_rx: Receiver<CertificateConfig>,
-// }

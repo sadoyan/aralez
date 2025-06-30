@@ -28,6 +28,7 @@ pub fn run() {
     let ff_config = Arc::new(DashMap::new());
     let im_config = Arc::new(DashMap::new());
     let hh_config = Arc::new(DashMap::new());
+
     let ec_config = Arc::new(ArcSwap::from_pointee(Extraparams {
         sticky_sessions: false,
         to_https: None,
@@ -37,25 +38,13 @@ pub fn run() {
     let cfg = Arc::new(maincfg);
 
     let lb = LB {
-        ump_upst: uf_config.clone(),
-        ump_full: ff_config.clone(),
-        ump_byid: im_config.clone(),
+        ump_upst: uf_config,
+        ump_full: ff_config,
+        ump_byid: im_config,
         config: cfg.clone(),
-        headers: hh_config.clone(),
-        extraparams: ec_config.clone(),
+        headers: hh_config,
+        extraparams: ec_config,
     };
-    // let bg = LB {
-    //     ump_upst: uf_config.clone(),
-    //     ump_full: ff_config.clone(),
-    //     ump_byid: im_config.clone(),
-    //     config: cfg.clone(),
-    //     headers: hh_config.clone(),
-    //     extraparams: ec_config.clone(),
-    //     config_rx: Arc::from(Mutex::new(rx)),
-    // };
-
-    // env_logger::Env::new();
-    // env_logger::init();
 
     let log_level = cfg.log_level.clone();
     unsafe {

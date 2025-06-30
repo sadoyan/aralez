@@ -34,8 +34,6 @@ pub struct Context {
 
 #[async_trait]
 impl ProxyHttp for LB {
-    // type CTX = ();
-    // fn new_ctx(&self) -> Self::CTX {}
     type CTX = Context;
     fn new_ctx(&self) -> Self::CTX {
         Context {
@@ -60,7 +58,6 @@ impl ProxyHttp for LB {
         let host_name = return_header_host(&session);
         match host_name {
             Some(hostname) => {
-                // session.req_header_mut().headers.insert("X-Host-Name", host.to_string().parse().unwrap());
                 let mut backend_id = None;
 
                 if self.extraparams.load().sticky_sessions {
@@ -82,6 +79,26 @@ impl ProxyHttp for LB {
                 match ddr {
                     Some((address, port, ssl, is_h2, to_https)) => {
                         let mut peer = Box::new(HttpPeer::new((address.clone(), port.clone()), ssl, String::new()));
+                        /*
+                        let key = PeerKey {
+                            addr: address.clone(),
+                            port: port,
+                            ssl: ssl,
+                        };
+
+                        let gk = key.get_hash();
+                        let pooled_conn = self.connection_pool.connections.get(&gk);
+                        match pooled_conn {
+                            Some(conn) => {
+                                peer = Box::from(conn);
+                            }
+                            None => {
+                                let id = self.connection_pool.next_id();
+                                self.connection_pool.connections.put(&ConnectionMeta { key: gk, id: id }, *peer.clone());
+                                debug!("Added peer to pool: {}", id);
+                            }
+                        }
+                        */
                         // if session.is_http2() {
                         if is_h2 {
                             peer.options.alpn = ALPN::H2;
@@ -91,7 +108,7 @@ impl ProxyHttp for LB {
                             peer.options.verify_cert = false;
                             peer.options.verify_hostname = false;
                         }
-                        // println!("{}, {}, alpn {}, h2 {:?}, to_https {}", hostname, address.as_str(), peer.options.alpn, is_h2, _to_https);
+
                         if self.extraparams.load().to_https.unwrap_or(false) || to_https {
                             if let Some(stream) = session.stream() {
                                 if stream.get_ssl().is_none() {
@@ -108,6 +125,11 @@ impl ProxyHttp for LB {
                         }
 
                         ctx.backend_id = format!("{}:{}:{}", address.clone(), port.clone(), ssl);
+                        /*
+                        ctx.peer = Some(peer.clone());
+                        ctx.peer_key = Some(key.clone());
+                        ctx.group_key = Some(gk.clone());
+                        */
                         Ok(peer)
                     }
                     None => {
@@ -155,6 +177,12 @@ impl ProxyHttp for LB {
         Ok(())
     }
 
+    // async fn request_body_filter(&self, _session: &mut Session, _body: &mut Option<Bytes>, _end_of_stream: bool, _ctx: &mut Self::CTX) -> Result<()>
+    // where
+    //     Self::CTX: Send + Sync,
+    // {
+    //     Ok(())
+    // }
     async fn response_filter(&self, session: &mut Session, _upstream_response: &mut ResponseHeader, ctx: &mut Self::CTX) -> Result<()> {
         // _upstream_response.insert_header("X-Proxied-From", "Fooooooooooooooo").unwrap();
         if self.extraparams.load().sticky_sessions {
@@ -195,6 +223,7 @@ impl ProxyHttp for LB {
             }
             None => {}
         }
+        session.set_keepalive(Some(300));
         Ok(())
     }
 
@@ -227,10 +256,3 @@ fn return_header_host(session: &Session) -> Option<&str> {
         }
     }
 }
-
-// fn return_no_host(inp: &Option<(String, u16)>) -> Box<HttpPeer> {
-//     match inp {
-//         Some(t) => Box::new(HttpPeer::new(t, false, String::new())),
-//         None => Box::new(HttpPeer::new(("0.0.0.0", 0), false, String::new())),
-//     }
-// }
