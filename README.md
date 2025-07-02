@@ -13,6 +13,7 @@ Built on Rust, on top of **Cloudflare’s Pingora engine**, **Aralez** delivers 
 
 - **Dynamic Config Reloads** — Upstreams can be updated live via API, no restart required.
 - **TLS Termination** — Built-in OpenSSL support.
+    - **Automatic load of certificates** — Automatically reads and loads certificates from a folder, without a restart.
 - **Upstreams TLS detection** — Aralez will automatically detect if upstreams uses secure connection.
 - **Authentication** — Supports Basic Auth, API tokens, and JWT verification.
     - **Basic Auth**
@@ -24,6 +25,7 @@ Built on Rust, on top of **Cloudflare’s Pingora engine**, **Aralez** delivers 
     - Failover with health checks
     - Sticky sessions via cookies
 - **Unified Port** — Serve HTTP and WebSocket traffic over the same connection.
+- **Built in file server** — Build in minimalistic file server for serving static files, should be added as upstreams for public access.
 - **Memory Safe** — Created purely on Rust.
 - **High Performance** — Built with [Pingora](https://github.com/cloudflare/pingora) and tokio for async I/O.
 
