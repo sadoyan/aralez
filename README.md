@@ -83,6 +83,8 @@ Built on Rust, on top of **Cloudflare’s Pingora engine**, **Aralez** delivers 
 | **hc_method**                    | HEAD                                 | Healthcheck method (HEAD, GET, POST are supported) UPPERCASE                                     |
 | **hc_interval**                  | 2                                    | Interval for health checks in seconds                                                            |
 | **master_key**                   | 5aeff7f9-7b94-447c-af60-e8c488544a3e | Master key for working with API server and JWT Secret generation                                 |
+| **file_server_folder**           | /some/local/folder                   | Optional, local folder to serve                                                                  |
+| **file_server_address**          | 127.0.0.1:3002                       | Optional, Local address for file server. Can set as upstream for public access                   |
 
 ### 🌐 `upstreams.yaml`
 

@@ -75,4 +75,6 @@ pub struct AppConfig {
     pub proxy_port_tls: Option<u16>,
     pub local_server: Option<(String, u16)>,
     pub proxy_certificates: Option<String>,
+    pub file_server_address: Option<String>,
+    pub file_server_folder: Option<String>,
 }

@@ -79,26 +79,6 @@ impl ProxyHttp for LB {
                 match ddr {
                     Some((address, port, ssl, is_h2, to_https)) => {
                         let mut peer = Box::new(HttpPeer::new((address.clone(), port.clone()), ssl, String::new()));
-                        /*
-                        let key = PeerKey {
-                            addr: address.clone(),
-                            port: port,
-                            ssl: ssl,
-                        };
-
-                        let gk = key.get_hash();
-                        let pooled_conn = self.connection_pool.connections.get(&gk);
-                        match pooled_conn {
-                            Some(conn) => {
-                                peer = Box::from(conn);
-                            }
-                            None => {
-                                let id = self.connection_pool.next_id();
-                                self.connection_pool.connections.put(&ConnectionMeta { key: gk, id: id }, *peer.clone());
-                                debug!("Added peer to pool: {}", id);
-                            }
-                        }
-                        */
                         // if session.is_http2() {
                         if is_h2 {
                             peer.options.alpn = ALPN::H2;
@@ -125,11 +105,6 @@ impl ProxyHttp for LB {
                         }
 
                         ctx.backend_id = format!("{}:{}:{}", address.clone(), port.clone(), ssl);
-                        /*
-                        ctx.peer = Some(peer.clone());
-                        ctx.peer_key = Some(key.clone());
-                        ctx.group_key = Some(gk.clone());
-                        */
                         Ok(peer)
                     }
                     None => {

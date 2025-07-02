@@ -17,6 +17,7 @@ use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::net::TcpListener;
+use tower_http::services::ServeDir;
 
 #[derive(Deserialize)]
 struct InputKey {
@@ -42,12 +43,14 @@ pub async fn run_server(config: &APIUpstreamProvider, mut to_return: Sender<Conf
         master_key: config.masterkey.clone(),
         config_sender: to_return.clone(),
     };
+
     let app = Router::new()
         // .route("/{*wildcard}", get(senderror))
         // .route("/{*wildcard}", post(senderror))
         // .route("/{*wildcard}", put(senderror))
         // .route("/{*wildcard}", head(senderror))
         // .route("/{*wildcard}", delete(senderror))
+        // .nest_service("/static", static_files)
         .route("/jwt", post(jwt_gen))
         .route("/conf", post(conf))
         .route("/metrics", get(metrics))
@@ -63,6 +66,13 @@ pub async fn run_server(config: &APIUpstreamProvider, mut to_return: Sender<Conf
             }
         });
         info!("Starting the TLS API server on: {}", value);
+    }
+
+    if let (Some(address), Some(folder)) = (&config.file_server_address, &config.file_server_folder) {
+        let static_files = ServeDir::new(folder);
+        let static_serve: Router = Router::new().fallback_service(static_files);
+        let static_listen = TcpListener::bind(address).await.unwrap();
+        let _ = tokio::spawn(async move { axum::serve(static_listen, static_serve).await.unwrap() });
     }
 
     let listener = TcpListener::bind(config.address.clone()).await.unwrap();

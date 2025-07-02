@@ -14,6 +14,8 @@ pub struct APIUpstreamProvider {
     pub tls_address: Option<String>,
     pub tls_certificate: Option<String>,
     pub tls_key_file: Option<String>,
+    pub file_server_address: Option<String>,
+    pub file_server_folder: Option<String>,
 }
 
 pub struct ConsulProvider {
