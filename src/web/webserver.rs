@@ -35,6 +35,7 @@ struct OutToken {
 struct AppState {
     master_key: String,
     config_sender: Sender<Configuration>,
+    config_api_enabled: bool,
 }
 
 #[allow(unused_mut)]
@@ -42,6 +43,7 @@ pub async fn run_server(config: &APIUpstreamProvider, mut to_return: Sender<Conf
     let app_state = AppState {
         master_key: config.masterkey.clone(),
         config_sender: to_return.clone(),
+        config_api_enabled: config.config_api_enabled.clone(),
     };
 
     let app = Router::new()
@@ -81,6 +83,13 @@ pub async fn run_server(config: &APIUpstreamProvider, mut to_return: Sender<Conf
 }
 
 async fn conf(State(mut st): State<AppState>, Query(params): Query<HashMap<String, String>>, content: String) -> impl IntoResponse {
+    if !st.config_api_enabled {
+        return Response::builder()
+            .status(StatusCode::FORBIDDEN)
+            .body(Body::from("Config remote API is disabled !\n"))
+            .unwrap();
+    }
+
     if let Some(s) = params.get("key") {
         if s.to_owned() == st.master_key.to_owned() {
             if let Some(serverlist) = crate::utils::parceyaml::load_configuration(content.as_str(), "content") {

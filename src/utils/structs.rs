@@ -68,6 +68,7 @@ pub struct AppConfig {
     pub master_key: String,
     pub config_address: String,
     pub proxy_address_http: String,
+    pub config_api_enabled: bool,
     pub config_tls_address: Option<String>,
     pub config_tls_certificate: Option<String>,
     pub config_tls_key_file: Option<String>,

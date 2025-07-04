@@ -7,6 +7,7 @@ upstream_keepalive_pool_size: 500 # Pool size for upstream keepalive connections
 pid_file: /tmp/aralez.pid # Path to PID file
 error_log: /tmp/aralez_err.log # Path to error log
 upgrade_sock: /tmp/aralez.sock # Path to socket file
+config_api_enabled: true # Boolean to enable/disable remote config push capability.
 config_address: 0.0.0.0:3000 # HTTP API address for pushing upstreams.yaml from remote location
 config_tls_address: 0.0.0.0:3001 # HTTP TLS API address for pushing upstreams.yaml from remote location
 config_tls_certificate: etc/server.crt # Mandatory if config_tls_address is set

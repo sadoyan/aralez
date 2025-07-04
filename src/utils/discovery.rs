@@ -9,6 +9,7 @@ pub struct FromFileProvider {
     pub path: String,
 }
 pub struct APIUpstreamProvider {
+    pub config_api_enabled: bool,
     pub address: String,
     pub masterkey: String,
     pub tls_address: Option<String>,
