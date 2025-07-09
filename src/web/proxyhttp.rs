@@ -6,13 +6,16 @@ use arc_swap::ArcSwap;
 use async_trait::async_trait;
 use axum::body::Bytes;
 use log::{debug, warn};
+use once_cell::sync::Lazy;
 use pingora::http::{RequestHeader, ResponseHeader, StatusCode};
 use pingora::prelude::*;
 use pingora::ErrorSource::Upstream;
 use pingora_core::listeners::ALPN;
 use pingora_core::prelude::HttpPeer;
+use pingora_limits::rate::Rate;
 use pingora_proxy::{ProxyHttp, Session};
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::time::Instant;
 
 #[derive(Clone)]
@@ -30,7 +33,12 @@ pub struct Context {
     to_https: bool,
     redirect_to: String,
     start_time: Instant,
+    hostname: Option<String>,
 }
+// Rate limiter
+static RATE_LIMITER: Lazy<Rate> = Lazy::new(|| Rate::new(Duration::from_secs(1)));
+// max request per second per client
+// static MAX_REQ_PER_SEC: isize = 1;
 
 #[async_trait]
 impl ProxyHttp for LB {
@@ -41,6 +49,7 @@ impl ProxyHttp for LB {
             to_https: false,
             redirect_to: String::new(),
             start_time: Instant::now(),
+            hostname: None,
         }
     }
     async fn request_filter(&self, session: &mut Session, _ctx: &mut Self::CTX) -> Result<bool> {
@@ -52,11 +61,32 @@ impl ProxyHttp for LB {
                 return Ok(true);
             }
         };
+
+        let hostname = return_header_host(&session);
+        _ctx.hostname = hostname.clone();
+        if let Some(rate) = self.extraparams.load().rate_limit {
+            match hostname {
+                None => return Ok(false),
+                Some(host) => {
+                    let curr_window_requests = RATE_LIMITER.observe(&host, 1);
+                    if curr_window_requests > rate {
+                        let mut header = ResponseHeader::build(429, None).unwrap();
+                        header.insert_header("X-Rate-Limit-Limit", rate.to_string()).unwrap();
+                        header.insert_header("X-Rate-Limit-Remaining", "0").unwrap();
+                        header.insert_header("X-Rate-Limit-Reset", "1").unwrap();
+                        session.set_keepalive(None);
+                        session.write_response_header(Box::new(header), true).await?;
+                        debug!("Rate limited: {:?}, {}", session.client_addr(), rate);
+                        return Ok(true);
+                    }
+                }
+            };
+        }
         Ok(false)
     }
     async fn upstream_peer(&self, session: &mut Session, ctx: &mut Self::CTX) -> Result<Box<HttpPeer>> {
-        let host_name = return_header_host(&session);
-        match host_name {
+        // let host_name = return_header_host(&session);
+        match ctx.hostname.as_ref() {
             Some(hostname) => {
                 let mut backend_id = None;
 
@@ -84,7 +114,7 @@ impl ProxyHttp for LB {
                             peer.options.alpn = ALPN::H2;
                         }
                         if ssl {
-                            peer.sni = hostname.to_string();
+                            peer.sni = hostname.clone();
                             peer.options.verify_cert = false;
                             peer.options.verify_hostname = false;
                         }
@@ -172,7 +202,8 @@ impl ProxyHttp for LB {
             redirect_response.insert_header("Content-Length", "0")?;
             session.write_response_header(Box::new(redirect_response), false).await?;
         }
-        match return_header_host(&session) {
+        // match return_header_host(&session) {
+        match ctx.hostname.as_ref() {
             Some(host) => {
                 let path = session.req_header().uri.path();
                 let host_header = host;
@@ -215,17 +246,17 @@ impl ProxyHttp for LB {
     }
 }
 
-fn return_header_host(session: &Session) -> Option<&str> {
+fn return_header_host(session: &Session) -> Option<String> {
     if session.is_http2() {
         match session.req_header().uri.host() {
-            Some(host) => Option::from(host),
+            Some(host) => Option::from(host.to_string()),
             None => None,
         }
     } else {
         match session.req_header().headers.get("host") {
             Some(host) => {
                 let header_host = host.to_str().unwrap().splitn(2, ':').collect::<Vec<&str>>();
-                Option::from(header_host[0])
+                Option::from(header_host[0].to_string())
             }
             None => None,
         }

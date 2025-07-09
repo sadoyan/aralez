@@ -19,6 +19,7 @@ pub struct Extraparams {
     pub sticky_sessions: bool,
     pub to_https: Option<bool>,
     pub authentication: DashMap<String, Vec<String>>,
+    pub rate_limit: Option<isize>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -37,11 +38,13 @@ pub struct Config {
     pub headers: Option<Vec<String>>,
     pub authorization: Option<HashMap<String, String>>,
     pub consul: Option<Consul>,
+    pub rate_limit: Option<isize>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct HostConfig {
     pub paths: HashMap<String, PathConfig>,
+    pub rate_limit: Option<isize>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -49,6 +52,7 @@ pub struct PathConfig {
     pub servers: Vec<String>,
     pub to_https: Option<bool>,
     pub headers: Option<Vec<String>>,
+    pub rate_limit: Option<isize>,
 }
 #[derive(Debug)]
 pub struct Configuration {

@@ -91,7 +91,7 @@ async fn conf(State(mut st): State<AppState>, Query(params): Query<HashMap<Strin
     }
 
     if let Some(s) = params.get("key") {
-        if s.to_owned() == st.master_key.to_owned() {
+        if s.to_owned() == st.master_key {
             if let Some(serverlist) = crate::utils::parceyaml::load_configuration(content.as_str(), "content") {
                 st.config_sender.send(serverlist).await.unwrap();
                 return Response::builder().status(StatusCode::OK).body(Body::from("Config, conf file, updated !\n")).unwrap();

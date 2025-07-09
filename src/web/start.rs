@@ -33,6 +33,7 @@ pub fn run() {
         sticky_sessions: false,
         to_https: None,
         authentication: DashMap::new(),
+        rate_limit: None,
     }));
 
     let cfg = Arc::new(maincfg);

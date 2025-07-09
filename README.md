@@ -15,6 +15,7 @@ Built on Rust, on top of **Cloudflare’s Pingora engine**, **Aralez** delivers 
 - **TLS Termination** — Built-in OpenSSL support.
     - **Automatic load of certificates** — Automatically reads and loads certificates from a folder, without a restart.
 - **Upstreams TLS detection** — Aralez will automatically detect if upstreams uses secure connection.
+- **Built in rate limiter** — Limit requests to server, by setting up upper limit for requests per seconds, per virtualhost.
 - **Authentication** — Supports Basic Auth, API tokens, and JWT verification.
     - **Basic Auth**
     - **API Key** via `x-api-key` header
@@ -147,6 +148,7 @@ A sample `upstreams.yaml` entry:
 provider: "file"
 sticky_sessions: false
 to_https: false
+rate_limit: 10
 headers:
   - "Access-Control-Allow-Origin:*"
   - "Access-Control-Allow-Methods:POST, GET, OPTIONS"
@@ -177,6 +179,9 @@ myhost.mydomain.com:
 
 - Sticky sessions are disabled globally. This setting applies to all upstreams. If enabled all requests will be 301 redirected to HTTPS.
 - HTTP to HTTPS redirect disabled globally, but can be overridden by `to_https` setting per upstream.
+- Requests to each hosted domains will be limited to 10 requests per second per virtualhost.
+    - The limiter is per virtualhost so requests and limits will be calculated per virtualhost individually.
+    - Optional. Rate limiter will be disabled if the parameter is entirely removed from config.
 - Requests to `myhost.mydomain.com/` will be proxied to `127.0.0.1` and `127.0.0.2`.
 - Plain HTTP to `myhost.mydomain.com/foo` will get 301 redirect to configured TLS port of Aralez.
 - Requests to `myhost.mydomain.com/foo` will be proxied to `127.0.0.4` and `127.0.0.5`.

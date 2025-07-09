@@ -67,6 +67,7 @@ impl BackgroundService for LB {
                             new.sticky_sessions = ss.extraparams.sticky_sessions;
                             new.to_https = ss.extraparams.to_https;
                             new.authentication = ss.extraparams.authentication.clone();
+                            new.rate_limit = ss.extraparams.rate_limit;
                             self.extraparams.store(Arc::new(new));
                             self.headers.clear();
 

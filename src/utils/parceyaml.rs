@@ -16,6 +16,7 @@ pub fn load_configuration(d: &str, kind: &str) -> Option<Configuration> {
             sticky_sessions: false,
             to_https: None,
             authentication: DashMap::new(),
+            rate_limit: None,
         },
     };
     toreturn.upstreams = UpstreamsDashMap::new();
@@ -55,9 +56,9 @@ pub fn load_configuration(d: &str, kind: &str) -> Option<Configuration> {
                 }
                 global_headers.insert("/".to_string(), hl);
                 toreturn.headers.insert("GLOBAL_HEADERS".to_string(), global_headers);
-
                 toreturn.extraparams.sticky_sessions = parsed.sticky_sessions;
                 toreturn.extraparams.to_https = parsed.to_https;
+                toreturn.extraparams.rate_limit = parsed.rate_limit;
             }
             if let Some(auth) = &parsed.authorization {
                 let name = auth.get("type").unwrap().to_string();
@@ -67,7 +68,6 @@ pub fn load_configuration(d: &str, kind: &str) -> Option<Configuration> {
             } else {
                 toreturn.extraparams.authentication = DashMap::new();
             }
-
             match parsed.provider.as_str() {
                 "file" => {
                     toreturn.typecfg = "file".to_string();

@@ -128,9 +128,11 @@ dependencies = [
  "log",
  "mimalloc",
  "notify",
+ "once_cell",
  "pingora",
  "pingora-core",
  "pingora-http",
+ "pingora-limits",
  "pingora-proxy",
  "prometheus 0.14.0",
  "rand 0.9.1",
@@ -2083,6 +2085,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e672fab42518ae10cbcbed2e4532c46744b222425c12886d2e6ae2ffd64b1e74"
 dependencies = [
  "crc32fast",
+]
+
+[[package]]
+name = "pingora-limits"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a719a8cb5558ca06bd6076c97b8905d500ea556da89e132ba53d4272844f95b9"
+dependencies = [
+ "ahash",
 ]
 
 [[package]]
