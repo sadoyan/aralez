@@ -116,6 +116,24 @@ File names:
 | `aralez-aarch64-musl.gz`  | Static Linux ARM64 binary, without any system dependency      |
 | `aralez-aarch64-glibc.gz` | Dynamic Linux ARM64 binary, with minimal system dependencies  |
 
+## 💡 Note
+
+In general **glibc** builds are working faster, but have few, basic, system dependencies for example :
+
+```
+	linux-vdso.so.1 (0x00007ffeea33b000)
+	libgcc_s.so.1 => /lib/x86_64-linux-gnu/libgcc_s.so.1 (0x00007f09e7377000)
+	libm.so.6 => /lib/x86_64-linux-gnu/libm.so.6 (0x00007f09e6320000)
+	libc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x00007f09e613f000)
+	/lib64/ld-linux-x86-64.so.2 (0x00007f09e73b1000)
+```
+
+These are common to any Linux systems, so the binary should work on almost any Linux system.
+
+**musl** builds are 100% portable, static compiled binaries and have zero system depencecies.
+In general musl builds have a little less performance.
+The most intensive tests shows 107k-110k requests per second on **Glibc** binaries against 97k-100k **Musl** ones.
+
 ## 🔌 Running the Proxy
 
 ```bash
@@ -180,15 +198,16 @@ myhost.mydomain.com:
 - Sticky sessions are disabled globally. This setting applies to all upstreams. If enabled all requests will be 301 redirected to HTTPS.
 - HTTP to HTTPS redirect disabled globally, but can be overridden by `to_https` setting per upstream.
 - Requests to each hosted domains will be limited to 10 requests per second per virtualhost.
-    - The limiter is per virtualhost so requests and limits will be calculated per virtualhost individually.
+    - Requests limits are calculated per requester ip plus requested virtualhost.
+    - If the requester exceeds the limit it will receive `429 Too Many Requests` error.
     - Optional. Rate limiter will be disabled if the parameter is entirely removed from config.
 - Requests to `myhost.mydomain.com/` will be proxied to `127.0.0.1` and `127.0.0.2`.
 - Plain HTTP to `myhost.mydomain.com/foo` will get 301 redirect to configured TLS port of Aralez.
 - Requests to `myhost.mydomain.com/foo` will be proxied to `127.0.0.4` and `127.0.0.5`.
 - SSL/TLS for upstreams is detected automatically, no need to set any config parameter.
     - Assuming the `127.0.0.5:8443` is SSL protected. The inner traffic will use TLS.
-    - Self signed certificates are silently accepted.
-- Global headers (CORS for this case) will be injected to all upstreams
+    - Self-signed certificates are silently accepted.
+- Global headers (CORS for this case) will be injected to all upstreams.
 - Additional headers will be injected into the request for `myhost.mydomain.com`.
 - You can choose any path, deep nested paths are supported, the best match chosen.
 - All requests to servers will require JWT token authentication (You can comment out the authorization to disable it),
