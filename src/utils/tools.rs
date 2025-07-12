@@ -1,4 +1,4 @@
-use crate::utils::structs::{UpstreamsDashMap, UpstreamsIdMap};
+use crate::utils::structs::{InnerMap, UpstreamsDashMap, UpstreamsIdMap};
 use crate::utils::tls;
 use crate::utils::tls::CertificateConfig;
 use dashmap::DashMap;
@@ -22,10 +22,16 @@ pub fn print_upstreams(upstreams: &UpstreamsDashMap) {
         for path_entry in host_entry.value().iter() {
             let path = path_entry.key();
             println!(" Path: {}", path);
-
-            for (ip, port, ssl, vers, to_https) in path_entry.value().0.clone() {
-                println!("    ===> IP: {}, Port: {}, SSL: {}, H2: {}, To HTTPS: {}", ip, port, ssl, vers, to_https);
+            for f in path_entry.value().0.clone() {
+                println!(
+                    "    ===> IP: {}, Port: {}, SSL: {}, H2: {}, To HTTPS: {}",
+                    f.address, f.port, f.is_ssl, f.is_http2, f.to_https
+                );
             }
+            // { address: "127.0.0.4", port: 8000, is_ssl: false, is_http2: false, to_https: false }
+            // for (ip, port, ssl, vers, to_https) in path_entry.value().0.clone() {
+            //     println!("    ===> IP: {}, Port: {}, SSL: {}, H2: {}, To HTTPS: {}", ip, port, ssl, vers, to_https);
+            // }
         }
     }
 }
@@ -140,13 +146,20 @@ pub fn clone_idmap_into(original: &UpstreamsDashMap, cloned: &UpstreamsIdMap) {
             let new_vec = vec.clone();
             for x in vec.iter() {
                 let mut id = String::new();
-                write!(&mut id, "{}:{}:{}", x.0, x.1, x.2).unwrap();
+                write!(&mut id, "{}:{}:{}", x.address, x.port, x.is_ssl).unwrap();
                 let mut hasher = Sha256::new();
                 hasher.update(id.clone().into_bytes());
                 let hash = hasher.finalize();
                 let hex_hash = base16ct::lower::encode_string(&hash);
                 let hh = hex_hash[0..50].to_string();
-                cloned.insert(id, (hh.clone(), 0000, false, false, false));
+                let to_add = InnerMap {
+                    address: hh.clone(),
+                    port: 0,
+                    is_ssl: false,
+                    is_http2: false,
+                    to_https: false,
+                };
+                cloned.insert(id, to_add);
                 cloned.insert(hh, x.to_owned());
             }
             new_inner_map.insert(path.clone(), new_vec);

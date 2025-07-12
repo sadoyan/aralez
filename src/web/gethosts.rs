@@ -45,7 +45,6 @@ impl GetHost for LB {
                 }
             }
         }
-        // println!("BMT :===> {:?}", best_match);
         best_match
     }
     fn get_header(&self, peer: &str, path: &str) -> Option<Vec<(String, String)>> {

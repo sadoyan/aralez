@@ -104,22 +104,23 @@ impl ProxyHttp for LB {
                     }
                 }
 
-                let ddr = self.get_host(hostname, hostname, backend_id);
+                let optioninnermap = self.get_host(hostname, hostname, backend_id);
 
-                match ddr {
-                    Some((address, port, ssl, is_h2, to_https)) => {
-                        let mut peer = Box::new(HttpPeer::new((address.clone(), port.clone()), ssl, String::new()));
+                match optioninnermap {
+                    // Some((address, port, ssl, is_h2, to_https)) => {
+                    Some(innermap) => {
+                        let mut peer = Box::new(HttpPeer::new((innermap.address.clone(), innermap.port.clone()), innermap.is_ssl, String::new()));
                         // if session.is_http2() {
-                        if is_h2 {
+                        if innermap.is_http2 {
                             peer.options.alpn = ALPN::H2;
                         }
-                        if ssl {
+                        if innermap.is_ssl {
                             peer.sni = hostname.clone();
                             peer.options.verify_cert = false;
                             peer.options.verify_hostname = false;
                         }
 
-                        if self.extraparams.load().to_https.unwrap_or(false) || to_https {
+                        if self.extraparams.load().to_https.unwrap_or(false) || innermap.to_https {
                             if let Some(stream) = session.stream() {
                                 if stream.get_ssl().is_none() {
                                     if let Some(addr) = session.server_addr() {
@@ -134,7 +135,7 @@ impl ProxyHttp for LB {
                             }
                         }
 
-                        ctx.backend_id = format!("{}:{}:{}", address.clone(), port.clone(), ssl);
+                        ctx.backend_id = format!("{}:{}:{}", innermap.address.clone(), innermap.port.clone(), innermap.is_ssl);
                         Ok(peer)
                     }
                     None => {
@@ -193,7 +194,7 @@ impl ProxyHttp for LB {
         if self.extraparams.load().sticky_sessions {
             let backend_id = ctx.backend_id.clone();
             if let Some(bid) = self.ump_byid.get(&backend_id) {
-                let _ = _upstream_response.insert_header("set-cookie", format!("backend_id={}; Path=/; Max-Age=600; HttpOnly; SameSite=Lax", bid.0));
+                let _ = _upstream_response.insert_header("set-cookie", format!("backend_id={}; Path=/; Max-Age=600; HttpOnly; SameSite=Lax", bid.address));
             }
         }
         if ctx.to_https {

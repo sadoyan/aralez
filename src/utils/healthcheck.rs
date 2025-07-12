@@ -1,4 +1,4 @@
-use crate::utils::structs::{UpstreamsDashMap, UpstreamsIdMap};
+use crate::utils::structs::{InnerMap, UpstreamsDashMap, UpstreamsIdMap};
 use crate::utils::tools::*;
 use dashmap::DashMap;
 use log::{error, info, warn};
@@ -9,6 +9,7 @@ use std::time::Duration;
 use tokio::time::interval;
 use tonic::transport::Endpoint;
 
+#[allow(unused_assignments)]
 pub async fn hc2(upslist: Arc<UpstreamsDashMap>, fullist: Arc<UpstreamsDashMap>, idlist: Arc<UpstreamsIdMap>, params: (&str, u64)) {
     let mut period = interval(Duration::from_secs(params.1));
     let mut first_run = 0;
@@ -20,47 +21,41 @@ pub async fn hc2(upslist: Arc<UpstreamsDashMap>, fullist: Arc<UpstreamsDashMap>,
                 for val in fclone.iter() {
                     let host = val.key();
                     let inner = DashMap::new();
-                    let mut _scheme: (String, u16, bool, bool, bool) = ("".to_string(), 0, false, false, false);
+                    let mut scheme = InnerMap::new();
                     for path_entry in val.value().iter() {
-                        // let inner = DashMap::new();
                         let path = path_entry.key();
                         let mut innervec= Vec::new();
                         for k in path_entry.value().0 .iter().enumerate() {
-                            let (ip, port, _ssl, _version, _redir) = k.1;
                             let mut _link = String::new();
-                            let tls = detect_tls(ip, port).await;
+                            let tls = detect_tls(k.1.address.as_str(), &k.1.port).await;
                             let mut is_h2 = false;
-
-                            // if tls.1 == Some(Version::HTTP_11) {
-                            //     println!("  V1: ==> {:?}", tls.1)
-                            // }else if tls.1 == Some(Version::HTTP_2) {
-                            //     is_h2 = true;
-                            //     println!("  V2: ==> {:?}", tls.1)
-                            // }
-
                             if tls.1 == Some(Version::HTTP_2) {
                                 is_h2 = true;
-                                // println!("  V2: ==> {} ==> {:?}", tls.0, tls.1)
                             }
-
                             match tls.0 {
-                                true => _link = format!("https://{}:{}{}", ip, port, path),
-                                false => _link = format!("http://{}:{}{}", ip, port, path),
+                                true => _link = format!("https://{}:{}{}", k.1.address, k.1.port, path),
+                                false => _link = format!("http://{}:{}{}", k.1.address, k.1.port, path),
                             }
-                            // if _pref == "https://" {
-                            //     _scheme = (ip.to_string(), *port, true);
-                            // }else {
-                            //     _scheme = (ip.to_string(), *port, false);
-                            // }
-                            _scheme = (ip.to_string(), *port, tls.0, is_h2, *_redir);
-                            // let link = format!("{}{}:{}{}", _pref, ip, port, path);
+                            scheme = InnerMap {
+                                address: k.1.address.clone(),
+                                port: k.1.port,
+                                is_ssl: tls.0,
+                                is_http2: is_h2,
+                                to_https: k.1.to_https,
+                            };
                             let resp = http_request(_link.as_str(), params.0, "").await;
                             match resp.0 {
                                 true => {
                                     if resp.1 {
-                                        _scheme = (ip.to_string(), *port, tls.0, true,  *_redir);
+                                      scheme = InnerMap {
+                                        address: k.1.address.clone(),
+                                        port: k.1.port,
+                                        is_ssl: tls.0,
+                                        is_http2: is_h2,
+                                        to_https: k.1.to_https,
+                                        };
                                     }
-                                    innervec.push(_scheme.clone());
+                                    innervec.push(scheme);
                                 }
                                 false => {
                                     warn!("Dead Upstream : {}", _link);

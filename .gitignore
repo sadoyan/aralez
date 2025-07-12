@@ -8,6 +8,7 @@
 /target/
 *.iml
 .idea/
+.etc/
 *.ipr
 *.iws
 /out/

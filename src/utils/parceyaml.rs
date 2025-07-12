@@ -89,9 +89,15 @@ pub fn load_configuration(d: &str, kind: &str) -> Option<Configuration> {
                                 for server in path_config.servers {
                                     if let Some((ip, port_str)) = server.split_once(':') {
                                         if let Ok(port) = port_str.parse::<u16>() {
-                                            // let to_https = matches!(path_config.to_https, Some(true));
                                             let to_https = path_config.to_https.unwrap_or(false);
-                                            server_list.push((ip.to_string(), port, true, false, to_https));
+                                            let sl = InnerMap {
+                                                address: ip.to_string(),
+                                                port: port,
+                                                is_ssl: true,
+                                                is_http2: false,
+                                                to_https: to_https,
+                                            };
+                                            server_list.push(sl);
                                         }
                                     }
                                 }
