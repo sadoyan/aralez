@@ -1,135 +1,132 @@
 use crate::utils::structs::*;
 use dashmap::DashMap;
 use log::{error, info, warn};
-use serde_yaml::Error;
 use std::collections::HashMap;
 use std::fs;
 use std::sync::atomic::AtomicUsize;
 
 pub fn load_configuration(d: &str, kind: &str) -> Option<Configuration> {
-    let mut toreturn: Configuration = Configuration {
-        upstreams: Default::default(),
-        headers: Default::default(),
-        consul: None,
-        typecfg: "".to_string(),
-        extraparams: Extraparams {
-            sticky_sessions: false,
-            to_https: None,
-            authentication: DashMap::new(),
-            rate_limit: None,
+    let yaml_data = match kind {
+        "filepath" => match fs::read_to_string(d) {
+            Ok(data) => {
+                info!("Reading upstreams from {}", d);
+                data
+            }
+            Err(e) => {
+                error!("Reading: {}: {:?}", d, e);
+                warn!("Running with empty upstreams list, update it via API");
+                return None;
+            }
         },
-    };
-    toreturn.upstreams = UpstreamsDashMap::new();
-    toreturn.headers = Headers::new();
-
-    let mut yaml_data = d.to_string();
-    match kind {
-        "filepath" => {
-            let _ = match fs::read_to_string(d) {
-                Ok(data) => {
-                    info!("Reading upstreams from {}", d);
-                    yaml_data = data
-                }
-                Err(e) => {
-                    error!("Reading: {}: {:?}", d, e.to_string());
-                    warn!("Running with empty upstreams list, update it via API");
-                    return None;
-                }
-            };
-        }
         "content" => {
             info!("Reading upstreams from API post body");
+            d.to_string()
         }
-        _ => error!("Mismatched parameter, only filepath|content is allowed "),
-    }
+        _ => {
+            error!("Mismatched parameter, only filepath|content is allowed");
+            return None;
+        }
+    };
 
-    let p: Result<Config, Error> = serde_yaml::from_str(&yaml_data);
-    match p {
-        Ok(parsed) => {
-            let global_headers = DashMap::new();
-            let mut hl = Vec::new();
-            if let Some(headers) = &parsed.headers {
-                for header in headers.iter() {
-                    if let Some((key, val)) = header.split_once(':') {
-                        hl.push((key.to_string(), val.to_string()));
-                    }
-                }
-                global_headers.insert("/".to_string(), hl);
-                toreturn.headers.insert("GLOBAL_HEADERS".to_string(), global_headers);
-                toreturn.extraparams.sticky_sessions = parsed.sticky_sessions;
-                toreturn.extraparams.to_https = parsed.to_https;
-                toreturn.extraparams.rate_limit = parsed.rate_limit;
-            }
-            if let Some(auth) = &parsed.authorization {
-                let name = auth.get("type").unwrap().to_string();
-                let creds = auth.get("creds").unwrap().to_string();
-                let val: Vec<String> = vec![name, creds];
-                toreturn.extraparams.authentication.insert("authorization".to_string(), val);
-            } else {
-                toreturn.extraparams.authentication = DashMap::new();
-            }
-            match parsed.provider.as_str() {
-                "file" => {
-                    toreturn.typecfg = "file".to_string();
-                    if let Some(upstream) = parsed.upstreams {
-                        for (hostname, host_config) in upstream {
-                            let path_map = DashMap::new();
-                            let header_list = DashMap::new();
-                            for (path, path_config) in host_config.paths {
-                                let mut server_list = Vec::new();
-                                let mut hl = Vec::new();
-                                if let Some(headers) = &path_config.headers {
-                                    for header in headers.iter().by_ref() {
-                                        if let Some((key, val)) = header.split_once(':') {
-                                            hl.push((key.to_string(), val.to_string()));
-                                        }
-                                    }
-                                }
-                                header_list.insert(path.clone(), hl);
-                                for server in path_config.servers {
-                                    if let Some((ip, port_str)) = server.split_once(':') {
-                                        if let Ok(port) = port_str.parse::<u16>() {
-                                            let to_https = path_config.to_https.unwrap_or(false);
-                                            let sl = InnerMap {
-                                                address: ip.to_string(),
-                                                port: port,
-                                                is_ssl: true,
-                                                is_http2: false,
-                                                to_https: to_https,
-                                            };
-                                            server_list.push(sl);
-                                        }
-                                    }
-                                }
-                                path_map.insert(path, (server_list, AtomicUsize::new(0)));
-                            }
-                            toreturn.headers.insert(hostname.clone(), header_list);
-                            toreturn.upstreams.insert(hostname, path_map);
-                        }
-                    }
-                    Some(toreturn)
-                }
-                "consul" => {
-                    toreturn.typecfg = "consul".to_string();
-                    let consul = parsed.consul;
-                    match consul {
-                        Some(consul) => {
-                            toreturn.consul = Some(consul);
-                            Some(toreturn)
-                        }
-                        None => None,
-                    }
-                }
-                "kubernetes" => None,
-                _ => {
-                    warn!("Unknown provider {}", parsed.provider);
-                    None
-                }
-            }
-        }
+    let parsed: Config = match serde_yaml::from_str(&yaml_data) {
+        Ok(cfg) => cfg,
         Err(e) => {
             error!("Failed to parse upstreams file: {}", e);
+            return None;
+        }
+    };
+
+    let mut toreturn = Configuration::default();
+
+    populate_headers_and_auth(&mut toreturn, &parsed);
+    toreturn.typecfg = parsed.provider.clone();
+
+    match parsed.provider.as_str() {
+        "file" => {
+            populate_file_upstreams(&mut toreturn, &parsed);
+            Some(toreturn)
+        }
+        "consul" => {
+            toreturn.consul = parsed.consul;
+            if toreturn.consul.is_some() {
+                Some(toreturn)
+            } else {
+                None
+            }
+        }
+        "kubernetes" => None,
+        _ => {
+            warn!("Unknown provider {}", parsed.provider);
             None
+        }
+    }
+}
+
+fn populate_headers_and_auth(config: &mut Configuration, parsed: &Config) {
+    if let Some(headers) = &parsed.headers {
+        let mut hl = Vec::new();
+        for header in headers {
+            if let Some((key, val)) = header.split_once(':') {
+                hl.push((key.trim().to_string(), val.trim().to_string()));
+            }
+        }
+
+        let global_headers = DashMap::new();
+        global_headers.insert("/".to_string(), hl);
+        config.headers.insert("GLOBAL_HEADERS".to_string(), global_headers);
+    }
+
+    config.extraparams.sticky_sessions = parsed.sticky_sessions;
+    config.extraparams.to_https = parsed.to_https;
+    config.extraparams.rate_limit = parsed.rate_limit;
+
+    if let Some(auth) = &parsed.authorization {
+        let name = auth.get("type").unwrap_or(&"".to_string()).to_string();
+        let creds = auth.get("creds").unwrap_or(&"".to_string()).to_string();
+        config.extraparams.authentication.insert("authorization".to_string(), vec![name, creds]);
+    } else {
+        config.extraparams.authentication = DashMap::new();
+    }
+}
+
+fn populate_file_upstreams(config: &mut Configuration, parsed: &Config) {
+    if let Some(upstreams) = &parsed.upstreams {
+        for (hostname, host_config) in upstreams {
+            let path_map = DashMap::new();
+            let header_list = DashMap::new();
+
+            for (path, path_config) in &host_config.paths {
+                let mut server_list = Vec::new();
+                let mut hl = Vec::new();
+
+                if let Some(headers) = &path_config.headers {
+                    for header in headers {
+                        if let Some((key, val)) = header.split_once(':') {
+                            hl.push((key.trim().to_string(), val.trim().to_string()));
+                        }
+                    }
+                }
+                header_list.insert(path.clone(), hl);
+
+                for server in &path_config.servers {
+                    if let Some((ip, port_str)) = server.split_once(':') {
+                        if let Ok(port) = port_str.parse::<u16>() {
+                            server_list.push(InnerMap {
+                                address: ip.trim().to_string(),
+                                port,
+                                is_ssl: true,
+                                is_http2: false,
+                                to_https: path_config.to_https.unwrap_or(false),
+                            });
+                        }
+                    }
+                }
+
+                path_map.insert(path.clone(), (server_list, AtomicUsize::new(0)));
+            }
+
+            config.headers.insert(hostname.clone(), header_list);
+            config.upstreams.insert(hostname.clone(), path_map);
         }
     }
 }

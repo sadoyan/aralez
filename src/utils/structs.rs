@@ -14,7 +14,7 @@ pub struct ServiceMapping {
     pub real: String,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct Extraparams {
     pub sticky_sessions: bool,
     pub to_https: Option<bool>,
@@ -60,7 +60,7 @@ pub struct PathConfig {
     pub headers: Option<Vec<String>>,
     pub rate_limit: Option<isize>,
 }
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Configuration {
     pub upstreams: UpstreamsDashMap,
     pub headers: Headers,
@@ -102,49 +102,11 @@ pub struct InnerMap {
 impl InnerMap {
     pub fn new() -> Self {
         Self {
-            address: String::new(),
-            port: 0,
-            is_ssl: false,
-            is_http2: false,
-            to_https: false,
+            address: Default::default(),
+            port: Default::default(),
+            is_ssl: Default::default(),
+            is_http2: Default::default(),
+            to_https: Default::default(),
         }
     }
 }
-
-/*
-impl InnerMap {
-    pub fn new(address: String, port: u16) -> Self {
-        Self {
-            address,
-            port,
-            is_ssl: false,  // Default values
-            is_http2: false,
-            to_https: false,
-        }
-    }
-    pub fn address(&self) -> &str {
-        &self.address
-    }
-
-    pub fn port(&self) -> u16 {
-        self.port
-    }
-
-    // Setters with validation
-    pub fn with_ssl(mut self, ssl: bool) -> Result<Self, String> {
-        self.is_ssl = ssl;
-        Ok(self)
-    }
-
-    pub fn with_http2(mut self, http2: bool) -> Result<Self, String> {
-        self.is_http2 = http2;
-        Ok(self)
-    }
-
-    pub fn with_to_https(mut self, to_https: bool) -> Result<Self, String> {
-        self.to_https = to_https;
-        Ok(self)
-    }
-}
-
-*/

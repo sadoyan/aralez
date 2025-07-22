@@ -21,17 +21,13 @@ pub fn print_upstreams(upstreams: &UpstreamsDashMap) {
 
         for path_entry in host_entry.value().iter() {
             let path = path_entry.key();
-            println!(" Path: {}", path);
+            println!("    Path: {}", path);
             for f in path_entry.value().0.clone() {
                 println!(
-                    "    ===> IP: {}, Port: {}, SSL: {}, H2: {}, To HTTPS: {}",
+                    "        IP: {}, Port: {}, SSL: {}, H2: {}, To HTTPS: {}",
                     f.address, f.port, f.is_ssl, f.is_http2, f.to_https
                 );
             }
-            // { address: "127.0.0.4", port: 8000, is_ssl: false, is_http2: false, to_https: false }
-            // for (ip, port, ssl, vers, to_https) in path_entry.value().0.clone() {
-            //     println!("    ===> IP: {}, Port: {}, SSL: {}, H2: {}, To HTTPS: {}", ip, port, ssl, vers, to_https);
-            // }
         }
     }
 }

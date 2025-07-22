@@ -18,6 +18,8 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::time::Instant;
 
+static RATE_LIMITER: Lazy<Rate> = Lazy::new(|| Rate::new(Duration::from_secs(1)));
+
 #[derive(Clone)]
 pub struct LB {
     pub ump_upst: Arc<UpstreamsDashMap>,
@@ -35,10 +37,6 @@ pub struct Context {
     start_time: Instant,
     hostname: Option<String>,
 }
-// Rate limiter
-static RATE_LIMITER: Lazy<Rate> = Lazy::new(|| Rate::new(Duration::from_secs(1)));
-// max request per second per client
-// static MAX_REQ_PER_SEC: isize = 1;
 
 #[async_trait]
 impl ProxyHttp for LB {
@@ -64,6 +62,7 @@ impl ProxyHttp for LB {
 
         let hostname = return_header_host(&session);
         _ctx.hostname = hostname.clone();
+
         if let Some(rate) = self.extraparams.load().rate_limit {
             match hostname {
                 None => return Ok(false),
