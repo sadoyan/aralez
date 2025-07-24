@@ -476,3 +476,20 @@ Error distribution:
 ```
 
 ![Aralez](https://netangels.net/utils/musl10.png)
+
+## 🚀 Aralez, Nginx, Traefik performance benchmark
+
+This benchmark is done on 4 servers. With CPU Intel(R) Xeon(R) E-2174G CPU @ 3.80GHz, 64 GB RAM.
+
+1. Sever runs Aralez, Traefik, Nginx on different ports. Tuned as much as I could .
+2. 3x Upstreams servers, running Nginx. Replying with dummy json hardcoded in config file for max performance.
+
+All servers are connected to the same switch with 1GB port in datacenter , not a home lab. The results:
+![Aralez](https://raw.githubusercontent.com/sadoyan/aralez/refs/heads/main/assets/bench.png)
+
+The results show requests per second performed by Load balancer. You can see 3 batches with 800 concurrent users.
+
+1. Requests via http1.1 to plain text endpoint.
+2. Requests to via http2 to SSL endpoint.
+3. Mixed workload with plain http1.1 and htt2 SSL.
+
