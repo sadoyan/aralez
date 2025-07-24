@@ -133,6 +133,7 @@ async fn get_by_http(url: String, token: Option<String>) -> Option<DashMap<Strin
                             is_ssl: false,
                             is_http2: false,
                             to_https: false,
+                            rate_limit: None,
                         };
                         values.push(to_add);
                     }

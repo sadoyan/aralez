@@ -1,7 +1,7 @@
-# Main configuration file , applied on startup
-threads: 12 # Nubber of daemon threads default setting
-#user: aralez # Username for running aralez after dropping root privileges, requires program to start as root
-#group: aralez # Group for running aralez after dropping root privileges, requires program to start as root
+# Main configuration file, applied on startup
+threads: 12 # Number of daemon threads default setting
+#user: pastor # Username for running aralez after dropping root privileges, requires program to start as root
+#group: pastor # Group for running aralez after dropping root privileges, requires program to start as root
 daemon: false # Run in background
 upstream_keepalive_pool_size: 500 # Pool size for upstream keepalive connections
 pid_file: /tmp/aralez.pid # Path to PID file
@@ -10,14 +10,14 @@ upgrade_sock: /tmp/aralez.sock # Path to socket file
 config_api_enabled: true # Boolean to enable/disable remote config push capability.
 config_address: 0.0.0.0:3000 # HTTP API address for pushing upstreams.yaml from remote location
 config_tls_address: 0.0.0.0:3001 # HTTP TLS API address for pushing upstreams.yaml from remote location
-config_tls_certificate: etc/server.crt # Mandatory if config_tls_address is set
-config_tls_key_file: etc/key.pem # Mandatory if config_tls_address is set
+config_tls_certificate: /opt/Rust/Projects/asyncweb/etc/server.crt # Mandatory if config_tls_address is set
+config_tls_key_file: /opt/Rust/Projects/asyncweb/etc/key.pem # Mandatory if config_tls_address is set
 proxy_address_http: 0.0.0.0:6193 # Proxy HTTP bind address
 proxy_address_tls: 0.0.0.0:6194 # Optional, Proxy TLS bind address
-proxy_certificates: etc/certificates # Mandatory if proxy_address_tls set, should contain certificate and key files strictly in a format {NAME}.crt, {NAME}.key.
-upstreams_conf: etc/upstreams.yaml # the location of upstreams file
-#file_server_folder: /some/path # Optional, local folder to serve
-#file_server_address: 127.0.0.1:3002 # Optional, Local address for file server. Can set as upstream for public access.
+proxy_certificates: /opt/Rust/Projects/asyncweb/etc/yoyo # Mandatory if proxy_address_tls set, should contain certificate and key files strictly in a format {NAME}.crt, {NAME}.key.
+upstreams_conf: /opt/Rust/Projects/asyncweb/etc/upstreams.yaml # the location of upstreams file
+file_server_folder: /opt/storage # Optional, local folder to serve
+file_server_address: 127.0.0.1:3002 # Optional, Local address for file server. Can set as upstream for public access.
 log_level: info # info, warn, error, debug, trace, off
 hc_method: HEAD # Healthcheck method (HEAD, GET, POST are supported) UPPERCASE
 hc_interval: 2 #Interval for health checks in seconds

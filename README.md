@@ -16,6 +16,8 @@ Built on Rust, on top of **Cloudflare’s Pingora engine**, **Aralez** delivers 
     - **Automatic load of certificates** — Automatically reads and loads certificates from a folder, without a restart.
 - **Upstreams TLS detection** — Aralez will automatically detect if upstreams uses secure connection.
 - **Built in rate limiter** — Limit requests to server, by setting up upper limit for requests per seconds, per virtualhost.
+    - **Global rate limiter** — Set rate limit for all virtualhosts.
+    - **Per path rate limiter** — Set rate limit for specific paths. Path limits will override global limits.
 - **Authentication** — Supports Basic Auth, API tokens, and JWT verification.
     - **Basic Auth**
     - **API Key** via `x-api-key` header
@@ -177,6 +179,7 @@ authorization:
 myhost.mydomain.com:
   paths:
     "/":
+      rate_limit: 20
       to_https: false
       headers:
         - "X-Some-Thing:Yaaaaaaaaaaaaaaa"
@@ -201,6 +204,7 @@ myhost.mydomain.com:
     - Requests limits are calculated per requester ip plus requested virtualhost.
     - If the requester exceeds the limit it will receive `429 Too Many Requests` error.
     - Optional. Rate limiter will be disabled if the parameter is entirely removed from config.
+- Requests to `myhost.mydomain.com/` will be limited to 20 requests per second.
 - Requests to `myhost.mydomain.com/` will be proxied to `127.0.0.1` and `127.0.0.2`.
 - Plain HTTP to `myhost.mydomain.com/foo` will get 301 redirect to configured TLS port of Aralez.
 - Requests to `myhost.mydomain.com/foo` will be proxied to `127.0.0.4` and `127.0.0.5`.

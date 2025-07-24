@@ -80,6 +80,10 @@ fn populate_headers_and_auth(config: &mut Configuration, parsed: &Config) {
     config.extraparams.to_https = parsed.to_https;
     config.extraparams.rate_limit = parsed.rate_limit;
 
+    if let Some(rate) = &parsed.rate_limit {
+        info!("Applied Global Rate Limit : {} request per second", rate);
+    }
+
     if let Some(auth) = &parsed.authorization {
         let name = auth.get("type").unwrap_or(&"".to_string()).to_string();
         let creds = auth.get("creds").unwrap_or(&"".to_string()).to_string();
@@ -94,8 +98,11 @@ fn populate_file_upstreams(config: &mut Configuration, parsed: &Config) {
         for (hostname, host_config) in upstreams {
             let path_map = DashMap::new();
             let header_list = DashMap::new();
-
             for (path, path_config) in &host_config.paths {
+                if let Some(rate) = &path_config.rate_limit {
+                    info!("Applied Rate Limit for {} : {} request per second", hostname, rate);
+                }
+
                 let mut server_list = Vec::new();
                 let mut hl = Vec::new();
 
@@ -109,6 +116,14 @@ fn populate_file_upstreams(config: &mut Configuration, parsed: &Config) {
                 header_list.insert(path.clone(), hl);
 
                 for server in &path_config.servers {
+                    // let mut rate: Option<isize> = None;
+                    // let size: isize = path_config.servers.len() as isize;
+                    // if let Some(limit) = &path_config.rate_limit {
+                    //     if size > 0 {
+                    //         rate = Some(limit / size);
+                    //     }
+                    // }
+
                     if let Some((ip, port_str)) = server.split_once(':') {
                         if let Ok(port) = port_str.parse::<u16>() {
                             server_list.push(InnerMap {
@@ -117,6 +132,8 @@ fn populate_file_upstreams(config: &mut Configuration, parsed: &Config) {
                                 is_ssl: true,
                                 is_http2: false,
                                 to_https: path_config.to_https.unwrap_or(false),
+                                // rate_limit: rate,
+                                rate_limit: path_config.rate_limit,
                             });
                         }
                     }

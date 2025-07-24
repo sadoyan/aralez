@@ -1,6 +1,6 @@
 use crate::utils::auth::authenticate;
 use crate::utils::metrics::*;
-use crate::utils::structs::{AppConfig, Extraparams, Headers, UpstreamsDashMap, UpstreamsIdMap};
+use crate::utils::structs::{AppConfig, Extraparams, Headers, InnerMap, UpstreamsDashMap, UpstreamsIdMap};
 use crate::web::gethosts::GetHost;
 use arc_swap::ArcSwap;
 use async_trait::async_trait;
@@ -36,6 +36,8 @@ pub struct Context {
     redirect_to: String,
     start_time: Instant,
     hostname: Option<String>,
+    upstream_peer: Option<InnerMap>,
+    extraparams: arc_swap::Guard<Arc<Extraparams>>,
 }
 
 #[async_trait]
@@ -48,14 +50,18 @@ impl ProxyHttp for LB {
             redirect_to: String::new(),
             start_time: Instant::now(),
             hostname: None,
+            upstream_peer: None,
+            extraparams: self.extraparams.load(),
         }
     }
     async fn request_filter(&self, session: &mut Session, _ctx: &mut Self::CTX) -> Result<bool> {
-        if let Some(auth) = self.extraparams.load().authentication.get("authorization") {
+        let ep = _ctx.extraparams.clone();
+
+        if let Some(auth) = ep.authentication.get("authorization") {
             let authenticated = authenticate(&auth.value(), &session);
             if !authenticated {
                 let _ = session.respond_error(401).await;
-                warn!("Forbidden: {:?}, {}", session.client_addr(), session.req_header().uri.path().to_string());
+                warn!("Forbidden: {:?}, {}", session.client_addr(), session.req_header().uri.path());
                 return Ok(true);
             }
         };
@@ -63,23 +69,48 @@ impl ProxyHttp for LB {
         let hostname = return_header_host(&session);
         _ctx.hostname = hostname.clone();
 
-        if let Some(rate) = self.extraparams.load().rate_limit {
-            match hostname {
-                None => return Ok(false),
-                Some(host) => {
-                    let curr_window_requests = RATE_LIMITER.observe(&host, 1);
-                    if curr_window_requests > rate {
-                        let mut header = ResponseHeader::build(429, None).unwrap();
-                        header.insert_header("X-Rate-Limit-Limit", rate.to_string()).unwrap();
-                        header.insert_header("X-Rate-Limit-Remaining", "0").unwrap();
-                        header.insert_header("X-Rate-Limit-Reset", "1").unwrap();
-                        session.set_keepalive(None);
-                        session.write_response_header(Box::new(header), true).await?;
-                        debug!("Rate limited: {:?}, {}", session.client_addr(), rate);
-                        return Ok(true);
+        let mut backend_id = None;
+
+        if ep.sticky_sessions {
+            if let Some(cookies) = session.req_header().headers.get("cookie") {
+                if let Ok(cookie_str) = cookies.to_str() {
+                    for cookie in cookie_str.split(';') {
+                        let trimmed = cookie.trim();
+                        if let Some(value) = trimmed.strip_prefix("backend_id=") {
+                            backend_id = Some(value);
+                            break;
+                        }
                     }
                 }
-            };
+            }
+        }
+
+        match hostname {
+            None => return Ok(false),
+            Some(host) => {
+                let optioninnermap = self.get_host(host.as_str(), host.as_str(), backend_id);
+                match optioninnermap {
+                    None => return Ok(false),
+                    Some(ref innermap) => {
+                        if let Some(rate) = innermap.rate_limit.or(ep.rate_limit) {
+                            // let rate_key = session.client_addr().and_then(|addr| addr.as_inet()).map(|inet| inet.ip().to_string()).unwrap_or_else(|| host.to_string());
+                            let rate_key = session.client_addr().and_then(|addr| addr.as_inet()).map(|inet| inet.ip());
+                            let curr_window_requests = RATE_LIMITER.observe(&rate_key, 1);
+                            if curr_window_requests > rate {
+                                let mut header = ResponseHeader::build(429, None).unwrap();
+                                header.insert_header("X-Rate-Limit-Limit", rate.to_string()).unwrap();
+                                header.insert_header("X-Rate-Limit-Remaining", "0").unwrap();
+                                header.insert_header("X-Rate-Limit-Reset", "1").unwrap();
+                                session.set_keepalive(None);
+                                session.write_response_header(Box::new(header), true).await?;
+                                debug!("Rate limited: {:?}, {}", rate_key, rate);
+                                return Ok(true);
+                            }
+                        }
+                    }
+                }
+                _ctx.upstream_peer = optioninnermap;
+            }
         }
         Ok(false)
     }
@@ -87,25 +118,7 @@ impl ProxyHttp for LB {
         // let host_name = return_header_host(&session);
         match ctx.hostname.as_ref() {
             Some(hostname) => {
-                let mut backend_id = None;
-
-                if self.extraparams.load().sticky_sessions {
-                    if let Some(cookies) = session.req_header().headers.get("cookie") {
-                        if let Ok(cookie_str) = cookies.to_str() {
-                            for cookie in cookie_str.split(';') {
-                                let trimmed = cookie.trim();
-                                if let Some(value) = trimmed.strip_prefix("backend_id=") {
-                                    backend_id = Some(value);
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                }
-
-                let optioninnermap = self.get_host(hostname, hostname, backend_id);
-
-                match optioninnermap {
+                match ctx.upstream_peer.as_ref() {
                     // Some((address, port, ssl, is_h2, to_https)) => {
                     Some(innermap) => {
                         let mut peer = Box::new(HttpPeer::new((innermap.address.clone(), innermap.port.clone()), innermap.is_ssl, String::new()));
@@ -118,8 +131,7 @@ impl ProxyHttp for LB {
                             peer.options.verify_cert = false;
                             peer.options.verify_hostname = false;
                         }
-
-                        if self.extraparams.load().to_https.unwrap_or(false) || innermap.to_https {
+                        if ctx.to_https || innermap.to_https {
                             if let Some(stream) = session.stream() {
                                 if stream.get_ssl().is_none() {
                                     if let Some(addr) = session.server_addr() {
@@ -190,7 +202,7 @@ impl ProxyHttp for LB {
     // }
     async fn response_filter(&self, session: &mut Session, _upstream_response: &mut ResponseHeader, ctx: &mut Self::CTX) -> Result<()> {
         // _upstream_response.insert_header("X-Proxied-From", "Fooooooooooooooo").unwrap();
-        if self.extraparams.load().sticky_sessions {
+        if ctx.extraparams.sticky_sessions {
             let backend_id = ctx.backend_id.clone();
             if let Some(bid) = self.ump_byid.get(&backend_id) {
                 let _ = _upstream_response.insert_header("set-cookie", format!("backend_id={}; Path=/; Max-Age=600; HttpOnly; SameSite=Lax", bid.address));

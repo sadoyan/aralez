@@ -44,6 +44,7 @@ pub async fn hc2(upslist: Arc<UpstreamsDashMap>, fullist: Arc<UpstreamsDashMap>,
                                 is_ssl: tls.0,
                                 is_http2: is_h2,
                                 to_https: k.1.to_https,
+                                rate_limit: k.1.rate_limit,
                             };
                             let resp = http_request(_link.as_str(), params.0, "", &client).await;
                             match resp.0 {
@@ -55,6 +56,7 @@ pub async fn hc2(upslist: Arc<UpstreamsDashMap>, fullist: Arc<UpstreamsDashMap>,
                                         is_ssl: tls.0,
                                         is_http2: is_h2,
                                         to_https: k.1.to_https,
+                                        rate_limit: k.1.rate_limit,
                                         };
                                     }
                                     innervec.push(scheme);

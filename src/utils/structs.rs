@@ -5,6 +5,23 @@ use std::sync::atomic::AtomicUsize;
 
 // pub type InnerMap = BackendConfig;
 pub type UpstreamsDashMap = DashMap<String, DashMap<String, (Vec<InnerMap>, AtomicUsize)>>;
+
+// #[derive(Debug, Default)]
+// pub struct UpstreamsMap {
+//     pub upstreams: DashMap<String, DashMap<String, (Vec<InnerMap>, AtomicUsize)>>,
+//     pub ratelimit: DashMap<String, Option<isize>>,
+// }
+// impl UpstreamsMap {
+//     pub fn new() -> Self {
+//         Self {
+//             upstreams: Default::default(),
+//             ratelimit: Default::default(),
+//         }
+//     }
+// }
+//
+// pub type XUpstreamsDashMap = DashMap<String, UpstreamsMap>;
+
 pub type UpstreamsIdMap = DashMap<String, InnerMap>;
 pub type Headers = DashMap<String, DashMap<String, Vec<(String, String)>>>;
 
@@ -97,6 +114,7 @@ pub struct InnerMap {
     pub is_ssl: bool,
     pub is_http2: bool,
     pub to_https: bool,
+    pub rate_limit: Option<isize>,
 }
 
 impl InnerMap {
@@ -107,6 +125,7 @@ impl InnerMap {
             is_ssl: Default::default(),
             is_http2: Default::default(),
             to_https: Default::default(),
+            rate_limit: Default::default(),
         }
     }
 }

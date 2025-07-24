@@ -17,9 +17,9 @@ authorization:
 #  creds: "5ecbf799-1343-4e94-a9b5-e278af5cd313-56b45249-1839-4008-a450-a60dc76d2bae"
 consul: # If the provider is consul. Otherwise, ignored.
   servers:
-    - "http://master1:8500"
-    - "http://192.168.22.1:8500"
-    - "http://master1.foo.local:8500"
+    - "http://consul1:8500"
+    - "http://consul2:8500"
+    - "http://consul3:8500"
   services: # proxy: The hostname to access the proxy server, real : The real service name in Consul database.
     - proxy: "proxy-frontend-dev-frontend-srv"
       real: "frontend-dev-frontend-srv"
@@ -27,10 +27,11 @@ consul: # If the provider is consul. Otherwise, ignored.
 upstreams:
   myip.mydomain.com:
     paths:
+      rate_limit: 10 # Per path rate limit have higher priority than global rate limit. If not set, the global rate limit will be used
       "/":
         to_https: false
         headers:
-          - "X-Proxy-From:Gazan"
+          - "X-Proxy-From:Aralez"
         servers: # List of upstreams HOST:PORT
           - "127.0.0.1:8000"
           - "127.0.0.2:8000"
@@ -40,7 +41,7 @@ upstreams:
         to_https: true
         headers:
           - "X-Some-Thing:Yaaaaaaaaaaaaaaa"
-          - "X-Proxy-From:Gazan"
+          - "X-Proxy-From:Aralez"
         servers:
           - "127.0.0.1:8000"
           - "127.0.0.2:8000"
