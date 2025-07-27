@@ -61,27 +61,3 @@ pub fn calc_metrics(metric_types: &MetricTypes) {
     REQUESTS_BY_METHOD.with_label_values(&[&metric_types.method]).inc();
     RESPONSE_LATENCY.observe(metric_types.latency.as_secs_f64());
 }
-/*
-pub fn calc_metrics(method: String, code: u16, latency: Duration) {
-    REQUEST_COUNT.inc();
-    let timer = REQUEST_LATENCY.start_timer();
-    timer.observe_duration();
-    RESPONSE_CODES.with_label_values(&[&code.to_string()]).inc();
-    REQUESTS_BY_METHOD.with_label_values(&[&method]).inc();
-    RESPONSE_LATENCY.observe(latency.as_secs_f64());
-}
-
-tokio::spawn(async move {
-    let mut interval = tokio::time::interval(std::time::Duration::from_secs(5));
-    loop {
-        interval.tick().await;
-
-        // read Pingora stats
-        let stats = pingora.get_stats();
-
-        // update Prometheus metrics accordingly
-        REQUEST_COUNT.set(stats.requests_total);
-        // ... etc
-    }
-});
-*/

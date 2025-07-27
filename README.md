@@ -79,6 +79,7 @@ Built on Rust, on top of **Cloudflare’s Pingora engine**, **Aralez** delivers 
 | **config_address**               | 0.0.0.0:3000                         | HTTP API address for pushing upstreams.yaml from remote location                                 |
 | **config_tls_address**           | 0.0.0.0:3001                         | HTTPS API address for pushing upstreams.yaml from remote location                                |
 | **config_tls_certificate**       | etc/server.crt                       | Certificate file path for API. Mandatory if proxy_address_tls is set, else optional              |
+| **proxy_tls_grade**              | (a+, a, b, c, unsafe)                | Grade of TLS suite for proxy, matching grades of Qualys SSL Labs  (Optional defaults to b)       |
 | **config_tls_key_file**          | etc/key.pem                          | Private Key file path. Mandatory if proxy_address_tls is set, else optional                      |
 | **proxy_address_http**           | 0.0.0.0:6193                         | Aralez HTTP bind address                                                                         |
 | **proxy_address_tls**            | 0.0.0.0:6194                         | Aralez HTTPS bind address (Optional)                                                             |

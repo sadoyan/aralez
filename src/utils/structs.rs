@@ -3,24 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::atomic::AtomicUsize;
 
-// pub type InnerMap = BackendConfig;
 pub type UpstreamsDashMap = DashMap<String, DashMap<String, (Vec<InnerMap>, AtomicUsize)>>;
-
-// #[derive(Debug, Default)]
-// pub struct UpstreamsMap {
-//     pub upstreams: DashMap<String, DashMap<String, (Vec<InnerMap>, AtomicUsize)>>,
-//     pub ratelimit: DashMap<String, Option<isize>>,
-// }
-// impl UpstreamsMap {
-//     pub fn new() -> Self {
-//         Self {
-//             upstreams: Default::default(),
-//             ratelimit: Default::default(),
-//         }
-//     }
-// }
-//
-// pub type XUpstreamsDashMap = DashMap<String, UpstreamsMap>;
 
 pub type UpstreamsIdMap = DashMap<String, InnerMap>;
 pub type Headers = DashMap<String, DashMap<String, Vec<(String, String)>>>;
@@ -103,6 +86,7 @@ pub struct AppConfig {
     pub proxy_port_tls: Option<u16>,
     pub local_server: Option<(String, u16)>,
     pub proxy_certificates: Option<String>,
+    pub proxy_tls_grade: Option<String>,
     pub file_server_address: Option<String>,
     pub file_server_folder: Option<String>,
 }

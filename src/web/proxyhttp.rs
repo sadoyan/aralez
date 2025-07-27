@@ -214,7 +214,6 @@ impl ProxyHttp for LB {
             redirect_response.insert_header("Content-Length", "0")?;
             session.write_response_header(Box::new(redirect_response), false).await?;
         }
-        // match return_header_host(&session) {
         match ctx.hostname.as_ref() {
             Some(host) => {
                 let path = session.req_header().uri.path();

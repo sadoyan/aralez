@@ -2,8 +2,8 @@ use crate::utils::structs::*;
 use dashmap::DashMap;
 use log::{error, info, warn};
 use std::collections::HashMap;
-use std::fs;
 use std::sync::atomic::AtomicUsize;
+use std::{env, fs};
 
 pub fn load_configuration(d: &str, kind: &str) -> Option<Configuration> {
     let yaml_data = match kind {
@@ -116,14 +116,6 @@ fn populate_file_upstreams(config: &mut Configuration, parsed: &Config) {
                 header_list.insert(path.clone(), hl);
 
                 for server in &path_config.servers {
-                    // let mut rate: Option<isize> = None;
-                    // let size: isize = path_config.servers.len() as isize;
-                    // if let Some(limit) = &path_config.rate_limit {
-                    //     if size > 0 {
-                    //         rate = Some(limit / size);
-                    //     }
-                    // }
-
                     if let Some((ip, port_str)) = server.split_once(':') {
                         if let Ok(port) = port_str.parse::<u16>() {
                             server_list.push(InnerMap {
@@ -138,10 +130,8 @@ fn populate_file_upstreams(config: &mut Configuration, parsed: &Config) {
                         }
                     }
                 }
-
                 path_map.insert(path.clone(), (server_list, AtomicUsize::new(0)));
             }
-
             config.headers.insert(hostname.clone(), header_list);
             config.upstreams.insert(hostname.clone(), path_map);
         }
@@ -149,11 +139,11 @@ fn populate_file_upstreams(config: &mut Configuration, parsed: &Config) {
 }
 
 pub fn parce_main_config(path: &str) -> AppConfig {
-    info!("Parsing configuration");
     let data = fs::read_to_string(path).unwrap();
     let reply = DashMap::new();
     let cfg: HashMap<String, String> = serde_yaml::from_str(&*data).expect("Failed to parse main config file");
     let mut cfo: AppConfig = serde_yaml::from_str(&*data).expect("Failed to parse main config file");
+    log_builder(&cfo);
     cfo.hc_method = cfo.hc_method.to_uppercase();
     for (k, v) in cfg {
         reply.insert(k.to_string(), v.to_string());
@@ -170,5 +160,60 @@ pub fn parce_main_config(path: &str) -> AppConfig {
             }
         }
     };
+    cfo.proxy_tls_grade = parce_tls_grades(cfo.proxy_tls_grade.clone());
     cfo
+}
+
+fn parce_tls_grades(what: Option<String>) -> Option<String> {
+    match what {
+        Some(g) => match g.to_ascii_lowercase().as_str() {
+            "a+" => {
+                info!("TLS grade set to: [ A+ ]");
+                Some("a+".to_string())
+            }
+            "a" => {
+                info!("TLS grade set to: [ A ]");
+                Some("a".to_string())
+            }
+            "b" => {
+                info!("TLS grade set to: [ B ]");
+                Some("b".to_string())
+            }
+            "c" => {
+                info!("TLS grade set to: [ C ]");
+                Some("c".to_string())
+            }
+            "unsafe" => {
+                info!("TLS grade set to: [ UNSAFE ]");
+                Some("unsafe".to_string())
+            }
+            _ => {
+                warn!("Error parsing TLS grade, defaulting to: `B`");
+                Some("b".to_string())
+            }
+        },
+        None => {
+            warn!("TLS grade not set, defaulting to: medium");
+            Some("b".to_string())
+        }
+    }
+}
+
+fn log_builder(conf: &AppConfig) {
+    let log_level = conf.log_level.clone();
+    unsafe {
+        match log_level.as_str() {
+            "info" => env::set_var("RUST_LOG", "info"),
+            "error" => env::set_var("RUST_LOG", "error"),
+            "warn" => env::set_var("RUST_LOG", "warn"),
+            "debug" => env::set_var("RUST_LOG", "debug"),
+            "trace" => env::set_var("RUST_LOG", "trace"),
+            "off" => env::set_var("RUST_LOG", "off"),
+            _ => {
+                println!("Error reading log level, defaulting to: INFO");
+                env::set_var("RUST_LOG", "info")
+            }
+        }
+    }
+    env_logger::builder().init();
 }

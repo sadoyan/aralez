@@ -13,7 +13,7 @@ use pingora_core::prelude::{background_service, Opt};
 use pingora_core::server::Server;
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::Arc;
-use std::{env, thread};
+use std::thread;
 
 pub fn run() {
     // default_provider().install_default().expect("Failed to install rustls crypto provider");
@@ -47,22 +47,25 @@ pub fn run() {
         extraparams: ec_config,
     };
 
-    let log_level = cfg.log_level.clone();
-    unsafe {
-        match log_level.as_str() {
-            "info" => env::set_var("RUST_LOG", "info"),
-            "error" => env::set_var("RUST_LOG", "error"),
-            "warn" => env::set_var("RUST_LOG", "warn"),
-            "debug" => env::set_var("RUST_LOG", "debug"),
-            "trace" => env::set_var("RUST_LOG", "trace"),
-            "off" => env::set_var("RUST_LOG", "off"),
-            _ => {
-                println!("Error reading log level, defaulting to: INFO");
-                env::set_var("RUST_LOG", "info")
-            }
-        }
-    }
-    env_logger::builder().init();
+    // let log_level = cfg.log_level.clone();
+    // unsafe {
+    //     match log_level.as_str() {
+    //         "info" => env::set_var("RUST_LOG", "info"),
+    //         "error" => env::set_var("RUST_LOG", "error"),
+    //         "warn" => env::set_var("RUST_LOG", "warn"),
+    //         "debug" => env::set_var("RUST_LOG", "debug"),
+    //         "trace" => env::set_var("RUST_LOG", "trace"),
+    //         "off" => env::set_var("RUST_LOG", "off"),
+    //         _ => {
+    //             println!("Error reading log level, defaulting to: INFO");
+    //             env::set_var("RUST_LOG", "info")
+    //         }
+    //     }
+    // }
+    // env_logger::builder().init();
+
+    let grade = cfg.proxy_tls_grade.clone().unwrap_or("b".to_string());
+    info!("TLS grade set to: {}", grade);
 
     let bg_srvc = background_service("bgsrvc", lb.clone());
     let mut proxy = pingora_proxy::http_proxy_service(&server.configuration, lb.clone());
@@ -77,12 +80,12 @@ pub fn run() {
                 watch_folder(certs_path, tx).unwrap();
             });
             let certificate_configs = rx.recv().unwrap();
-            let first_set = tls::Certificates::new(&certificate_configs).unwrap_or_else(|| panic!("Unable to load initial certificate info"));
+            let first_set = tls::Certificates::new(&certificate_configs, grade.as_str()).unwrap_or_else(|| panic!("Unable to load initial certificate info"));
             let certificates = Arc::new(ArcSwap::from_pointee(first_set));
             let certs_for_callback = certificates.clone();
 
             let certs_for_watcher = certificates.clone();
-            let new_certs = tls::Certificates::new(&certificate_configs);
+            let new_certs = tls::Certificates::new(&certificate_configs, grade.as_str());
             certs_for_watcher.store(Arc::new(new_certs.unwrap()));
 
             let mut tls_settings =
@@ -95,7 +98,7 @@ pub fn run() {
             let certs_for_watcher = certificates.clone();
             thread::spawn(move || {
                 while let Ok(new_configs) = rx.recv() {
-                    let new_certs = tls::Certificates::new(&new_configs);
+                    let new_certs = tls::Certificates::new(&new_configs, grade.as_str());
                     match new_certs {
                         Some(new_certs) => {
                             certs_for_watcher.store(Arc::new(new_certs));

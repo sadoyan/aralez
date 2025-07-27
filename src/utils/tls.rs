@@ -1,5 +1,5 @@
 use dashmap::DashMap;
-use log::error;
+use log::{error, warn};
 use pingora::tls::ssl::{select_next_proto, AlpnError, NameType, SniError, SslAlert, SslContext, SslFiletype, SslMethod, SslRef};
 use rustls_pemfile::{read_one, Item};
 use serde::Deserialize;
@@ -37,12 +37,12 @@ pub struct Certificates {
 }
 
 impl Certificates {
-    pub fn new(configs: &Vec<CertificateConfig>) -> Option<Self> {
+    pub fn new(configs: &Vec<CertificateConfig>, _grade: &str) -> Option<Self> {
         let default_cert = configs.first().expect("At least one TLS certificate required");
         let mut cert_infos = Vec::new();
         let name_map: DashMap<String, SslContext> = DashMap::new();
         for config in configs {
-            let cert_info = load_cert_info(&config.cert_path, &config.key_path);
+            let cert_info = load_cert_info(&config.cert_path, &config.key_path, _grade);
             match cert_info {
                 Some(cert) => {
                     for name in &cert.common_names {
@@ -106,7 +106,7 @@ impl Certificates {
     }
 }
 
-fn load_cert_info(cert_path: &str, key_path: &str) -> Option<CertificateInfo> {
+fn load_cert_info(cert_path: &str, key_path: &str, _grade: &str) -> Option<CertificateInfo> {
     let mut common_names = HashSet::new();
     let mut alt_names = HashSet::new();
 
@@ -162,7 +162,7 @@ fn load_cert_info(cert_path: &str, key_path: &str) -> Option<CertificateInfo> {
         }
     }
 
-    if let Ok(ssl_context) = create_ssl_context(cert_path, key_path) {
+    if let Ok(ssl_context) = create_ssl_context(cert_path, key_path, _grade) {
         Some(CertificateInfo {
             cert_path: cert_path.to_string(),
             key_path: key_path.to_string(),
@@ -176,13 +176,137 @@ fn load_cert_info(cert_path: &str, key_path: &str) -> Option<CertificateInfo> {
     }
 }
 
-fn create_ssl_context(cert_path: &str, key_path: &str) -> Result<SslContext, Box<dyn std::error::Error>> {
+// fn create_ssl_context(cert_path: &str, key_path: &str) -> Result<SslContext, Box<dyn std::error::Error>> {
+//     let mut ctx = SslContext::builder(SslMethod::tls())?;
+//     ctx.set_certificate_chain_file(cert_path)?;
+//     ctx.set_private_key_file(key_path, SslFiletype::PEM)?;
+//     ctx.set_alpn_select_callback(prefer_h2);
+//     let built = ctx.build();
+//     Ok(built)
+// }
+
+struct TlsConfig {
+    options: pingora::tls::ssl::SslOptions,
+    ciphers: &'static str,
+}
+enum TlsGrade {
+    APlus,
+    A,
+    B,
+    C,
+    Unsafe,
+}
+
+impl TlsGrade {
+    fn to_config(&self) -> TlsConfig {
+        match self {
+            // A+ (A+ on Qualys SSL Labs)
+            TlsGrade::APlus => TlsConfig {
+                options: pingora::tls::ssl::SslOptions::NO_SSL_MASK
+                    | pingora::tls::ssl::SslOptions::NO_TLSV1
+                    | pingora::tls::ssl::SslOptions::NO_TLSV1_1
+                    | pingora::tls::ssl::SslOptions::NO_TLSV1_2,
+                ciphers: concat!(
+                    // TLS 1.3 ciphers (in order of preference)
+                    "TLS_AES_256_GCM_SHA384:",
+                    "TLS_CHACHA20_POLY1305_SHA256:",
+                    "TLS_AES_128_GCM_SHA256:",
+                    // TLS 1.2 ciphers with PFS and AEAD
+                    "ECDHE-ECDSA-AES256-GCM-SHA384:",
+                    "ECDHE-RSA-AES256-GCM-SHA384:",
+                    "ECDHE-ECDSA-CHACHA20-POLY1305:",
+                    "ECDHE-RSA-CHACHA20-POLY1305:",
+                    "ECDHE-ECDSA-AES128-GCM-SHA256:",
+                    "ECDHE-RSA-AES128-GCM-SHA256"
+                ),
+            },
+            // A (A on Qualys SSL Labs)
+            TlsGrade::A => TlsConfig {
+                options: pingora::tls::ssl::SslOptions::NO_SSL_MASK | pingora::tls::ssl::SslOptions::NO_TLSV1 | pingora::tls::ssl::SslOptions::NO_TLSV1_1,
+                ciphers: concat!(
+                    // TLS 1.3 ciphers
+                    "TLS_AES_256_GCM_SHA384:",
+                    "TLS_CHACHA20_POLY1305_SHA256:",
+                    "TLS_AES_128_GCM_SHA256:",
+                    // TLS 1.2 ciphers
+                    "ECDHE-ECDSA-AES256-GCM-SHA384:",
+                    "ECDHE-RSA-AES256-GCM-SHA384:",
+                    "ECDHE-ECDSA-CHACHA20-POLY1305:",
+                    "ECDHE-RSA-CHACHA20-POLY1305:",
+                    "ECDHE-ECDSA-AES128-GCM-SHA256:",
+                    "ECDHE-RSA-AES128-GCM-SHA256:",
+                    "DHE-RSA-AES256-GCM-SHA384:",
+                    "DHE-RSA-AES128-GCM-SHA256"
+                ),
+            },
+            // B (B on Qualys SSL Labs)
+            TlsGrade::B => TlsConfig {
+                options: pingora::tls::ssl::SslOptions::NO_SSL_MASK | pingora::tls::ssl::SslOptions::NO_TLSV1,
+                ciphers: concat!(
+                    "ECDHE-ECDSA-AES256-GCM-SHA384:",
+                    "ECDHE-RSA-AES256-GCM-SHA384:",
+                    "ECDHE-ECDSA-AES128-GCM-SHA256:",
+                    "ECDHE-RSA-AES128-GCM-SHA256:",
+                    "DHE-RSA-AES256-GCM-SHA384:",
+                    "DHE-RSA-AES128-GCM-SHA256:",
+                    "ECDHE-ECDSA-AES256-SHA384:",
+                    "ECDHE-RSA-AES256-SHA384:",
+                    "ECDHE-ECDSA-AES128-SHA256:",
+                    "ECDHE-RSA-AES128-SHA256"
+                ),
+            },
+            // C (C on Qualys SSL Labs)
+            TlsGrade::C => TlsConfig {
+                options: pingora::tls::ssl::SslOptions::NO_SSL_MASK,
+                ciphers: concat!(
+                    "ECDHE-ECDSA-AES256-GCM-SHA384:",
+                    "ECDHE-RSA-AES256-GCM-SHA384:",
+                    "ECDHE-ECDSA-AES128-GCM-SHA256:",
+                    "ECDHE-RSA-AES128-GCM-SHA256:",
+                    "DHE-RSA-AES256-GCM-SHA384:",
+                    "DHE-RSA-AES128-GCM-SHA256:",
+                    "ECDHE-ECDSA-AES256-SHA384:",
+                    "ECDHE-RSA-AES256-SHA384:",
+                    "ECDHE-ECDSA-AES128-SHA256:",
+                    "ECDHE-RSA-AES128-SHA256:",
+                    "AES256-GCM-SHA384:",
+                    "AES128-GCM-SHA256:",
+                    "AES256-SHA256:",
+                    "AES128-SHA256"
+                ),
+            },
+            // Unsafe (F on Qualys SSL Labs)
+            TlsGrade::Unsafe => TlsConfig {
+                options: pingora::tls::ssl::SslOptions::empty(),
+                ciphers: "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH",
+            },
+        }
+    }
+    fn from_str(s: &str) -> Option<Self> {
+        match s.to_ascii_lowercase().as_str() {
+            "a+" => Some(TlsGrade::APlus),
+            "a" => Some(TlsGrade::A),
+            "b" => Some(TlsGrade::B),
+            "c" => Some(TlsGrade::C),
+            "unsafe" => Some(TlsGrade::Unsafe),
+            _ => None,
+        }
+    }
+}
+
+fn create_ssl_context(cert_path: &str, key_path: &str, grade: &str) -> Result<SslContext, Box<dyn std::error::Error>> {
     let mut ctx = SslContext::builder(SslMethod::tls())?;
+    let config = TlsGrade::from_str(grade).map(|g| g.to_config()).unwrap_or_else(|| {
+        warn!("Invalid TLS grade '{}', defaulting to UNSAFE", grade);
+        TlsGrade::Unsafe.to_config()
+    });
+    ctx.set_options(config.options);
     ctx.set_certificate_chain_file(cert_path)?;
     ctx.set_private_key_file(key_path, SslFiletype::PEM)?;
+    ctx.set_cipher_list(config.ciphers)?;
     ctx.set_alpn_select_callback(prefer_h2);
-    let built = ctx.build();
-    Ok(built)
+
+    Ok(ctx.build())
 }
 
 pub fn prefer_h2<'a>(_ssl: &mut SslRef, alpn_in: &'a [u8]) -> Result<&'a [u8], AlpnError> {
