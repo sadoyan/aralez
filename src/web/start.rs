@@ -46,24 +46,24 @@ pub fn run() {
         headers: hh_config,
         extraparams: ec_config,
     };
-
-    // let log_level = cfg.log_level.clone();
-    // unsafe {
-    //     match log_level.as_str() {
-    //         "info" => env::set_var("RUST_LOG", "info"),
-    //         "error" => env::set_var("RUST_LOG", "error"),
-    //         "warn" => env::set_var("RUST_LOG", "warn"),
-    //         "debug" => env::set_var("RUST_LOG", "debug"),
-    //         "trace" => env::set_var("RUST_LOG", "trace"),
-    //         "off" => env::set_var("RUST_LOG", "off"),
-    //         _ => {
-    //             println!("Error reading log level, defaulting to: INFO");
-    //             env::set_var("RUST_LOG", "info")
-    //         }
-    //     }
-    // }
-    // env_logger::builder().init();
-
+    /*
+        let log_level = cfg.log_level.clone();
+        unsafe {
+            match log_level.as_str() {
+                "info" => env::set_var("RUST_LOG", "info"),
+                "error" => env::set_var("RUST_LOG", "error"),
+                "warn" => env::set_var("RUST_LOG", "warn"),
+                "debug" => env::set_var("RUST_LOG", "debug"),
+                "trace" => env::set_var("RUST_LOG", "trace"),
+                "off" => env::set_var("RUST_LOG", "off"),
+                _ => {
+                    println!("Error reading log level, defaulting to: INFO");
+                    env::set_var("RUST_LOG", "info")
+                }
+            }
+        }
+        env_logger::builder().init();
+    */
     let grade = cfg.proxy_tls_grade.clone().unwrap_or("b".to_string());
     info!("TLS grade set to: {}", grade);
 
@@ -91,8 +91,10 @@ pub fn run() {
             let mut tls_settings =
                 TlsSettings::intermediate(&certs_for_callback.load().default_cert_path, &certs_for_callback.load().default_key_path).expect("unable to load or parse cert/key");
 
+            tls::set_tsl_grade(&mut tls_settings, grade.as_str());
             tls_settings.set_servername_callback(move |ssl_ref: &mut SslRef, ssl_alert: &mut SslAlert| certs_for_callback.load().server_name_callback(ssl_ref, ssl_alert));
             tls_settings.set_alpn_select_callback(tls::prefer_h2);
+
             proxy.add_tls_with_settings(&bind_address_tls, None, tls_settings);
 
             let certs_for_watcher = certificates.clone();
