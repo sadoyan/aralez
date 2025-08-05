@@ -167,29 +167,21 @@ pub fn parce_main_config(path: &str) -> AppConfig {
 fn parce_tls_grades(what: Option<String>) -> Option<String> {
     match what {
         Some(g) => match g.to_ascii_lowercase().as_str() {
-            "a+" => {
-                info!("TLS grade set to: [ A+ ]");
-                Some("a+".to_string())
+            "high" => {
+                // info!("TLS grade set to: [ HIGH ]");
+                Some("high".to_string())
             }
-            "a" => {
-                info!("TLS grade set to: [ A ]");
-                Some("a".to_string())
-            }
-            "b" => {
-                info!("TLS grade set to: [ B ]");
-                Some("b".to_string())
-            }
-            "c" => {
-                info!("TLS grade set to: [ C ]");
-                Some("c".to_string())
+            "medium" => {
+                // info!("TLS grade set to: [ MEDIUM ]");
+                Some("medium".to_string())
             }
             "unsafe" => {
-                info!("TLS grade set to: [ UNSAFE ]");
+                // info!("TLS grade set to: [ UNSAFE ]");
                 Some("unsafe".to_string())
             }
             _ => {
-                warn!("Error parsing TLS grade, defaulting to: `B`");
-                Some("b".to_string())
+                warn!("Error parsing TLS grade, defaulting to: `medium`");
+                Some("medium".to_string())
             }
         },
         None => {

@@ -1,6 +1,6 @@
 use dashmap::DashMap;
 use log::{error, info, warn};
-use pingora::tls::ssl::{select_next_proto, AlpnError, NameType, SniError, SslAlert, SslContext, SslFiletype, SslMethod, SslOptions, SslRef, SslVersion};
+use pingora::tls::ssl::{select_next_proto, AlpnError, NameType, SniError, SslAlert, SslContext, SslFiletype, SslMethod, SslRef, SslVersion};
 use pingora_core::listeners::tls::TlsSettings;
 use rustls_pemfile::{read_one, Item};
 use serde::Deserialize;
@@ -187,45 +187,31 @@ fn create_ssl_context(cert_path: &str, key_path: &str) -> Result<SslContext, Box
 
 #[derive(Debug)]
 pub struct CipherSuite {
-    pub ap: &'static str,
-    pub aa: &'static str,
-    pub bb: &'static str,
-    pub cc: &'static str,
-    pub ff: &'static str,
+    pub high: &'static str,
+    pub medium: &'static str,
+    pub legacy: &'static str,
 }
 const CIPHERS: CipherSuite = CipherSuite {
-    ap: "TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305",
-    aa: "TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES128-GCM-SHA256",
-    bb: "ECDHE-RSA-AES128-SHA:ECDHE-ECDSA-AES128-SHA:AES128-GCM-SHA256",
-    cc: "AES128-SHA:DES-CBC3-SHA",
-    ff: "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH",
+    high: "TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305",
+    // aa: "TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES128-GCM-SHA256",
+    medium: "ECDHE-RSA-AES128-SHA:ECDHE-ECDSA-AES128-SHA:AES128-GCM-SHA256",
+    // cc: "AES128-SHA:DES-CBC3-SHA",
+    legacy: "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH",
 };
-
-// const CIPHERS: CipherSuite = CipherSuite {
-//     ap: "ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-SHA384:ECDHE-RSA-AES256-SHA384:ECDHE-ECDSA-AES128-SHA256:ECDHE-RSA-AES128-SHA256",
-//     aa: "TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256",
-//     bb: "ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-SHA384:ECDHE-RSA-AES256-SHA384:ECDHE-ECDSA-AES128-SHA256:ECDHE-RSA-AES128-SHA256",
-//     cc: "ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-SHA384:ECDHE-RSA-AES256-SHA384:ECDHE-ECDSA-AES128-SHA256:ECDHE-RSA-AES128-SHA256:AES256-GCM-SHA384:AES128-GCM-SHA256:AES256-SHA256:AES128-SHA256",
-//     ff: "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH",
-// };
 
 #[derive(Debug)]
 pub enum TlsGrade {
-    AP,
-    AA,
-    BB,
-    CC,
-    UN,
+    HIGH,
+    MEDIUM,
+    LEGACY,
 }
 
 impl TlsGrade {
     pub fn from_str(s: &str) -> Option<Self> {
         match s.to_ascii_lowercase().as_str() {
-            "a+" => Some(TlsGrade::AP),
-            "a" => Some(TlsGrade::AA),
-            "b" => Some(TlsGrade::BB),
-            "c" => Some(TlsGrade::CC),
-            "unsafe" => Some(TlsGrade::UN),
+            "high" => Some(TlsGrade::HIGH),
+            "medium" => Some(TlsGrade::MEDIUM),
+            "unsafe" => Some(TlsGrade::LEGACY),
             _ => None,
         }
     }
@@ -240,43 +226,31 @@ pub fn prefer_h2<'a>(_ssl: &mut SslRef, alpn_in: &'a [u8]) -> Result<&'a [u8], A
 pub fn set_tsl_grade(tls_settings: &mut TlsSettings, grade: &str) {
     let config_grade = TlsGrade::from_str(grade);
     match config_grade {
-        Some(TlsGrade::AP) => {
+        Some(TlsGrade::HIGH) => {
             let _ = tls_settings.set_min_proto_version(Some(SslVersion::TLS1_2));
             // let _ = tls_settings.set_max_proto_version(Some(SslVersion::TLS1_3));
-            let _ = tls_settings.set_cipher_list(CIPHERS.ap);
-            let _ = tls_settings.set_ciphersuites(CIPHERS.ap);
-            info!("TLS grade: {:?}, => AP", tls_settings.options());
+            let _ = tls_settings.set_cipher_list(CIPHERS.high);
+            let _ = tls_settings.set_ciphersuites(CIPHERS.high);
+            info!("TLS grade: {:?}, => HIGH", tls_settings.options());
         }
-        Some(TlsGrade::AA) => {
-            let _ = tls_settings.set_min_proto_version(Some(SslVersion::TLS1_1));
-            let _ = tls_settings.set_cipher_list(CIPHERS.aa);
-            let _ = tls_settings.set_ciphersuites(CIPHERS.aa);
-            info!("TLS grade: {:?}, => AA", tls_settings.options());
-        }
-        Some(TlsGrade::BB) => {
+        Some(TlsGrade::MEDIUM) => {
             let _ = tls_settings.set_min_proto_version(Some(SslVersion::TLS1));
-            let _ = tls_settings.set_cipher_list(CIPHERS.bb);
-            let _ = tls_settings.set_ciphersuites(CIPHERS.bb);
-            info!("TLS grade: {:?}, => BB", tls_settings.options());
+            let _ = tls_settings.set_cipher_list(CIPHERS.medium);
+            let _ = tls_settings.set_ciphersuites(CIPHERS.medium);
+            info!("TLS grade: {:?}, => MEDIUM", tls_settings.options());
         }
-        Some(TlsGrade::CC) => {
+        Some(TlsGrade::LEGACY) => {
             let _ = tls_settings.set_min_proto_version(Some(SslVersion::SSL3));
-            let _ = tls_settings.set_cipher_list(CIPHERS.cc);
-            let _ = tls_settings.set_ciphersuites(CIPHERS.cc);
-            info!("TLS grade: {:?}, => CC", tls_settings.options());
-        }
-        Some(TlsGrade::UN) => {
-            let _ = tls_settings.set_min_proto_version(Some(SslVersion::SSL3));
-            let _ = tls_settings.set_cipher_list(CIPHERS.ff);
-            let _ = tls_settings.set_ciphersuites(CIPHERS.ff);
+            let _ = tls_settings.set_cipher_list(CIPHERS.legacy);
+            let _ = tls_settings.set_ciphersuites(CIPHERS.legacy);
             warn!("TLS grade: {:?}, => UNSAFE", tls_settings.options());
         }
         None => {
-            // Defaults to BB
+            // Defaults to MEDIUM
             let _ = tls_settings.set_min_proto_version(Some(SslVersion::TLS1));
-            let _ = tls_settings.set_cipher_list(CIPHERS.bb);
-            let _ = tls_settings.set_ciphersuites(CIPHERS.bb);
-            warn!("TLS grade is not detected defaulting top BB");
+            let _ = tls_settings.set_cipher_list(CIPHERS.medium);
+            let _ = tls_settings.set_ciphersuites(CIPHERS.medium);
+            warn!("TLS grade is not detected defaulting top MEDIUM");
         }
     }
 }

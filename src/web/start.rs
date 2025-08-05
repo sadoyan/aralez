@@ -64,8 +64,8 @@ pub fn run() {
         }
         env_logger::builder().init();
     */
-    let grade = cfg.proxy_tls_grade.clone().unwrap_or("b".to_string());
-    info!("TLS grade set to: {}", grade);
+    let grade = cfg.proxy_tls_grade.clone().unwrap_or("medium".to_string());
+    info!("TLS grade set to: [ {} ]", grade);
 
     let bg_srvc = background_service("bgsrvc", lb.clone());
     let mut proxy = pingora_proxy::http_proxy_service(&server.configuration, lb.clone());
