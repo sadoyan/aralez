@@ -15,7 +15,7 @@ pub async fn start(fp: String, mut toreturn: Sender<Configuration>) {
     let file_path = fp.as_str();
     let parent_dir = Path::new(file_path).parent().unwrap();
     let (local_tx, mut local_rx) = tokio::sync::mpsc::channel::<notify::Result<Event>>(1);
-    let snd = load_configuration(file_path, "filepath");
+    let snd = load_configuration(file_path, "filepath").await;
 
     match snd {
         Some(snd) => {
@@ -53,7 +53,7 @@ pub async fn start(fp: String, mut toreturn: Sender<Configuration>) {
                         if start.elapsed() > Duration::from_secs(2) {
                             start = Instant::now();
                             // info!("Config File changed :=> {:?}", e);
-                            let snd = load_configuration(file_path, "filepath");
+                            let snd = load_configuration(file_path, "filepath").await;
                             match snd {
                                 Some(snd) => {
                                     toreturn.send(snd).await.unwrap();

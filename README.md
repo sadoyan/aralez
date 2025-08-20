@@ -66,32 +66,32 @@ Built on Rust, on top of **Cloudflare’s Pingora engine**, **Aralez** delivers 
 
 ### 🔧 `main.yaml`
 
-| Key                              | Example Value                        | Description                                                                                      |
-|----------------------------------|--------------------------------------|--------------------------------------------------------------------------------------------------|
-| **threads**                      | 12                                   | Number of running daemon threads. Optional, defaults to 1                                        |
-| **user**                         | aralez                               | Optional, Username for running aralez after dropping root privileges, requires to launch as root |
-| **group**                        | aralez                               | Optional,Group for running aralez after dropping root privileges, requires to launch as root     |
-| **daemon**                       | false                                | Run in background (boolean)                                                                      |
-| **upstream_keepalive_pool_size** | 500                                  | Pool size for upstream keepalive connections                                                     |
-| **pid_file**                     | /tmp/aralez.pid                      | Path to PID file                                                                                 |
-| **error_log**                    | /tmp/aralez_err.log                  | Path to error log file                                                                           |
-| **upgrade_sock**                 | /tmp/aralez.sock                     | Path to live upgrade socket file                                                                 |
-| **config_address**               | 0.0.0.0:3000                         | HTTP API address for pushing upstreams.yaml from remote location                                 |
-| **config_tls_address**           | 0.0.0.0:3001                         | HTTPS API address for pushing upstreams.yaml from remote location                                |
-| **config_tls_certificate**       | etc/server.crt                       | Certificate file path for API. Mandatory if proxy_address_tls is set, else optional              |
-| **proxy_tls_grade**              | (high, medium, unsafe)               | Grade of TLS ciphers, matching grades of Qualys SSL Labs (Optional defaults to b)                |
-| **config_tls_key_file**          | etc/key.pem                          | Private Key file path. Mandatory if proxy_address_tls is set, else optional                      |
-| **proxy_address_http**           | 0.0.0.0:6193                         | Aralez HTTP bind address                                                                         |
-| **proxy_address_tls**            | 0.0.0.0:6194                         | Aralez HTTPS bind address (Optional)                                                             |
-| **proxy_certificates**           | etc/certs/                           | The directory containing certificate and key files. In a format {NAME}.crt, {NAME}.key.          |
-| **upstreams_conf**               | etc/upstreams.yaml                   | The location of upstreams file                                                                   |
-| **log_level**                    | info                                 | Log level , possible values : info, warn, error, debug, trace, off                               |
-| **hc_method**                    | HEAD                                 | Healthcheck method (HEAD, GET, POST are supported) UPPERCASE                                     |
-| **hc_interval**                  | 2                                    | Interval for health checks in seconds                                                            |
-| **master_key**                   | 5aeff7f9-7b94-447c-af60-e8c488544a3e | Master key for working with API server and JWT Secret generation                                 |
-| **file_server_folder**           | /some/local/folder                   | Optional, local folder to serve                                                                  |
-| **file_server_address**          | 127.0.0.1:3002                       | Optional, Local address for file server. Can set as upstream for public access                   |
-| **config_api_enabled**           | true                                 | Boolean to enable/disable remote config push capability                                          |
+| Key                              | Example Value                        | Description                                                                                        |
+|----------------------------------|--------------------------------------|----------------------------------------------------------------------------------------------------|
+| **threads**                      | 12                                   | Number of running daemon threads. Optional, defaults to 1                                          |
+| **user**                         | aralez                               | Optional, Username for running aralez after dropping root privileges, requires to launch as root   |
+| **group**                        | aralez                               | Optional,Group for running aralez after dropping root privileges, requires to launch as root       |
+| **daemon**                       | false                                | Run in background (boolean)                                                                        |
+| **upstream_keepalive_pool_size** | 500                                  | Pool size for upstream keepalive connections                                                       |
+| **pid_file**                     | /tmp/aralez.pid                      | Path to PID file                                                                                   |
+| **error_log**                    | /tmp/aralez_err.log                  | Path to error log file                                                                             |
+| **upgrade_sock**                 | /tmp/aralez.sock                     | Path to live upgrade socket file                                                                   |
+| **config_address**               | 0.0.0.0:3000                         | HTTP API address for pushing upstreams.yaml from remote location                                   |
+| **config_tls_address**           | 0.0.0.0:3001                         | HTTPS API address for pushing upstreams.yaml from remote location                                  |
+| **config_tls_certificate**       | etc/server.crt                       | Certificate file path for API. Mandatory if proxy_address_tls is set, else optional                |
+| **proxy_tls_grade**              | (high, medium, unsafe)               | Grade of TLS ciphers, for easy configuration. High matches Qualys SSL Labs A+ (defaults to medium) |
+| **config_tls_key_file**          | etc/key.pem                          | Private Key file path. Mandatory if proxy_address_tls is set, else optional                        |
+| **proxy_address_http**           | 0.0.0.0:6193                         | Aralez HTTP bind address                                                                           |
+| **proxy_address_tls**            | 0.0.0.0:6194                         | Aralez HTTPS bind address (Optional)                                                               |
+| **proxy_certificates**           | etc/certs/                           | The directory containing certificate and key files. In a format {NAME}.crt, {NAME}.key.            |
+| **upstreams_conf**               | etc/upstreams.yaml                   | The location of upstreams file                                                                     |
+| **log_level**                    | info                                 | Log level , possible values : info, warn, error, debug, trace, off                                 |
+| **hc_method**                    | HEAD                                 | Healthcheck method (HEAD, GET, POST are supported) UPPERCASE                                       |
+| **hc_interval**                  | 2                                    | Interval for health checks in seconds                                                              |
+| **master_key**                   | 5aeff7f9-7b94-447c-af60-e8c488544a3e | Master key for working with API server and JWT Secret generation                                   |
+| **file_server_folder**           | /some/local/folder                   | Optional, local folder to serve                                                                    |
+| **file_server_address**          | 127.0.0.1:3002                       | Optional, Local address for file server. Can set as upstream for public access                     |
+| **config_api_enabled**           | true                                 | Boolean to enable/disable remote config push capability                                            |
 
 ### 🌐 `upstreams.yaml`
 

@@ -1,11 +1,15 @@
+use crate::utils::healthcheck;
 use crate::utils::structs::*;
+use crate::utils::tools::{clone_dashmap, clone_dashmap_into, print_upstreams};
 use dashmap::DashMap;
 use log::{error, info, warn};
 use std::collections::HashMap;
 use std::sync::atomic::AtomicUsize;
+// use std::sync::mpsc::{channel, Receiver, Sender};
 use std::{env, fs};
+// use tokio::sync::oneshot::{Receiver, Sender};
 
-pub fn load_configuration(d: &str, kind: &str) -> Option<Configuration> {
+pub async fn load_configuration(d: &str, kind: &str) -> Option<Configuration> {
     let yaml_data = match kind {
         "filepath" => match fs::read_to_string(d) {
             Ok(data) => {
@@ -38,12 +42,12 @@ pub fn load_configuration(d: &str, kind: &str) -> Option<Configuration> {
 
     let mut toreturn = Configuration::default();
 
-    populate_headers_and_auth(&mut toreturn, &parsed);
+    populate_headers_and_auth(&mut toreturn, &parsed).await;
     toreturn.typecfg = parsed.provider.clone();
 
     match parsed.provider.as_str() {
         "file" => {
-            populate_file_upstreams(&mut toreturn, &parsed);
+            populate_file_upstreams(&mut toreturn, &parsed).await;
             Some(toreturn)
         }
         "consul" => {
@@ -62,7 +66,7 @@ pub fn load_configuration(d: &str, kind: &str) -> Option<Configuration> {
     }
 }
 
-fn populate_headers_and_auth(config: &mut Configuration, parsed: &Config) {
+async fn populate_headers_and_auth(config: &mut Configuration, parsed: &Config) {
     if let Some(headers) = &parsed.headers {
         let mut hl = Vec::new();
         for header in headers {
@@ -93,7 +97,8 @@ fn populate_headers_and_auth(config: &mut Configuration, parsed: &Config) {
     }
 }
 
-fn populate_file_upstreams(config: &mut Configuration, parsed: &Config) {
+async fn populate_file_upstreams(config: &mut Configuration, parsed: &Config) {
+    let imtdashmap = UpstreamsDashMap::new();
     if let Some(upstreams) = &parsed.upstreams {
         for (hostname, host_config) in upstreams {
             let path_map = DashMap::new();
@@ -133,11 +138,15 @@ fn populate_file_upstreams(config: &mut Configuration, parsed: &Config) {
                 path_map.insert(path.clone(), (server_list, AtomicUsize::new(0)));
             }
             config.headers.insert(hostname.clone(), header_list);
-            config.upstreams.insert(hostname.clone(), path_map);
+            imtdashmap.insert(hostname.clone(), path_map);
         }
+        let y = clone_dashmap(&imtdashmap);
+        let r = healthcheck::initiate_upstreams(y).await;
+        clone_dashmap_into(&r, &config.upstreams);
+        println!("Upstream Config:");
+        print_upstreams(&config.upstreams);
     }
 }
-
 pub fn parce_main_config(path: &str) -> AppConfig {
     let data = fs::read_to_string(path).unwrap();
     let reply = DashMap::new();

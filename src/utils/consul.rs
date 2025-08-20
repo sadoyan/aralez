@@ -28,7 +28,7 @@ struct TaggedAddress {
 }
 
 pub async fn start(fp: String, mut toreturn: Sender<Configuration>) {
-    let config = load_configuration(fp.as_str(), "filepath");
+    let config = load_configuration(fp.as_str(), "filepath").await;
     let headers = DashMap::new();
     match config {
         Some(config) => {

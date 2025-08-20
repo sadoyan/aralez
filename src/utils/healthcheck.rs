@@ -1,7 +1,7 @@
 use crate::utils::structs::{InnerMap, UpstreamsDashMap, UpstreamsIdMap};
 use crate::utils::tools::*;
 use dashmap::DashMap;
-use log::{error, info, warn};
+use log::{error, warn};
 use reqwest::{Client, Version};
 use std::sync::atomic::AtomicUsize;
 use std::sync::Arc;
@@ -9,85 +9,76 @@ use std::time::Duration;
 use tokio::time::interval;
 use tonic::transport::Endpoint;
 
-#[allow(unused_assignments)]
 pub async fn hc2(upslist: Arc<UpstreamsDashMap>, fullist: Arc<UpstreamsDashMap>, idlist: Arc<UpstreamsIdMap>, params: (&str, u64)) {
     let mut period = interval(Duration::from_secs(params.1));
-    let mut first_run = 0;
-    let client = Client::builder().timeout(Duration::from_secs(2)).danger_accept_invalid_certs(true).build().unwrap();
+    let client = Client::builder().timeout(Duration::from_secs(params.1)).danger_accept_invalid_certs(true).build().unwrap();
     loop {
         tokio::select! {
             _ = period.tick() => {
-                let totest : UpstreamsDashMap = DashMap::new();
-                let fclone : UpstreamsDashMap = clone_dashmap(&fullist);
-                for val in fclone.iter() {
-                    let host = val.key();
-                    let inner = DashMap::new();
-                    let mut scheme = InnerMap::new();
-                    for path_entry in val.value().iter() {
-                        let path = path_entry.key();
-                        let mut innervec= Vec::new();
-                        for k in path_entry.value().0 .iter().enumerate() {
-                            let mut _link = String::new();
-                            let tls = detect_tls(k.1.address.as_str(), &k.1.port, &client).await;
-                            let mut is_h2 = false;
-
-                            if tls.1 == Some(Version::HTTP_2) {
-                                is_h2 = true;
-                            }
-                            match tls.0 {
-                                true => _link = format!("https://{}:{}{}", k.1.address, k.1.port, path),
-                                false => _link = format!("http://{}:{}{}", k.1.address, k.1.port, path),
-                            }
-                            scheme = InnerMap {
-                                address: k.1.address.clone(),
-                                port: k.1.port,
-                                is_ssl: tls.0,
-                                is_http2: is_h2,
-                                to_https: k.1.to_https,
-                                rate_limit: k.1.rate_limit,
-                            };
-                            let resp = http_request(_link.as_str(), params.0, "", &client).await;
-                            match resp.0 {
-                                true => {
-                                    if resp.1 {
-                                      scheme = InnerMap {
-                                        address: k.1.address.clone(),
-                                        port: k.1.port,
-                                        is_ssl: tls.0,
-                                        is_http2: is_h2,
-                                        to_https: k.1.to_https,
-                                        rate_limit: k.1.rate_limit,
-                                        };
-                                    }
-                                    innervec.push(scheme);
-                                }
-                                false => {
-                                    warn!("Dead Upstream : {}", _link);
-                                }
-                            }
-                        }
-                        inner.insert(path.clone().to_owned(), (innervec, AtomicUsize::new(0)));
-                    }
-                    totest.insert(host.clone(), inner);
-                }
-
-                if first_run == 1 {
-                    info!("Performing initial hatchecks and upstreams ssl detection");
-                    clone_idmap_into(&totest, &idlist);
-                    info!("Aralez is up and ready to serve requests, the upstreams list is:");
-                    print_upstreams(&totest)
-                }
-
-                first_run+=1;
-
-                if ! compare_dashmaps(&totest, &upslist){
-                    clone_dashmap_into(&totest, &upslist);
-                    clone_idmap_into(&totest, &idlist);
-                }
-
+                populate_upstreams(&upslist, &fullist, &idlist, params, &client).await;
             }
         }
     }
+}
+
+pub async fn populate_upstreams(upslist: &Arc<UpstreamsDashMap>, fullist: &Arc<UpstreamsDashMap>, idlist: &Arc<UpstreamsIdMap>, params: (&str, u64), client: &Client) {
+    let totest = build_upstreams(fullist, params.0, client).await;
+    if !compare_dashmaps(&totest, upslist) {
+        clone_dashmap_into(&totest, upslist);
+        clone_idmap_into(&totest, idlist);
+    }
+}
+
+pub async fn initiate_upstreams(fullist: UpstreamsDashMap) -> UpstreamsDashMap {
+    let client = Client::builder().timeout(Duration::from_secs(2)).danger_accept_invalid_certs(true).build().unwrap();
+    build_upstreams(&fullist, "HEAD", &client).await
+}
+
+async fn build_upstreams(fullist: &UpstreamsDashMap, method: &str, client: &Client) -> UpstreamsDashMap {
+    let totest: UpstreamsDashMap = DashMap::new();
+    let fclone = clone_dashmap(fullist);
+    for val in fclone.iter() {
+        let host = val.key();
+        let inner = DashMap::new();
+
+        for path_entry in val.value().iter() {
+            let path = path_entry.key();
+            let mut innervec = Vec::new();
+
+            for (_, upstream) in path_entry.value().0.iter().enumerate() {
+                let tls = detect_tls(upstream.address.as_str(), &upstream.port, &client).await;
+                let is_h2 = matches!(tls.1, Some(Version::HTTP_2));
+
+                let link = if tls.0 {
+                    format!("https://{}:{}{}", upstream.address, upstream.port, path)
+                } else {
+                    format!("http://{}:{}{}", upstream.address, upstream.port, path)
+                };
+
+                let mut scheme = InnerMap {
+                    address: upstream.address.clone(),
+                    port: upstream.port,
+                    is_ssl: tls.0,
+                    is_http2: is_h2,
+                    to_https: upstream.to_https,
+                    rate_limit: upstream.rate_limit,
+                };
+
+                let resp = http_request(&link, method, "", &client).await;
+                if resp.0 {
+                    if resp.1 {
+                        scheme.is_http2 = is_h2; // could be adjusted further
+                    }
+                    innervec.push(scheme);
+                } else {
+                    warn!("Dead Upstream : {}", link);
+                }
+            }
+            inner.insert(path.clone(), (innervec, AtomicUsize::new(0)));
+        }
+        totest.insert(host.clone(), inner);
+    }
+    totest
 }
 
 async fn http_request(url: &str, method: &str, payload: &str, client: &Client) -> (bool, bool) {

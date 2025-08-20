@@ -45,6 +45,7 @@ impl GetHost for LB {
                 }
             }
         }
+        // println!("Best Match :===> {:?}", best_match);
         best_match
     }
     fn get_header(&self, peer: &str, path: &str) -> Option<Vec<(String, String)>> {

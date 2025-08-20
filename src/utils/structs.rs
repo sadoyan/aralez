@@ -101,6 +101,7 @@ pub struct InnerMap {
     pub rate_limit: Option<isize>,
 }
 
+#[allow(dead_code)]
 impl InnerMap {
     pub fn new() -> Self {
         Self {
