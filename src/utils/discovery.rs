@@ -1,13 +1,11 @@
-use crate::utils::consul;
 use crate::utils::filewatch;
 use crate::utils::structs::Configuration;
+use crate::utils::{consul, kuber};
 use crate::web::webserver;
 use async_trait::async_trait;
 use futures::channel::mpsc::Sender;
+use std::sync::Arc;
 
-pub struct FromFileProvider {
-    pub path: String,
-}
 pub struct APIUpstreamProvider {
     pub config_api_enabled: bool,
     pub address: String,
@@ -19,20 +17,28 @@ pub struct APIUpstreamProvider {
     pub file_server_folder: Option<String>,
 }
 
-pub struct ConsulProvider {
-    pub path: String,
-}
-
-#[async_trait]
-pub trait Discovery {
-    async fn start(&self, tx: Sender<Configuration>);
-}
-
 #[async_trait]
 impl Discovery for APIUpstreamProvider {
     async fn start(&self, toreturn: Sender<Configuration>) {
         webserver::run_server(self, toreturn).await;
     }
+}
+
+pub struct FromFileProvider {
+    pub path: String,
+}
+
+pub struct ConsulProvider {
+    pub config: Arc<Configuration>,
+}
+
+pub struct KubernetesProvider {
+    pub config: Arc<Configuration>,
+}
+
+#[async_trait]
+pub trait Discovery {
+    async fn start(&self, tx: Sender<Configuration>);
 }
 
 #[async_trait]
@@ -45,6 +51,13 @@ impl Discovery for FromFileProvider {
 #[async_trait]
 impl Discovery for ConsulProvider {
     async fn start(&self, tx: Sender<Configuration>) {
-        tokio::spawn(consul::start(self.path.clone(), tx.clone()));
+        tokio::spawn(consul::start(tx.clone(), self.config.clone()));
+    }
+}
+
+#[async_trait]
+impl Discovery for KubernetesProvider {
+    async fn start(&self, tx: Sender<Configuration>) {
+        tokio::spawn(kuber::start(tx.clone(), self.config.clone()));
     }
 }

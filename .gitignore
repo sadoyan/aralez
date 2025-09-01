@@ -5,6 +5,8 @@
 *.dll
 *.exe
 *.sh
+/docs/
+/docs
 /target/
 *.iml
 .idea/

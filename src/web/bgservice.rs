@@ -1,4 +1,5 @@
-use crate::utils::discovery::{APIUpstreamProvider, ConsulProvider, Discovery, FromFileProvider};
+use crate::utils::discovery::{APIUpstreamProvider, ConsulProvider, Discovery, FromFileProvider, KubernetesProvider};
+use crate::utils::parceyaml::load_configuration;
 use crate::utils::structs::Configuration;
 use crate::utils::tools::*;
 use crate::utils::*;
@@ -6,8 +7,8 @@ use crate::web::proxyhttp::LB;
 use async_trait::async_trait;
 use dashmap::DashMap;
 use futures::channel::mpsc;
-use futures::StreamExt;
-use log::info;
+use futures::{SinkExt, StreamExt};
+use log::{error, info};
 use pingora_core::server::ShutdownWatch;
 use pingora_core::services::background::BackgroundService;
 use std::sync::Arc;
@@ -15,23 +16,38 @@ use std::sync::Arc;
 #[async_trait]
 impl BackgroundService for LB {
     async fn start(&self, mut shutdown: ShutdownWatch) {
-        info!("Starting background service");
-        let (tx, mut rx) = mpsc::channel::<Configuration>(0);
+        info!("Starting background service"); // tx: Sender<Configuration>
+        let (mut tx, mut rx) = mpsc::channel::<Configuration>(1);
+        let tx_api = tx.clone();
+        let config = load_configuration(self.config.upstreams_conf.clone().as_str(), "filepath")
+            .await
+            .expect("Failed to load configuration");
 
-        let tx_file = tx.clone();
-        let tx_consul = tx.clone();
-
-        let file_load = FromFileProvider {
-            path: self.config.upstreams_conf.clone(),
-        };
-        let consul_load = ConsulProvider {
-            path: self.config.upstreams_conf.clone(),
-        };
-
-        let _ = tokio::spawn(async move { file_load.start(tx_file).await });
-        let _ = tokio::spawn(async move { consul_load.start(tx_consul).await });
-        // let _ = tokio::spawn(tls::watch_certs(self.config.proxy_certificates.clone().unwrap(), self.cert_tx.clone()));
-        // let _ = tokio::spawn(tls::watch_certs(self.config.proxy_certificates.clone().unwrap(), self.cert_tx.clone())).await;
+        match config.typecfg.as_str() {
+            "file" => {
+                info!("Running File discovery, requested type is: {}", config.typecfg);
+                tx.send(config).await.unwrap();
+                let file_load = FromFileProvider {
+                    path: self.config.upstreams_conf.clone(),
+                };
+                let _ = tokio::spawn(async move { file_load.start(tx).await });
+            }
+            "kubernetes" => {
+                info!("Running Kubernetes discovery, requested type is: {}", config.typecfg);
+                let cf = Arc::from(config);
+                let kuber_load = KubernetesProvider { config: cf.clone() };
+                let _ = tokio::spawn(async move { kuber_load.start(tx).await });
+            }
+            "consul" => {
+                info!("Running Consul discovery, requested type is: {}", config.typecfg);
+                let cf = Arc::from(config);
+                let consul_load = ConsulProvider { config: cf.clone() };
+                let _ = tokio::spawn(async move { consul_load.start(tx).await });
+            }
+            _ => {
+                error!("Unknown discovery type: {}", config.typecfg);
+            }
+        }
 
         let api_load = APIUpstreamProvider {
             address: self.config.config_address.clone(),
@@ -43,7 +59,7 @@ impl BackgroundService for LB {
             file_server_address: self.config.file_server_address.clone(),
             file_server_folder: self.config.file_server_folder.clone(),
         };
-        let tx_api = tx.clone();
+        // let tx_api = tx.clone();
         let _ = tokio::spawn(async move { api_load.start(tx_api).await });
 
         let uu = self.ump_upst.clone();

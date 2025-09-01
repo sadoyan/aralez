@@ -1,5 +1,5 @@
 # The file under watch and hot reload, changes are applied immediately, no need to restart or reload.
-provider: "file" # consul
+provider: "file" # consul, kubernetes
 sticky_sessions: false
 to_ssl: false
 #rate_limit: 100
@@ -24,6 +24,17 @@ consul: # If the provider is consul. Otherwise, ignored.
     - proxy: "proxy-frontend-dev-frontend-srv"
       real: "frontend-dev-frontend-srv"
   token: "8e2db809-845b-45e1-8b47-2c8356a09da0-a4370955-18c2-4d6e-a8f8-ffcc0b47be81" # Consul server access token, If Consul auth is enabled
+kubernetes:
+  servers:
+    - "172.16.0.11:5443" # KUBERNETES_SERVICE_HOST : KUBERNETES_SERVICE_PORT_HTTPS
+  services:
+    - proxy: "vt-api-service-v2"
+      real: "vt-api-service-v2"
+    - proxy: "vt-search-service"
+      real: "vt-search-service"
+    - proxy: "vt-websocket-service"
+      real: "vt-websocket-service"
+  tokenpath: "/tmp/token.txt" # /var/run/secrets/kubernetes.io/serviceaccount/token
 upstreams:
   myip.mydomain.com:
     paths:

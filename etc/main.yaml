@@ -14,7 +14,7 @@ config_tls_certificate: /etc/server.crt # Mandatory if config_tls_address is set
 config_tls_key_file: /etc/key.pem # Mandatory if config_tls_address is set
 proxy_address_http: 0.0.0.0:6193 # Proxy HTTP bind address
 proxy_address_tls: 0.0.0.0:6194 # Optional, Proxy TLS bind address
-proxy_certificates: /etc/yoyo # Mandatory if proxy_address_tls set, should contain a certificate and key files strictly in a format {NAME}.crt, {NAME}.key.
+proxy_certificates: /etc/certs # Mandatory if proxy_address_tls set, should contain a certificate and key files strictly in a format {NAME}.crt, {NAME}.key.
 proxy_tls_grade: a+ # Grade of TLS suite for proxy (a+, a, b, c, unsafe), matching grades of Qualys SSL Labs
 upstreams_conf: /etc/upstreams.yaml # the location of upstreams file
 file_server_folder: /opt/storage # Optional, local folder to serve

@@ -52,13 +52,12 @@ pub async fn load_configuration(d: &str, kind: &str) -> Option<Configuration> {
         }
         "consul" => {
             toreturn.consul = parsed.consul;
-            if toreturn.consul.is_some() {
-                Some(toreturn)
-            } else {
-                None
-            }
+            toreturn.consul.is_some().then_some(toreturn)
         }
-        "kubernetes" => None,
+        "kubernetes" => {
+            toreturn.kubernetes = parsed.kubernetes;
+            toreturn.kubernetes.is_some().then_some(toreturn)
+        }
         _ => {
             warn!("Unknown provider {}", parsed.provider);
             None

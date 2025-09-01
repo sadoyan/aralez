@@ -1,9 +1,11 @@
 pub mod auth;
 pub mod consul;
 pub mod discovery;
+pub mod dnsclient;
 mod filewatch;
 pub mod healthcheck;
 pub mod jwt;
+pub mod kuber;
 pub mod metrics;
 pub mod parceyaml;
 pub mod structs;

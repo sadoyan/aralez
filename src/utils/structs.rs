@@ -21,6 +21,12 @@ pub struct Extraparams {
     pub authentication: DashMap<String, Vec<String>>,
     pub rate_limit: Option<isize>,
 }
+#[derive(Clone, Default, Debug, Serialize, Deserialize)]
+pub struct Kubernetes {
+    pub servers: Option<Vec<String>>,
+    pub services: Option<Vec<ServiceMapping>>,
+    pub tokenpath: Option<String>,
+}
 
 #[derive(Clone, Default, Debug, Serialize, Deserialize)]
 pub struct Consul {
@@ -44,6 +50,8 @@ pub struct Config {
     #[serde(default)]
     pub consul: Option<Consul>,
     #[serde(default)]
+    pub kubernetes: Option<Kubernetes>,
+    #[serde(default)]
     pub rate_limit: Option<isize>,
 }
 
@@ -65,6 +73,7 @@ pub struct Configuration {
     pub upstreams: UpstreamsDashMap,
     pub headers: Headers,
     pub consul: Option<Consul>,
+    pub kubernetes: Option<Kubernetes>,
     pub typecfg: String,
     pub extraparams: Extraparams,
 }

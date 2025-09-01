@@ -1,6 +1,5 @@
-use crate::utils::parceyaml::load_configuration;
 use crate::utils::structs::{Configuration, InnerMap, ServiceMapping, UpstreamsDashMap};
-use crate::utils::tools::{clone_dashmap_into, compare_dashmaps};
+use crate::utils::tools::{clone_dashmap_into, compare_dashmaps, print_upstreams};
 use dashmap::DashMap;
 use futures::channel::mpsc::Sender;
 use futures::SinkExt;
@@ -11,6 +10,7 @@ use reqwest::header::{HeaderMap, HeaderValue};
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::sync::atomic::AtomicUsize;
+use std::sync::Arc;
 use std::time::Duration;
 
 #[derive(Debug, Deserialize)]
@@ -27,59 +27,53 @@ struct TaggedAddress {
     port: u16,
 }
 
-pub async fn start(fp: String, mut toreturn: Sender<Configuration>) {
-    let config = load_configuration(fp.as_str(), "filepath").await;
+pub async fn start(mut toreturn: Sender<Configuration>, config: Arc<Configuration>) {
     let headers = DashMap::new();
-    match config {
-        Some(config) => {
-            if config.typecfg.to_string() != "consul" {
-                info!("Not running Consul discovery, requested type is: {}", config.typecfg);
-                return;
-            }
+    info!("Consul Discovery is enabled : {}", config.typecfg);
+    let consul = config.consul.clone();
+    let prev_upstreams = UpstreamsDashMap::new();
+    match consul {
+        Some(consul) => {
+            let servers = consul.servers.unwrap();
+            info!("Consul Servers => {:?}", servers);
+            let end = servers.len() - 1;
 
-            info!("Consul Discovery is enabled : {}", config.typecfg);
-            let consul = config.consul.clone();
-            let prev_upstreams = UpstreamsDashMap::new();
-            match consul {
-                Some(consul) => {
-                    let servers = consul.servers.unwrap();
-                    info!("Consul Servers => {:?}", servers);
-                    let end = servers.len();
-
-                    loop {
-                        let num = rand::rng().random_range(1..end);
-                        headers.clear();
-                        for (k, v) in config.headers.clone() {
-                            headers.insert(k.to_string(), v);
-                        }
-                        let consul_data = servers.get(num).unwrap().to_string();
-                        let upstreams = consul_request(consul_data, consul.services.clone(), consul.token.clone());
-                        match upstreams.await {
-                            Some(upstreams) => {
-                                if !compare_dashmaps(&upstreams, &prev_upstreams) {
-                                    let mut tosend: Configuration = Configuration {
-                                        upstreams: Default::default(),
-                                        headers: Default::default(),
-                                        consul: None,
-                                        typecfg: "".to_string(),
-                                        extraparams: config.extraparams.clone(),
-                                    };
-
-                                    clone_dashmap_into(&upstreams, &prev_upstreams);
-                                    clone_dashmap_into(&upstreams, &tosend.upstreams);
-                                    tosend.headers = headers.clone();
-                                    tosend.extraparams.authentication = config.extraparams.authentication.clone();
-                                    tosend.typecfg = config.typecfg.clone();
-                                    tosend.consul = config.consul.clone();
-                                    toreturn.send(tosend).await.unwrap();
-                                }
-                            }
-                            None => {}
-                        }
-                        sleep(Duration::from_secs(5)).await;
-                    }
+            loop {
+                let mut num = 0;
+                if end > 0 {
+                    num = rand::rng().random_range(0..end);
                 }
-                None => {}
+                headers.clear();
+                for (k, v) in config.headers.clone() {
+                    headers.insert(k.to_string(), v);
+                }
+                let consul_data = servers.get(num).unwrap().to_string();
+                let upstreams = consul_request(consul_data, consul.services.clone(), consul.token.clone());
+                match upstreams.await {
+                    Some(upstreams) => {
+                        if !compare_dashmaps(&upstreams, &prev_upstreams) {
+                            let mut tosend: Configuration = Configuration {
+                                upstreams: Default::default(),
+                                headers: Default::default(),
+                                consul: None,
+                                kubernetes: None,
+                                typecfg: "".to_string(),
+                                extraparams: config.extraparams.clone(),
+                            };
+
+                            clone_dashmap_into(&upstreams, &prev_upstreams);
+                            clone_dashmap_into(&upstreams, &tosend.upstreams);
+                            tosend.headers = headers.clone();
+                            tosend.extraparams.authentication = config.extraparams.authentication.clone();
+                            tosend.typecfg = config.typecfg.clone();
+                            tosend.consul = config.consul.clone();
+                            print_upstreams(&tosend.upstreams);
+                            toreturn.send(tosend).await.unwrap();
+                        }
+                    }
+                    None => {}
+                }
+                sleep(Duration::from_secs(5)).await;
             }
         }
         None => {}
