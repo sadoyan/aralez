@@ -1,11 +1,15 @@
 ![Aralez](https://netangels.net/utils/aralez-white.jpg)
 
-# Aralez (Արալեզ), Reverse proxy and service mesh built on top of Cloudflare's Pingora
+# Aralez (Արալեզ),
+
+### **Reverse proxy and service mesh built on top of Cloudflare's Pingora**
 
 What Aralez means ?
 **Aralez = Արալեզ** <ins>.Named after the legendary Armenian guardian spirit, winged dog-like creature, that descend upon fallen heroes to lick their wounds and resurrect them.</ins>.
 
 Built on Rust, on top of **Cloudflare’s Pingora engine**, **Aralez** delivers world-class performance, security and scalability — right out of the box.
+
+[![Buy Me A Coffee](https://img.shields.io/badge/☕-Buy%20me%20a%20coffee-orange)](https://www.buymeacoffee.com/sadoyan)
 
 ---
 
