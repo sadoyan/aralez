@@ -88,7 +88,8 @@ impl ProxyHttp for LB {
         match hostname {
             None => return Ok(false),
             Some(host) => {
-                let optioninnermap = self.get_host(host.as_str(), host.as_str(), backend_id);
+                // let optioninnermap = self.get_host(host.as_str(), host.as_str(), backend_id);
+                let optioninnermap = self.get_host(host.as_str(), session.req_header().uri.path(), backend_id);
                 match optioninnermap {
                     None => return Ok(false),
                     Some(ref innermap) => {
