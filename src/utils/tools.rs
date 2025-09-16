@@ -155,6 +155,7 @@ pub fn clone_idmap_into(original: &UpstreamsDashMap, cloned: &UpstreamsIdMap) {
                     is_http2: false,
                     to_https: false,
                     rate_limit: None,
+                    healthcheck: None,
                 };
                 cloned.insert(id, to_add);
                 cloned.insert(hh, x.to_owned());

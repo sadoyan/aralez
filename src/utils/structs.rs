@@ -67,6 +67,7 @@ pub struct PathConfig {
     pub to_https: Option<bool>,
     pub headers: Option<Vec<String>>,
     pub rate_limit: Option<isize>,
+    pub healthcheck: Option<bool>,
 }
 #[derive(Debug, Default)]
 pub struct Configuration {
@@ -108,6 +109,7 @@ pub struct InnerMap {
     pub is_http2: bool,
     pub to_https: bool,
     pub rate_limit: Option<isize>,
+    pub healthcheck: Option<bool>,
 }
 
 #[allow(dead_code)]
@@ -120,6 +122,7 @@ impl InnerMap {
             is_http2: Default::default(),
             to_https: Default::default(),
             rate_limit: Default::default(),
+            healthcheck: Default::default(),
         }
     }
 }

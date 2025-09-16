@@ -62,17 +62,32 @@ async fn build_upstreams(fullist: &UpstreamsDashMap, method: &str, client: &Clie
                     is_http2: is_h2,
                     to_https: upstream.to_https,
                     rate_limit: upstream.rate_limit,
+                    healthcheck: upstream.healthcheck,
                 };
 
-                let resp = http_request(&link, method, "", &client).await;
-                if resp.0 {
-                    if resp.1 {
-                        scheme.is_http2 = is_h2; // could be adjusted further
+                if scheme.healthcheck.unwrap_or(true) {
+                    let resp = http_request(&link, method, "", &client).await;
+                    if resp.0 {
+                        if resp.1 {
+                            scheme.is_http2 = is_h2; // could be adjusted further
+                        }
+                        innervec.push(scheme);
+                    } else {
+                        warn!("Dead Upstream : {}", link);
                     }
-                    innervec.push(scheme);
                 } else {
-                    warn!("Dead Upstream : {}", link);
+                    innervec.push(scheme);
                 }
+
+                // let resp = http_request(&link, method, "", &client).await;
+                // if resp.0 {
+                //     if resp.1 {
+                //         scheme.is_http2 = is_h2; // could be adjusted further
+                //     }
+                //     innervec.push(scheme);
+                // } else {
+                //     warn!("Dead Upstream : {}", link);
+                // }
             }
             inner.insert(path.clone(), (innervec, AtomicUsize::new(0)));
         }

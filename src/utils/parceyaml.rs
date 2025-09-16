@@ -128,8 +128,8 @@ async fn populate_file_upstreams(config: &mut Configuration, parsed: &Config) {
                                 is_ssl: true,
                                 is_http2: false,
                                 to_https: path_config.to_https.unwrap_or(false),
-                                // rate_limit: rate,
                                 rate_limit: path_config.rate_limit,
+                                healthcheck: path_config.healthcheck,
                             });
                         }
                     }

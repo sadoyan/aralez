@@ -212,6 +212,10 @@ myhost.mydomain.com:
       servers:
         - "127.0.0.4:8443"
         - "127.0.0.5:8443"
+    "/.well-known/acme-challenge":
+      healthcheck: false
+      servers:
+        - "127.0.0.1:8001"
 ```
 
 **This means:**
@@ -226,6 +230,7 @@ myhost.mydomain.com:
 - Requests to `myhost.mydomain.com/` will be proxied to `127.0.0.1` and `127.0.0.2`.
 - Plain HTTP to `myhost.mydomain.com/foo` will get 301 redirect to configured TLS port of Aralez.
 - Requests to `myhost.mydomain.com/foo` will be proxied to `127.0.0.4` and `127.0.0.5`.
+- Requests to `myhost.mydomain.com/.well-known/acme-challenge` will be proxied to `127.0.0.1:8001`, but healthcheks are disabled.
 - SSL/TLS for upstreams is detected automatically, no need to set any config parameter.
     - Assuming the `127.0.0.5:8443` is SSL protected. The inner traffic will use TLS.
     - Self-signed certificates are silently accepted.

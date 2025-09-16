@@ -67,7 +67,7 @@ impl ProxyHttp for LB {
         };
 
         let hostname = return_header_host(&session);
-        _ctx.hostname = hostname.clone();
+        _ctx.hostname = hostname;
 
         let mut backend_id = None;
 
@@ -85,7 +85,7 @@ impl ProxyHttp for LB {
             }
         }
 
-        match hostname {
+        match _ctx.hostname.as_ref() {
             None => return Ok(false),
             Some(host) => {
                 // let optioninnermap = self.get_host(host.as_str(), host.as_str(), backend_id);
@@ -175,22 +175,12 @@ impl ProxyHttp for LB {
         }
     }
 
-    async fn upstream_request_filter(&self, session: &mut Session, _upstream_request: &mut RequestHeader, _ctx: &mut Self::CTX) -> Result<()> {
-        match session.client_addr() {
-            Some(ip) => {
-                let inet = ip.as_inet();
-                match inet {
-                    Some(addr) => {
-                        _upstream_request
-                            .insert_header("X-Forwarded-For", addr.to_string().split(':').collect::<Vec<&str>>()[0])
-                            .unwrap();
-                    }
-                    None => warn!("Malformed Client IP: {:?}", inet),
-                }
-            }
-            None => {
-                warn!("Cannot detect client IP");
-            }
+    async fn upstream_request_filter(&self, _session: &mut Session, upstream_request: &mut RequestHeader, ctx: &mut Self::CTX) -> Result<()> {
+        if let Some(hostname) = ctx.hostname.as_ref() {
+            upstream_request.insert_header("Host", hostname)?;
+        }
+        if let Some(peer) = ctx.upstream_peer.as_ref() {
+            upstream_request.insert_header("X-Forwarded-For", peer.address.as_str())?;
         }
         Ok(())
     }

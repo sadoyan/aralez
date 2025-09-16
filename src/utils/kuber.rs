@@ -114,6 +114,7 @@ pub async fn get_by_http(url: &str, token: &str) -> Option<DashMap<String, (Vec<
                             is_http2: false,
                             to_https: false,
                             rate_limit: None,
+                            healthcheck: None,
                         };
                         inner_vec.push(to_add);
                     }
