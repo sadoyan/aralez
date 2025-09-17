@@ -5,7 +5,7 @@ use crate::web::gethosts::GetHost;
 use arc_swap::ArcSwap;
 use async_trait::async_trait;
 use axum::body::Bytes;
-use log::{debug, warn};
+use log::{debug, error, warn};
 use once_cell::sync::Lazy;
 use pingora::http::{RequestHeader, ResponseHeader, StatusCode};
 use pingora::prelude::*;
@@ -151,7 +151,9 @@ impl ProxyHttp for LB {
                         Ok(peer)
                     }
                     None => {
-                        session.respond_error_with_body(502, Bytes::from("502 Bad Gateway\n")).await.expect("Failed to send error");
+                        if let Err(e) = session.respond_error_with_body(502, Bytes::from("502 Bad Gateway\n")).await {
+                            error!("Failed to send error response: {:?}", e);
+                        }
                         Err(Box::new(Error {
                             etype: HTTPStatus(502),
                             esource: Upstream,
@@ -163,7 +165,10 @@ impl ProxyHttp for LB {
                 }
             }
             None => {
-                session.respond_error_with_body(502, Bytes::from("502 Bad Gateway\n")).await.expect("Failed to send error");
+                // session.respond_error_with_body(502, Bytes::from("502 Bad Gateway\n")).await.expect("Failed to send error");
+                if let Err(e) = session.respond_error_with_body(502, Bytes::from("502 Bad Gateway\n")).await {
+                    error!("Failed to send error response: {:?}", e);
+                }
                 Err(Box::new(Error {
                     etype: HTTPStatus(502),
                     esource: Upstream,
