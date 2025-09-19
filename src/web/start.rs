@@ -5,15 +5,19 @@ use crate::utils::tls::CertificateConfig;
 use crate::utils::tools::*;
 use crate::web::proxyhttp::LB;
 use arc_swap::ArcSwap;
+use ctrlc;
 use dashmap::DashMap;
 use log::info;
 use pingora::tls::ssl::{SslAlert, SslRef};
 use pingora_core::listeners::tls::TlsSettings;
 use pingora_core::prelude::{background_service, Opt};
 use pingora_core::server::Server;
+use port_check::is_port_reachable;
+use privdrop::PrivDrop;
+use std::os::unix::fs::MetadataExt;
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::Arc;
-use std::thread;
+use std::{thread, time};
 
 pub fn run() {
     // default_provider().install_default().expect("Failed to install rustls crypto provider");
@@ -46,24 +50,7 @@ pub fn run() {
         headers: hh_config,
         extraparams: ec_config,
     };
-    /*
-        let log_level = cfg.log_level.clone();
-        unsafe {
-            match log_level.as_str() {
-                "info" => env::set_var("RUST_LOG", "info"),
-                "error" => env::set_var("RUST_LOG", "error"),
-                "warn" => env::set_var("RUST_LOG", "warn"),
-                "debug" => env::set_var("RUST_LOG", "debug"),
-                "trace" => env::set_var("RUST_LOG", "trace"),
-                "off" => env::set_var("RUST_LOG", "off"),
-                _ => {
-                    println!("Error reading log level, defaulting to: INFO");
-                    env::set_var("RUST_LOG", "info")
-                }
-            }
-        }
-        env_logger::builder().init();
-    */
+
     let grade = cfg.proxy_tls_grade.clone().unwrap_or("medium".to_string());
     info!("TLS grade set to: [ {} ]", grade);
 
@@ -104,7 +91,6 @@ pub fn run() {
                     match new_certs {
                         Some(new_certs) => {
                             certs_for_watcher.store(Arc::new(new_certs));
-                            info!("Reload TLS certificates from {}", cfg.proxy_certificates.clone().unwrap())
                         }
                         None => {}
                     };
@@ -117,5 +103,38 @@ pub fn run() {
     proxy.add_tcp(bind_address_http.as_str());
     server.add_service(proxy);
     server.add_service(bg_srvc);
-    server.run_forever();
+
+    thread::spawn(move || server.run_forever());
+    drop_priv(cfg.rungroup.clone(), cfg.runuser.clone(), cfg.proxy_address_http.clone(), cfg.proxy_address_tls.clone());
+
+    let (tx, rx) = channel();
+    ctrlc::set_handler(move || tx.send(()).expect("Could not send signal on channel.")).expect("Error setting Ctrl-C handler");
+    rx.recv().expect("Could not receive from channel.");
+    println!("\nSignal received ! Exiting...");
+}
+fn drop_priv(user: Option<String>, group: Option<String>, http_addr: String, tls_addr: Option<String>) {
+    thread::sleep(time::Duration::from_millis(10));
+    loop {
+        thread::sleep(time::Duration::from_millis(10));
+        if is_port_reachable(http_addr.clone()) {
+            break;
+        }
+    }
+    if let Some(tls_addr) = tls_addr {
+        loop {
+            thread::sleep(time::Duration::from_millis(10));
+            if is_port_reachable(tls_addr.clone()) {
+                break;
+            }
+        }
+    }
+
+    if let (Some(u), Some(g)) = (user, group) {
+        if std::fs::metadata("/proc/self").map(|m| m.uid()).unwrap_or(1) == 0 {
+            info!("Dropping ROOT privileges to: {}:{}", u, g);
+            if let Err(e) = PrivDrop::default().user(u).group(g).apply() {
+                panic!("Failed to drop privileges: {}", e);
+            }
+        }
+    }
 }

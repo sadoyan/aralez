@@ -99,6 +99,8 @@ pub struct AppConfig {
     pub proxy_tls_grade: Option<String>,
     pub file_server_address: Option<String>,
     pub file_server_folder: Option<String>,
+    pub runuser: Option<String>,
+    pub rungroup: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

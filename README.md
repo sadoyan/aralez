@@ -75,8 +75,8 @@ Built on Rust, on top of **Cloudflare’s Pingora engine**, **Aralez** delivers 
 | Key                              | Example Value                        | Description                                                                                        |
 |----------------------------------|--------------------------------------|----------------------------------------------------------------------------------------------------|
 | **threads**                      | 12                                   | Number of running daemon threads. Optional, defaults to 1                                          |
-| **user**                         | aralez                               | Optional, Username for running aralez after dropping root privileges, requires to launch as root   |
-| **group**                        | aralez                               | Optional,Group for running aralez after dropping root privileges, requires to launch as root       |
+| **runuser**                      | aralez                               | Optional, Username for running aralez after dropping root privileges, requires to launch as root   |
+| **rungroup**                     | aralez                               | Optional,Group for running aralez after dropping root privileges, requires to launch as root       |
 | **daemon**                       | false                                | Run in background (boolean)                                                                        |
 | **upstream_keepalive_pool_size** | 500                                  | Pool size for upstream keepalive connections                                                       |
 | **pid_file**                     | /tmp/aralez.pid                      | Path to PID file                                                                                   |
