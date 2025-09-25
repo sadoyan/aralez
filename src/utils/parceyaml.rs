@@ -1,4 +1,5 @@
 use crate::utils::healthcheck;
+use crate::utils::state::{is_first_run, mark_not_first_run};
 use crate::utils::structs::*;
 use crate::utils::tools::{clone_dashmap, clone_dashmap_into, print_upstreams};
 use dashmap::DashMap;
@@ -139,10 +140,16 @@ async fn populate_file_upstreams(config: &mut Configuration, parsed: &Config) {
             config.headers.insert(hostname.clone(), header_list);
             imtdashmap.insert(hostname.clone(), path_map);
         }
-        let y = clone_dashmap(&imtdashmap);
-        let r = healthcheck::initiate_upstreams(y).await;
-        clone_dashmap_into(&r, &config.upstreams);
-        println!("Upstream Config:");
+
+        if is_first_run() {
+            clone_dashmap_into(&imtdashmap, &config.upstreams);
+            mark_not_first_run();
+        } else {
+            let y = clone_dashmap(&imtdashmap);
+            let r = healthcheck::initiate_upstreams(y).await;
+            clone_dashmap_into(&r, &config.upstreams);
+        }
+        info!("Upstream Config:");
         print_upstreams(&config.upstreams);
     }
 }

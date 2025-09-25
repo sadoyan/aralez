@@ -8,6 +8,7 @@ pub mod jwt;
 pub mod kuber;
 pub mod metrics;
 pub mod parceyaml;
+pub mod state;
 pub mod structs;
 pub mod tls;
 pub mod tools;

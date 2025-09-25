@@ -105,14 +105,17 @@ pub fn run() {
     server.add_service(bg_srvc);
 
     thread::spawn(move || server.run_forever());
-    drop_priv(cfg.rungroup.clone(), cfg.runuser.clone(), cfg.proxy_address_http.clone(), cfg.proxy_address_tls.clone());
+
+    if let (Some(user), Some(group)) = (cfg.rungroup.clone(), cfg.runuser.clone()) {
+        drop_priv(user, group, cfg.proxy_address_http.clone(), cfg.proxy_address_tls.clone());
+    }
 
     let (tx, rx) = channel();
     ctrlc::set_handler(move || tx.send(()).expect("Could not send signal on channel.")).expect("Error setting Ctrl-C handler");
     rx.recv().expect("Could not receive from channel.");
-    println!("\nSignal received ! Exiting...");
+    info!("Signal received ! Exiting...");
 }
-fn drop_priv(user: Option<String>, group: Option<String>, http_addr: String, tls_addr: Option<String>) {
+fn drop_priv(user: String, group: String, http_addr: String, tls_addr: Option<String>) {
     thread::sleep(time::Duration::from_millis(10));
     loop {
         thread::sleep(time::Duration::from_millis(10));
@@ -129,12 +132,19 @@ fn drop_priv(user: Option<String>, group: Option<String>, http_addr: String, tls
         }
     }
 
-    if let (Some(u), Some(g)) = (user, group) {
-        if std::fs::metadata("/proc/self").map(|m| m.uid()).unwrap_or(1) == 0 {
-            info!("Dropping ROOT privileges to: {}:{}", u, g);
-            if let Err(e) = PrivDrop::default().user(u).group(g).apply() {
-                panic!("Failed to drop privileges: {}", e);
-            }
+    if std::fs::metadata("/proc/self").map(|m| m.uid()).unwrap_or(1) == 0 {
+        info!("Dropping ROOT privileges to: {}:{}", user, group);
+        if let Err(e) = PrivDrop::default().user(user).group(group).apply() {
+            panic!("Failed to drop privileges: {}", e);
         }
     }
+
+    // if let (Some(u), Some(g)) = (user, group) {
+    //     if std::fs::metadata("/proc/self").map(|m| m.uid()).unwrap_or(1) == 0 {
+    //         info!("Dropping ROOT privileges to: {}:{}", u, g);
+    //         if let Err(e) = PrivDrop::default().user(u).group(g).apply() {
+    //             panic!("Failed to drop privileges: {}", e);
+    //         }
+    //     }
+    // }
 }
