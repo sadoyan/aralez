@@ -4,14 +4,19 @@ use crate::utils::tls::CertificateConfig;
 use dashmap::DashMap;
 use log::{error, info};
 use notify::{event::ModifyKind, Config, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
+use port_check::is_port_reachable;
+use privdrop::PrivDrop;
 use sha2::{Digest, Sha256};
 use std::any::type_name;
 use std::collections::{HashMap, HashSet};
 use std::fmt::Write;
-use std::fs;
+use std::net::SocketAddr;
+use std::os::unix::fs::MetadataExt;
+use std::str::FromStr;
 use std::sync::atomic::AtomicUsize;
 use std::sync::mpsc::{channel, Sender};
 use std::time::{Duration, Instant};
+use std::{fs, process, thread, time};
 
 #[allow(dead_code)]
 pub fn print_upstreams(upstreams: &UpstreamsDashMap) {
@@ -219,5 +224,42 @@ pub fn watch_folder(path: String, sender: Sender<Vec<CertificateConfig>>) -> not
             Ok(Err(e)) => error!("Watch error: {:?}", e),
             Err(_) => {}
         }
+    }
+}
+
+pub fn drop_priv(user: String, group: String, http_addr: String, tls_addr: Option<String>) {
+    thread::sleep(time::Duration::from_millis(10));
+    loop {
+        thread::sleep(time::Duration::from_millis(10));
+        if is_port_reachable(http_addr.clone()) {
+            break;
+        }
+    }
+    if let Some(tls_addr) = tls_addr {
+        loop {
+            thread::sleep(time::Duration::from_millis(10));
+            if is_port_reachable(tls_addr.clone()) {
+                break;
+            }
+        }
+    }
+    info!("Dropping ROOT privileges to: {}:{}", user, group);
+    if let Err(e) = PrivDrop::default().user(user).group(group).apply() {
+        error!("Failed to drop privileges: {}", e);
+        process::exit(1)
+    }
+}
+
+pub fn check_priv(addr: String) {
+    let port = SocketAddr::from_str(&addr).map(|sa| sa.port()).unwrap();
+    match port < 1024 {
+        true => {
+            let meta = std::fs::metadata("/proc/self").map(|m| m.uid()).unwrap();
+            if meta != 0 {
+                error!("Running on privileged port requires to start as ROOT");
+                process::exit(1)
+            }
+        }
+        false => {}
     }
 }

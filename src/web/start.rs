@@ -12,13 +12,9 @@ use pingora::tls::ssl::{SslAlert, SslRef};
 use pingora_core::listeners::tls::TlsSettings;
 use pingora_core::prelude::{background_service, Opt};
 use pingora_core::server::Server;
-use port_check::is_port_reachable;
-use privdrop::PrivDrop;
-use std::os::unix::fs::MetadataExt;
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::Arc;
-use std::{thread, time};
-
+use std::thread;
 pub fn run() {
     // default_provider().install_default().expect("Failed to install rustls crypto provider");
     let parameters = Some(Opt::parse_args()).unwrap();
@@ -57,10 +53,13 @@ pub fn run() {
     let bg_srvc = background_service("bgsrvc", lb.clone());
     let mut proxy = pingora_proxy::http_proxy_service(&server.configuration, lb.clone());
     let bind_address_http = cfg.proxy_address_http.clone();
-
     let bind_address_tls = cfg.proxy_address_tls.clone();
+
+    check_priv(bind_address_http.clone());
+
     match bind_address_tls {
         Some(bind_address_tls) => {
+            check_priv(bind_address_tls.clone());
             let (tx, rx): (Sender<Vec<CertificateConfig>>, Receiver<Vec<CertificateConfig>>) = channel();
             let certs_path = cfg.proxy_certificates.clone().unwrap();
             thread::spawn(move || {
@@ -114,37 +113,4 @@ pub fn run() {
     ctrlc::set_handler(move || tx.send(()).expect("Could not send signal on channel.")).expect("Error setting Ctrl-C handler");
     rx.recv().expect("Could not receive from channel.");
     info!("Signal received ! Exiting...");
-}
-fn drop_priv(user: String, group: String, http_addr: String, tls_addr: Option<String>) {
-    thread::sleep(time::Duration::from_millis(10));
-    loop {
-        thread::sleep(time::Duration::from_millis(10));
-        if is_port_reachable(http_addr.clone()) {
-            break;
-        }
-    }
-    if let Some(tls_addr) = tls_addr {
-        loop {
-            thread::sleep(time::Duration::from_millis(10));
-            if is_port_reachable(tls_addr.clone()) {
-                break;
-            }
-        }
-    }
-
-    if std::fs::metadata("/proc/self").map(|m| m.uid()).unwrap_or(1) == 0 {
-        info!("Dropping ROOT privileges to: {}:{}", user, group);
-        if let Err(e) = PrivDrop::default().user(user).group(group).apply() {
-            panic!("Failed to drop privileges: {}", e);
-        }
-    }
-
-    // if let (Some(u), Some(g)) = (user, group) {
-    //     if std::fs::metadata("/proc/self").map(|m| m.uid()).unwrap_or(1) == 0 {
-    //         info!("Dropping ROOT privileges to: {}:{}", u, g);
-    //         if let Err(e) = PrivDrop::default().user(u).group(g).apply() {
-    //             panic!("Failed to drop privileges: {}", e);
-    //         }
-    //     }
-    // }
 }
