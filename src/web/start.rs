@@ -55,11 +55,11 @@ pub fn run() {
     let bind_address_http = cfg.proxy_address_http.clone();
     let bind_address_tls = cfg.proxy_address_tls.clone();
 
-    check_priv(bind_address_http.clone());
+    check_priv(bind_address_http.as_str());
 
     match bind_address_tls {
         Some(bind_address_tls) => {
-            check_priv(bind_address_tls.clone());
+            check_priv(bind_address_tls.as_str());
             let (tx, rx): (Sender<Vec<CertificateConfig>>, Receiver<Vec<CertificateConfig>>) = channel();
             let certs_path = cfg.proxy_certificates.clone().unwrap();
             thread::spawn(move || {

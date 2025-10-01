@@ -250,8 +250,8 @@ pub fn drop_priv(user: String, group: String, http_addr: String, tls_addr: Optio
     }
 }
 
-pub fn check_priv(addr: String) {
-    let port = SocketAddr::from_str(&addr).map(|sa| sa.port()).unwrap();
+pub fn check_priv(addr: &str) {
+    let port = SocketAddr::from_str(addr).map(|sa| sa.port()).unwrap();
     match port < 1024 {
         true => {
             let meta = std::fs::metadata("/proc/self").map(|m| m.uid()).unwrap();
