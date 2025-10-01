@@ -40,6 +40,7 @@ struct Port {
 }
 
 pub async fn start(mut toreturn: Sender<Configuration>, config: Arc<Configuration>) {
+    // println!("{:?}", config);
     let upstreams = UpstreamsDashMap::new();
     let prev_upstreams = UpstreamsDashMap::new();
     loop {
@@ -57,17 +58,30 @@ pub async fn start(mut toreturn: Sender<Configuration>, config: Arc<Configuratio
                 num = rand::rng().random_range(0..end);
             }
             let server = servers.get(num).unwrap().to_string();
-
             if let Some(svc) = kuber.services {
                 for i in svc {
+                    let path = i.path.unwrap_or("/".to_string());
                     let url = format!("https://{}/api/v1/namespaces/staging/endpoints/{}", server, i.real);
-                    let list = get_by_http(&*url, &*token).await;
+                    let list = get_by_http(&*url, &*token, &*path).await;
+
+                    // println!("{:?}", list);
+
                     if let Some(list) = list {
-                        upstreams.insert(i.proxy.clone(), list);
+                        match upstreams.get(&i.proxy.clone()) {
+                            Some(foo) => {
+                                for (k, v) in list {
+                                    foo.value().insert(k, v);
+                                }
+                            }
+                            None => {
+                                upstreams.insert(i.proxy.clone(), list);
+                            }
+                        };
                     }
                 }
             }
         }
+        // print_upstreams(&upstreams);
 
         if !compare_dashmaps(&upstreams, &prev_upstreams) {
             let tosend: Configuration = Configuration {
@@ -88,7 +102,7 @@ pub async fn start(mut toreturn: Sender<Configuration>, config: Arc<Configuratio
     }
 }
 
-pub async fn get_by_http(url: &str, token: &str) -> Option<DashMap<String, (Vec<InnerMap>, AtomicUsize)>> {
+pub async fn get_by_http(url: &str, token: &str, path: &str) -> Option<DashMap<String, (Vec<InnerMap>, AtomicUsize)>> {
     let client = Client::builder().timeout(Duration::from_secs(2)).danger_accept_invalid_certs(true).build().ok()?;
 
     let resp = client.get(url).bearer_auth(token).send().await.ok()?;
@@ -104,8 +118,8 @@ pub async fn get_by_http(url: &str, token: &str) -> Option<DashMap<String, (Vec<
     if let Some(subsets) = endpoints.subsets {
         for subset in subsets {
             if let (Some(addresses), Some(ports)) = (subset.addresses, subset.ports) {
+                let mut inner_vec = Vec::new();
                 for addr in addresses {
-                    let mut inner_vec = Vec::new();
                     for port in &ports {
                         let to_add = InnerMap {
                             address: addr.ip.clone(),
@@ -118,8 +132,8 @@ pub async fn get_by_http(url: &str, token: &str) -> Option<DashMap<String, (Vec<
                         };
                         inner_vec.push(to_add);
                     }
-                    upstreams.insert("/".to_string(), (inner_vec, AtomicUsize::new(0)));
                 }
+                upstreams.insert(path.to_string(), (inner_vec, AtomicUsize::new(0)));
             }
         }
     }

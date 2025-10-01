@@ -12,6 +12,7 @@ pub type Headers = DashMap<String, DashMap<String, Vec<(String, String)>>>;
 pub struct ServiceMapping {
     pub proxy: String,
     pub real: String,
+    pub path: Option<String>,
 }
 
 #[derive(Clone, Debug, Default)]
