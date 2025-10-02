@@ -28,12 +28,14 @@ kubernetes:
   servers:
     - "172.16.0.11:5443" # KUBERNETES_SERVICE_HOST : KUBERNETES_SERVICE_PORT_HTTPS
   services:
-    - proxy: "vt-api-service-v2"
-      real: "vt-api-service-v2"
-    - proxy: "vt-search-service"
-      real: "vt-search-service"
-    - proxy: "vt-websocket-service"
-      real: "vt-websocket-service"
+    - proxy: "api-service"
+      real: "api-service"
+      path: "/"
+    - proxy: "api-service"
+      real: "search-service"
+      path: "/search"
+    - proxy: "websocket-service"
+      real: "websocket-service"
   tokenpath: "/tmp/token.txt" # /var/run/secrets/kubernetes.io/serviceaccount/token
 upstreams:
   myip.mydomain.com:
