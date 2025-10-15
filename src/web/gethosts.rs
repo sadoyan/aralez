@@ -52,7 +52,6 @@ impl GetHost for LB {
         let host_entry = self.headers.get(peer)?;
         let mut current_path = path.to_string();
         let mut best_match: Option<Vec<(String, String)>> = None;
-
         loop {
             if let Some(entry) = host_entry.get(&current_path) {
                 if !entry.value().is_empty() {

@@ -109,15 +109,8 @@ async fn populate_file_upstreams(config: &mut Configuration, parsed: &Config) {
                 }
 
                 let mut server_list = Vec::new();
-                let mut hl = Vec::new();
-
-                if let Some(headers) = &path_config.headers {
-                    for header in headers {
-                        if let Some((key, val)) = header.split_once(':') {
-                            hl.push((key.trim().to_string(), val.trim().to_string()));
-                        }
-                    }
-                }
+                let mut hl: Vec<(String, String)> = Vec::new();
+                build_headers(&path_config.headers, config, &mut hl);
                 header_list.insert(path.clone(), hl);
 
                 for server in &path_config.servers {
@@ -223,4 +216,21 @@ fn log_builder(conf: &AppConfig) {
         }
     }
     env_logger::builder().init();
+}
+
+pub fn build_headers(path_config: &Option<Vec<String>>, config: &Configuration, hl: &mut Vec<(String, String)>) {
+    if let Some(headers) = &path_config {
+        for header in headers {
+            if let Some((key, val)) = header.split_once(':') {
+                hl.push((key.trim().to_string(), val.trim().to_string()));
+            }
+        }
+        if let Some(push) = config.headers.get("GLOBAL_HEADERS") {
+            for k in push.iter() {
+                for x in k.value() {
+                    hl.push(x.to_owned());
+                }
+            }
+        }
+    }
 }

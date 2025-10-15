@@ -215,6 +215,7 @@ impl ProxyHttp for LB {
                 let path = session.req_header().uri.path();
                 let host_header = host;
                 let split_header = host_header.split_once(':');
+
                 match split_header {
                     Some(sh) => {
                         let yoyo = self.get_header(sh.0, path);

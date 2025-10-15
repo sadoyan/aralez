@@ -1,4 +1,4 @@
-// use crate::utils::dnsclient::DnsClientPool;
+use crate::utils::parceyaml::build_headers;
 use crate::utils::structs::{Configuration, InnerMap, ServiceMapping, UpstreamsDashMap};
 use crate::utils::tools::{clone_dashmap_into, compare_dashmaps, print_upstreams};
 use dashmap::DashMap;
@@ -13,9 +13,6 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::fs::File;
 use tokio::io::AsyncReadExt;
-
-// static KUBERNETES_SERVICE_HOST: &str = "IP_ADDRESS";
-// static TOKEN: &str = "TOKEN";
 
 #[derive(Debug, serde::Deserialize)]
 struct Endpoints {
@@ -35,12 +32,10 @@ struct Address {
 
 #[derive(Debug, serde::Deserialize)]
 struct Port {
-    // name: String,
     port: u16,
 }
 
 pub async fn start(mut toreturn: Sender<Configuration>, config: Arc<Configuration>) {
-    println!("{:?}", config);
     let upstreams = UpstreamsDashMap::new();
     let prev_upstreams = UpstreamsDashMap::new();
     loop {
@@ -62,22 +57,21 @@ pub async fn start(mut toreturn: Sender<Configuration>, config: Arc<Configuratio
             if let Some(svc) = kuber.services {
                 for i in svc {
                     let header_list = DashMap::new();
+
                     let mut hl = Vec::new();
-                    if let Some(headers) = &i.headers {
-                        for header in headers {
-                            if let Some((key, val)) = header.split_once(':') {
-                                hl.push((key.trim().to_string(), val.trim().to_string()));
-                            }
-                        }
+                    build_headers(&i.headers, config.as_ref(), &mut hl);
+                    if hl.len() > 0 {
+                        header_list.insert(i.path.clone().unwrap_or("/".to_string()), hl);
+                        config.headers.insert(i.hostname.clone(), header_list);
                     }
-                    header_list.insert(path.clone(), hl);
+
                     let url = format!("https://{}/api/v1/namespaces/staging/endpoints/{}", server, i.hostname);
                     let list = get_by_http(&*url, &*token, &i).await;
                     if let Some(list) = list {
                         match upstreams.get(&i.upstream.clone()) {
-                            Some(foo) => {
+                            Some(upstr) => {
                                 for (k, v) in list {
-                                    foo.value().insert(k, v);
+                                    upstr.value().insert(k, v);
                                 }
                             }
                             None => {
