@@ -86,14 +86,14 @@ async fn consul_request(url: String, whitelist: Option<Vec<ServiceMapping>>, tok
     match whitelist {
         Some(whitelist) => {
             for k in whitelist.iter() {
-                let pref: String = ss.clone() + &k.real;
+                let pref: String = ss.clone() + &k.hostname;
                 let list = get_by_http(pref.clone(), token.clone()).await;
                 match list {
                     Some(list) => {
-                        upstreams.insert(k.proxy.clone(), list);
+                        upstreams.insert(k.upstream.clone(), list);
                     }
                     None => {
-                        warn!("Whitelist not found for {}", k.proxy);
+                        warn!("Whitelist not found for {}", k.upstream);
                     }
                 }
             }

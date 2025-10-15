@@ -10,10 +10,15 @@ pub type Headers = DashMap<String, DashMap<String, Vec<(String, String)>>>;
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct ServiceMapping {
-    pub proxy: String,
-    pub real: String,
+    pub upstream: String,
+    pub hostname: String,
     pub path: Option<String>,
+    pub to_https: Option<bool>,
+    pub rate_limit: Option<isize>,
+    pub headers: Option<Vec<String>>,
 }
+
+// pub type Services = DashMap<String, Vec<(String, Option<String>)>>;
 
 #[derive(Clone, Debug, Default)]
 pub struct Extraparams {

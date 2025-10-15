@@ -1,5 +1,5 @@
 // use crate::utils::dnsclient::DnsClientPool;
-use crate::utils::structs::{Configuration, InnerMap, UpstreamsDashMap};
+use crate::utils::structs::{Configuration, InnerMap, ServiceMapping, UpstreamsDashMap};
 use crate::utils::tools::{clone_dashmap_into, compare_dashmaps, print_upstreams};
 use dashmap::DashMap;
 use futures::channel::mpsc::Sender;
@@ -40,7 +40,7 @@ struct Port {
 }
 
 pub async fn start(mut toreturn: Sender<Configuration>, config: Arc<Configuration>) {
-    // println!("{:?}", config);
+    println!("{:?}", config);
     let upstreams = UpstreamsDashMap::new();
     let prev_upstreams = UpstreamsDashMap::new();
     loop {
@@ -57,31 +57,37 @@ pub async fn start(mut toreturn: Sender<Configuration>, config: Arc<Configuratio
             if end > 0 {
                 num = rand::rng().random_range(0..end);
             }
+
             let server = servers.get(num).unwrap().to_string();
             if let Some(svc) = kuber.services {
                 for i in svc {
-                    let path = i.path.unwrap_or("/".to_string());
-                    let url = format!("https://{}/api/v1/namespaces/staging/endpoints/{}", server, i.real);
-                    let list = get_by_http(&*url, &*token, &*path).await;
-
-                    // println!("{:?}", list);
-
+                    let header_list = DashMap::new();
+                    let mut hl = Vec::new();
+                    if let Some(headers) = &i.headers {
+                        for header in headers {
+                            if let Some((key, val)) = header.split_once(':') {
+                                hl.push((key.trim().to_string(), val.trim().to_string()));
+                            }
+                        }
+                    }
+                    header_list.insert(path.clone(), hl);
+                    let url = format!("https://{}/api/v1/namespaces/staging/endpoints/{}", server, i.hostname);
+                    let list = get_by_http(&*url, &*token, &i).await;
                     if let Some(list) = list {
-                        match upstreams.get(&i.proxy.clone()) {
+                        match upstreams.get(&i.upstream.clone()) {
                             Some(foo) => {
                                 for (k, v) in list {
                                     foo.value().insert(k, v);
                                 }
                             }
                             None => {
-                                upstreams.insert(i.proxy.clone(), list);
+                                upstreams.insert(i.upstream.clone(), list);
                             }
                         };
                     }
                 }
             }
         }
-        // print_upstreams(&upstreams);
 
         if !compare_dashmaps(&upstreams, &prev_upstreams) {
             let tosend: Configuration = Configuration {
@@ -92,7 +98,6 @@ pub async fn start(mut toreturn: Sender<Configuration>, config: Arc<Configuratio
                 typecfg: config.typecfg.clone(),
                 extraparams: config.extraparams.clone(),
             };
-
             clone_dashmap_into(&upstreams, &prev_upstreams);
             clone_dashmap_into(&upstreams, &tosend.upstreams);
             print_upstreams(&tosend.upstreams);
@@ -102,7 +107,7 @@ pub async fn start(mut toreturn: Sender<Configuration>, config: Arc<Configuratio
     }
 }
 
-pub async fn get_by_http(url: &str, token: &str, path: &str) -> Option<DashMap<String, (Vec<InnerMap>, AtomicUsize)>> {
+pub async fn get_by_http(url: &str, token: &str, conf: &ServiceMapping) -> Option<DashMap<String, (Vec<InnerMap>, AtomicUsize)>> {
     let client = Client::builder().timeout(Duration::from_secs(2)).danger_accept_invalid_certs(true).build().ok()?;
 
     let resp = client.get(url).bearer_auth(token).send().await.ok()?;
@@ -114,7 +119,7 @@ pub async fn get_by_http(url: &str, token: &str, path: &str) -> Option<DashMap<S
 
     let endpoints: Endpoints = resp.json().await.ok()?;
     let upstreams: DashMap<String, (Vec<InnerMap>, AtomicUsize)> = DashMap::new();
-
+    // println!(" ===> {:?} : {:?}", conf.to_https.unwrap_or(false), conf.rate_limit);
     if let Some(subsets) = endpoints.subsets {
         for subset in subsets {
             if let (Some(addresses), Some(ports)) = (subset.addresses, subset.ports) {
@@ -126,14 +131,21 @@ pub async fn get_by_http(url: &str, token: &str, path: &str) -> Option<DashMap<S
                             port: port.port.clone(),
                             is_ssl: false,
                             is_http2: false,
-                            to_https: false,
-                            rate_limit: None,
+                            to_https: conf.to_https.unwrap_or(false),
+                            rate_limit: conf.rate_limit,
                             healthcheck: None,
                         };
                         inner_vec.push(to_add);
                     }
                 }
-                upstreams.insert(path.to_string(), (inner_vec, AtomicUsize::new(0)));
+                match conf.path {
+                    Some(ref p) => {
+                        upstreams.insert(p.to_string(), (inner_vec, AtomicUsize::new(0)));
+                    }
+                    None => {
+                        upstreams.insert("/".to_string(), (inner_vec, AtomicUsize::new(0)));
+                    }
+                }
             }
         }
     }

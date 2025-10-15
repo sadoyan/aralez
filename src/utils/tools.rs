@@ -29,8 +29,13 @@ pub fn print_upstreams(upstreams: &UpstreamsDashMap) {
             println!("    Path: {}", path);
             for f in path_entry.value().0.clone() {
                 println!(
-                    "        IP: {}, Port: {}, SSL: {}, H2: {}, To HTTPS: {}",
-                    f.address, f.port, f.is_ssl, f.is_http2, f.to_https
+                    "        IP: {}, Port: {}, SSL: {}, H2: {}, To HTTPS: {}, Rate Limit: {}",
+                    f.address,
+                    f.port,
+                    f.is_ssl,
+                    f.is_http2,
+                    f.to_https,
+                    f.rate_limit.unwrap_or(0)
                 );
             }
         }
