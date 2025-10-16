@@ -108,11 +108,11 @@ async fn populate_file_upstreams(config: &mut Configuration, parsed: &Config) {
                     info!("Applied Rate Limit for {} : {} request per second", hostname, rate);
                 }
 
-                let mut server_list = Vec::new();
                 let mut hl: Vec<(String, String)> = Vec::new();
                 build_headers(&path_config.headers, config, &mut hl);
                 header_list.insert(path.clone(), hl);
 
+                let mut server_list = Vec::new();
                 for server in &path_config.servers {
                     if let Some((ip, port_str)) = server.split_once(':') {
                         if let Ok(port) = port_str.parse::<u16>() {

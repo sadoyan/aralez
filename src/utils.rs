@@ -6,6 +6,7 @@ mod filewatch;
 pub mod healthcheck;
 pub mod jwt;
 pub mod kuber;
+pub mod kuberconsul;
 pub mod metrics;
 pub mod parceyaml;
 pub mod state;

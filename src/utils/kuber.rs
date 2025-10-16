@@ -1,3 +1,4 @@
+use crate::utils::kuberconsul::{list_to_upstreams, match_path};
 use crate::utils::parceyaml::build_headers;
 use crate::utils::structs::{Configuration, InnerMap, ServiceMapping, UpstreamsDashMap};
 use crate::utils::tools::{clone_dashmap_into, compare_dashmaps, print_upstreams};
@@ -36,10 +37,10 @@ struct Port {
 }
 
 pub async fn start(mut toreturn: Sender<Configuration>, config: Arc<Configuration>) {
-    let upstreams = UpstreamsDashMap::new();
     let prev_upstreams = UpstreamsDashMap::new();
     loop {
         if let Some(kuber) = config.kubernetes.clone() {
+            let upstreams = UpstreamsDashMap::new();
             let path = kuber.tokenpath.unwrap_or("/var/run/secrets/kubernetes.io/serviceaccount/token".to_string());
             let token = read_token(path.as_str()).await;
             let servers = kuber.servers.unwrap_or(vec![format!(
@@ -64,38 +65,26 @@ pub async fn start(mut toreturn: Sender<Configuration>, config: Arc<Configuratio
                         header_list.insert(i.path.clone().unwrap_or("/".to_string()), hl);
                         config.headers.insert(i.hostname.clone(), header_list);
                     }
-
                     let url = format!("https://{}/api/v1/namespaces/staging/endpoints/{}", server, i.hostname);
                     let list = get_by_http(&*url, &*token, &i).await;
-                    if let Some(list) = list {
-                        match upstreams.get(&i.upstream.clone()) {
-                            Some(upstr) => {
-                                for (k, v) in list {
-                                    upstr.value().insert(k, v);
-                                }
-                            }
-                            None => {
-                                upstreams.insert(i.upstream.clone(), list);
-                            }
-                        };
-                    }
+                    list_to_upstreams(list, &upstreams, &i);
                 }
             }
-        }
 
-        if !compare_dashmaps(&upstreams, &prev_upstreams) {
-            let tosend: Configuration = Configuration {
-                upstreams: Default::default(),
-                headers: config.headers.clone(),
-                consul: config.consul.clone(),
-                kubernetes: config.kubernetes.clone(),
-                typecfg: config.typecfg.clone(),
-                extraparams: config.extraparams.clone(),
-            };
-            clone_dashmap_into(&upstreams, &prev_upstreams);
-            clone_dashmap_into(&upstreams, &tosend.upstreams);
-            print_upstreams(&tosend.upstreams);
-            toreturn.send(tosend).await.unwrap();
+            if !compare_dashmaps(&upstreams, &prev_upstreams) {
+                let tosend: Configuration = Configuration {
+                    upstreams: Default::default(),
+                    headers: config.headers.clone(),
+                    consul: config.consul.clone(),
+                    kubernetes: config.kubernetes.clone(),
+                    typecfg: config.typecfg.clone(),
+                    extraparams: config.extraparams.clone(),
+                };
+                clone_dashmap_into(&upstreams, &prev_upstreams);
+                clone_dashmap_into(&upstreams, &tosend.upstreams);
+                print_upstreams(&tosend.upstreams);
+                toreturn.send(tosend).await.unwrap();
+            }
         }
         sleep(Duration::from_secs(5)).await;
     }
@@ -103,17 +92,14 @@ pub async fn start(mut toreturn: Sender<Configuration>, config: Arc<Configuratio
 
 pub async fn get_by_http(url: &str, token: &str, conf: &ServiceMapping) -> Option<DashMap<String, (Vec<InnerMap>, AtomicUsize)>> {
     let client = Client::builder().timeout(Duration::from_secs(2)).danger_accept_invalid_certs(true).build().ok()?;
-
-    let resp = client.get(url).bearer_auth(token).send().await.ok()?;
-
+    let to = Duration::from_secs(1);
+    let resp = client.get(url).timeout(to).bearer_auth(token).send().await.ok()?;
     if !resp.status().is_success() {
         eprintln!("Kubernetes API returned status: {}", resp.status());
         return None;
     }
-
     let endpoints: Endpoints = resp.json().await.ok()?;
     let upstreams: DashMap<String, (Vec<InnerMap>, AtomicUsize)> = DashMap::new();
-    // println!(" ===> {:?} : {:?}", conf.to_https.unwrap_or(false), conf.rate_limit);
     if let Some(subsets) = endpoints.subsets {
         for subset in subsets {
             if let (Some(addresses), Some(ports)) = (subset.addresses, subset.ports) {
@@ -132,14 +118,7 @@ pub async fn get_by_http(url: &str, token: &str, conf: &ServiceMapping) -> Optio
                         inner_vec.push(to_add);
                     }
                 }
-                match conf.path {
-                    Some(ref p) => {
-                        upstreams.insert(p.to_string(), (inner_vec, AtomicUsize::new(0)));
-                    }
-                    None => {
-                        upstreams.insert("/".to_string(), (inner_vec, AtomicUsize::new(0)));
-                    }
-                }
+                match_path(&conf, &upstreams, inner_vec.clone());
             }
         }
     }
