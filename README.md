@@ -342,18 +342,33 @@ curl  -u username:password -H 'Host: myip.mydomain.com' http://127.0.0.1:6193/
 
 📊 Why Choose Aralez? – Feature Comparison
 
-| Feature                    | **Aralez**                                                           | **Nginx**                | **HAProxy**             | **Traefik**     |
-|----------------------------|----------------------------------------------------------------------|--------------------------|-------------------------|-----------------|
-| **Hot Reload**             | ✅ Yes (live, API/file)                                               | ⚠️ Reloads config        | ⚠️ Reloads config       | ✅ Yes (dynamic) |
-| **JWT Auth**               | ✅ Built-in                                                           | ❌ External scripts       | ❌ External Lua or agent | ⚠️ With plugins |
-| **WebSocket Support**      | ✅ Automatic                                                          | ⚠️ Manual config         | ✅ Yes                   | ✅ Yes           |
-| **gRPC Support**           | ✅ Automatic (no config)                                              | ⚠️ Manual + HTTP/2 + TLS | ⚠️ Complex setup        | ✅ Native        |
-| **TLS Termination**        | ✅ Built-in (OpenSSL)                                                 | ✅ Yes                    | ✅ Yes                   | ✅ Yes           |
-| **TLS Upstream Detection** | ✅ Automatic                                                          | ❌                        | ❌                       | ❌               |
-| **HTTP/2 Support**         | ✅ Automatic                                                          | ⚠️ Requires extra config | ⚠️ Requires build flags | ✅ Native        |
-| **Sticky Sessions**        | ✅ Cookie-based                                                       | ⚠️ In plus version only  | ✅                       | ✅               |
-| **Prometheus Metrics**     | ✅ [Built in](https://github.com/sadoyan/aralez/blob/main/METRICS.md) | ⚠️ With Lua or exporter  | ⚠️ With external script | ✅ Native        |
-| **Built With**             | 🦀 Rust                                                              | C                        | C                       | Go              |
+### 🧩 Summary Table: Aralez vs Competitors (At a Glance)
+
+| Feature / Proxy                  | **Aralez**  |          **Nginx**           |     **HAProxy**      |      **Traefik**      | **Caddy**  | **Envoy**  |
+|----------------------------------|:-----------:|:----------------------------:|:--------------------:|:---------------------:|:----------:|:----------:|
+| **Hot Reload (Zero Downtime)**   |    ✅ Yes    | ⚠️ Partial (graceful reload) |      ⚠️ Partial      |         ✅ Yes         |   ✅ Yes    |   ✅ Yes    |
+| **Auto Cert Reload (from disk)** |    ✅ Yes    |             ❌ No             |         ❌ No         | ✅ Yes (Let's Encrypt) |   ✅ Yes    | ⚠️ Partial |
+| **Auth: Basic / API Key / JWT**  |    ✅ Yes    |        ⚠️ Basic only         |    ⚠️ Basic only     |         ✅ Yes         |   ✅ Yes    |   ✅ Yes    |
+| **TLS / HTTP2 Termination**      |    ✅ Yes    |            ✅ Yes             |        ✅ Yes         |         ✅ Yes         |   ✅ Yes    |   ✅ Yes    |
+| **Built-in A+ TLS Grades**       |    ✅ Yes    |     ⚠️ Depends on config     |      ⚠️ Depends      |      ⚠️ Depends       |   ✅ Yes    | ⚠️ Depends |
+| **Automatic gRPC Proxy**         |    ✅ Yes    |             ❌ No             |         ❌ No         |         ✅ Yes         |   ✅ Yes    |   ✅ Yes    |
+| **Automatic SSL Proxy**          |    ✅ Yes    |          ⚠️ Manual           |      ⚠️ Manual       |         ✅ Yes         |   ✅ Yes    |   ✅ Yes    |
+| **Automatic HTTP2 Proxy**        |    ✅ Yes    |      ⚠️ Requires config      |  ⚠️ Requires config  |         ✅ Yes         |   ✅ Yes    |   ✅ Yes    |
+| **Automatic WebSocket Proxy**    |    ✅ Yes    |      ⚠️ Manual upgrade       |  ⚠️ Manual upgrade   |         ✅ Yes         |   ✅ Yes    |   ✅ Yes    |
+| **Sticky Sessions**              |    ✅ Yes    |            ✅ Yes             |        ✅ Yes         |         ✅ Yes         | ⚠️ Limited |   ✅ Yes    |
+| **Prometheus Metrics**           |    ✅ Yes    |       ⚠️ Via exporter        |       ✅ Native       |       ✅ Native        |  ✅ Native  |  ✅ Native  |
+| **Consul Integration**           |    ✅ Yes    |             ❌ No             | ⚠️ Partial (via DNS) |         ✅ Yes         |    ❌ No    |   ✅ Yes    |
+| **Kubernetes Integration**       |    ✅ Yes    |  ⚠️ Via ingress controller   |     ⚠️ External      |       ✅ Native        | ⚠️ Limited |  ✅ Native  |
+| **Request Limiter**              |    ✅ Yes    |            ✅ Yes             |        ✅ Yes         |         ✅ Yes         |   ✅ Yes    |   ✅ Yes    |
+| **Serve Static Files**           |    ✅ Yes    |            ✅ Yes             |       ⚠️ Basic       |         ✅ Yes         |   ✅ Yes    |    ❌ No    |
+| **Upstream Health Checks**       |    ✅ Yes    |            ✅ Yes             |        ✅ Yes         |         ✅ Yes         |   ✅ Yes    |   ✅ Yes    |
+| **Built With**                   | 🦀 **Rust** |              C               |          C           |          Go           |     Go     |    C++     |
+
+---
+
+✅ **Yes** – Native support  
+⚠️ **Partial / configurable** – Available via plugins, modules, or indirect configuration  
+❌ **No** – Not supported or requires major workarounds
 
 ## 💡 Simple benchmark by [Oha](https://github.com/hatoo/oha)
 
