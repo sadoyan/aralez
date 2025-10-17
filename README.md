@@ -340,35 +340,33 @@ curl  -u username:password -H 'Host: myip.mydomain.com' http://127.0.0.1:6193/
 - Sticky session support.
 - HTTP2 ready.
 
-📊 Why Choose Aralez? – Feature Comparison
+### 🧩 Summary Table: Feature Comparison
 
-### 🧩 Summary Table: Aralez vs Competitors (At a Glance)
-
-| Feature / Proxy                  | **Aralez**  |          **Nginx**           |     **HAProxy**      |      **Traefik**      | **Caddy**  | **Envoy**  |
-|----------------------------------|:-----------:|:----------------------------:|:--------------------:|:---------------------:|:----------:|:----------:|
-| **Hot Reload (Zero Downtime)**   |    ✅ Yes    | ⚠️ Partial (graceful reload) |      ⚠️ Partial      |         ✅ Yes         |   ✅ Yes    |   ✅ Yes    |
-| **Auto Cert Reload (from disk)** |    ✅ Yes    |             ❌ No             |         ❌ No         | ✅ Yes (Let's Encrypt) |   ✅ Yes    | ⚠️ Partial |
-| **Auth: Basic / API Key / JWT**  |    ✅ Yes    |        ⚠️ Basic only         |    ⚠️ Basic only     |         ✅ Yes         |   ✅ Yes    |   ✅ Yes    |
-| **TLS / HTTP2 Termination**      |    ✅ Yes    |            ✅ Yes             |        ✅ Yes         |         ✅ Yes         |   ✅ Yes    |   ✅ Yes    |
-| **Built-in A+ TLS Grades**       |    ✅ Yes    |     ⚠️ Depends on config     |      ⚠️ Depends      |      ⚠️ Depends       |   ✅ Yes    | ⚠️ Depends |
-| **Automatic gRPC Proxy**         |    ✅ Yes    |             ❌ No             |         ❌ No         |         ✅ Yes         |   ✅ Yes    |   ✅ Yes    |
-| **Automatic SSL Proxy**          |    ✅ Yes    |          ⚠️ Manual           |      ⚠️ Manual       |         ✅ Yes         |   ✅ Yes    |   ✅ Yes    |
-| **Automatic HTTP2 Proxy**        |    ✅ Yes    |      ⚠️ Requires config      |  ⚠️ Requires config  |         ✅ Yes         |   ✅ Yes    |   ✅ Yes    |
-| **Automatic WebSocket Proxy**    |    ✅ Yes    |      ⚠️ Manual upgrade       |  ⚠️ Manual upgrade   |         ✅ Yes         |   ✅ Yes    |   ✅ Yes    |
-| **Sticky Sessions**              |    ✅ Yes    |            ✅ Yes             |        ✅ Yes         |         ✅ Yes         | ⚠️ Limited |   ✅ Yes    |
-| **Prometheus Metrics**           |    ✅ Yes    |       ⚠️ Via exporter        |       ✅ Native       |       ✅ Native        |  ✅ Native  |  ✅ Native  |
-| **Consul Integration**           |    ✅ Yes    |             ❌ No             | ⚠️ Partial (via DNS) |         ✅ Yes         |    ❌ No    |   ✅ Yes    |
-| **Kubernetes Integration**       |    ✅ Yes    |  ⚠️ Via ingress controller   |     ⚠️ External      |       ✅ Native        | ⚠️ Limited |  ✅ Native  |
-| **Request Limiter**              |    ✅ Yes    |            ✅ Yes             |        ✅ Yes         |         ✅ Yes         |   ✅ Yes    |   ✅ Yes    |
-| **Serve Static Files**           |    ✅ Yes    |            ✅ Yes             |       ⚠️ Basic       |         ✅ Yes         |   ✅ Yes    |    ❌ No    |
-| **Upstream Health Checks**       |    ✅ Yes    |            ✅ Yes             |        ✅ Yes         |         ✅ Yes         |   ✅ Yes    |   ✅ Yes    |
-| **Built With**                   | 🦀 **Rust** |              C               |          C           |          Go           |     Go     |    C++     |
+| Feature / Proxy                  |    **Aralez**     |          **Nginx**          |    **HAProxy**    |           **Traefik**            |    **Caddy**    |    **Envoy**    |
+|----------------------------------|:-----------------:|:---------------------------:|:-----------------:|:--------------------------------:|:---------------:|:---------------:|
+| **Hot Reload (Zero Downtime)**   |  ✅ **Automatic**  | ⚙️ Manual (graceful reload) |     ⚙️ Manual     |           ✅ Automatic            |   ✅ Automatic   |   ✅ Automatic   |
+| **Auto Cert Reload (from disk)** |  ✅ **Automatic**  |            ❌ No             |       ❌ No        | ✅ Automatic (Let's Encrypt only) |   ✅ Automatic   |    ⚙️ Manual    |
+| **Auth: Basic / API Key / JWT**  |  ✅ **Built-in**   |        ⚙️ Basic only        |   ⚙️ Basic only   |          ✅ Config-based          | ✅ Config-based  | ✅ Config-based  |
+| **TLS / HTTP2 Termination**      |  ✅ **Automatic**  |      ⚙️ Manual config       | ⚙️ Manual config  |           ✅ Automatic            |   ✅ Automatic   |   ✅ Automatic   |
+| **Built-in A+ TLS Grades**       |  ✅ **Automatic**  |      ⚙️ Manual tuning       |     ⚙️ Manual     |            ⚙️ Manual             |   ✅ Automatic   |    ⚙️ Manual    |
+| **gRPC Proxy**                   | ✅ **Zero-Config** |       ⚙️ Manual setup       |     ⚙️ Manual     |         ⚙️ Needs config          | ⚙️ Needs config | ⚙️ Needs config |
+| **SSL Proxy**                    | ✅ **Zero-Config** |          ⚙️ Manual          |     ⚙️ Manual     |           ✅ Automatic            |   ✅ Automatic   |   ✅ Automatic   |
+| **HTTP/2 Proxy**                 | ✅ **Zero-Config** |      ⚙️ Manual enable       | ⚙️ Manual enable  |           ✅ Automatic            |   ✅ Automatic   |   ✅ Automatic   |
+| **WebSocket Proxy**              | ✅ **Zero-Config** |      ⚙️ Manual upgrade      | ⚙️ Manual upgrade |           ✅ Automatic            |   ✅ Automatic   |   ✅ Automatic   |
+| **Sticky Sessions**              |  ✅ **Built-in**   |       ⚙️ Config-based       |  ⚙️ Config-based  |           ✅ Automatic            |   ⚙️ Limited    | ✅ Config-based  |
+| **Prometheus Metrics**           |  ✅ **Built-in**   |    ⚙️ External exporter     |    ✅ Built-in     |            ✅ Built-in            |   ✅ Built-in    |   ✅ Built-in    |
+| **Consul Integration**           |     ✅ **Yes**     |            ❌ No             |  ⚙️ Via DNS only  |              ✅ Yes               |      ❌ No       |      ✅ Yes      |
+| **Kubernetes Integration**       |     ✅ **Yes**     |   ⚙️ Needs ingress setup    |    ⚙️ External    |              ✅ Yes               |   ⚙️ Limited    |      ✅ Yes      |
+| **Request Limiter**              |     ✅ **Yes**     |       ✅ Config-based        |  ✅ Config-based   |          ✅ Config-based          | ✅ Config-based  | ✅ Config-based  |
+| **Serve Static Files**           |     ✅ **Yes**     |            ✅ Yes            |     ⚙️ Basic      |           ✅ Automatic            |   ✅ Automatic   |      ❌ No       |
+| **Upstream Health Checks**       |  ✅ **Automatic**  |      ⚙️ Manual config       | ⚙️ Manual config  |           ✅ Automatic            |   ✅ Automatic   |   ✅ Automatic   |
+| **Built With**                   |    🦀 **Rust**    |              C              |         C         |                Go                |       Go        |       C++       |
 
 ---
 
-✅ **Yes** – Native support  
-⚠️ **Partial / configurable** – Available via plugins, modules, or indirect configuration  
-❌ **No** – Not supported or requires major workarounds
+✅ **Automatic / Zero-Config** – Works immediately, no setup required  
+⚙️ **Manual / Config-based** – Requires explicit configuration or modules  
+❌ **No** – Not supported
 
 ## 💡 Simple benchmark by [Oha](https://github.com/hatoo/oha)
 
