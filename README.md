@@ -4,8 +4,11 @@
 
 # Aralez (Արալեզ),
 
-### **Reverse proxy and service mesh built on top of Cloudflare's Pingora**
+### **Reverse proxy built on top of Cloudflare's Pingora**
 
+Aralez is a high-performance Rust reverse proxy with zero-configuration automatic protocol handling, TLS, and upstream management,
+featuring Consul and Kubernetes integration for dynamic pod discovery and health-checked routing, acting as a lightweight ingress-style proxy.
+---
 What Aralez means ?
 **Aralez = Արալեզ** <ins>.Named after the legendary Armenian guardian spirit, winged dog-like creature, that descend upon fallen heroes to lick their wounds and resurrect them.</ins>.
 
