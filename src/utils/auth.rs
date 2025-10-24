@@ -40,16 +40,6 @@ impl AuthValidator for JwtAuth<'_> {
         if let Some(tok) = get_query_param(session, "araleztoken") {
             return check_jwt(tok.as_str(), jwtsecret);
         }
-
-        // if let Some(header) = session.get_header("authorization") {
-        //     let h = header.to_str().ok().unwrap().split(" ").collect::<Vec<_>>();
-        //     match h.len() {
-        //         n => {
-        //             return check_jwt(h[n - 1], jwtsecret);
-        //         }
-        //     }
-        // }
-
         if let Some(auth_header) = session.get_header("authorization") {
             if let Ok(header_str) = auth_header.to_str() {
                 if let Some((scheme, token)) = header_str.split_once(' ') {

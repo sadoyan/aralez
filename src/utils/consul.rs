@@ -1,4 +1,4 @@
-use crate::utils::kuberconsul::{list_to_upstreams, match_path};
+use crate::utils::kuberconsul::*;
 use crate::utils::parceyaml::build_headers;
 use crate::utils::structs::{Configuration, InnerMap, ServiceMapping, UpstreamsDashMap};
 use crate::utils::tools::{clone_dashmap_into, compare_dashmaps, print_upstreams};
@@ -9,30 +9,15 @@ use pingora::prelude::sleep;
 use rand::Rng;
 use reqwest::header::{HeaderMap, HeaderValue};
 use reqwest::Client;
-use serde::Deserialize;
-use std::collections::HashMap;
 use std::env;
 use std::sync::atomic::AtomicUsize;
 use std::sync::Arc;
 use std::time::Duration;
 
-#[derive(Debug, Deserialize)]
-struct Service {
-    #[serde(rename = "ServiceTaggedAddresses")]
-    tagged_addresses: HashMap<String, TaggedAddress>,
-}
-
-#[derive(Debug, Deserialize)]
-struct TaggedAddress {
-    #[serde(rename = "Address")]
-    address: String,
-    #[serde(rename = "Port")]
-    port: u16,
-}
-
 pub async fn start(mut toreturn: Sender<Configuration>, config: Arc<Configuration>) {
     let prev_upstreams = UpstreamsDashMap::new();
     loop {
+        let upstreams = UpstreamsDashMap::new();
         if let Some(consul) = config.consul.clone() {
             let servers = consul.servers.unwrap_or(vec![format!(
                 "{}:{}",
@@ -40,14 +25,13 @@ pub async fn start(mut toreturn: Sender<Configuration>, config: Arc<Configuratio
                 env::var("CONSUL_SERVICE_PORT").unwrap_or("0".to_string())
             )]);
             let end = servers.len() - 1;
-            let upstreams = UpstreamsDashMap::new();
             let mut num = 0;
             if end > 0 {
                 num = rand::rng().random_range(0..end);
             }
             let consul_data = servers.get(num).unwrap().to_string();
             let ss = consul_data + "/v1/catalog/service/";
-            if let Some(ref svc) = consul.services {
+            if let Some(svc) = consul.services {
                 for i in svc {
                     let header_list = DashMap::new();
                     let mut hl = Vec::new();
@@ -62,21 +46,16 @@ pub async fn start(mut toreturn: Sender<Configuration>, config: Arc<Configuratio
                 }
             }
             if !compare_dashmaps(&upstreams, &prev_upstreams) {
-                let mut tosend: Configuration = Configuration {
+                let tosend: Configuration = Configuration {
                     upstreams: Default::default(),
-                    headers: Default::default(),
-                    consul: None,
-                    kubernetes: None,
-                    typecfg: "".to_string(),
+                    headers: config.headers.clone(),
+                    consul: config.consul.clone(),
+                    kubernetes: config.kubernetes.clone(),
+                    typecfg: config.typecfg.clone(),
                     extraparams: config.extraparams.clone(),
                 };
-
                 clone_dashmap_into(&upstreams, &prev_upstreams);
                 clone_dashmap_into(&upstreams, &tosend.upstreams);
-                tosend.headers = config.headers.clone();
-                tosend.extraparams.authentication = config.extraparams.authentication.clone();
-                tosend.typecfg = config.typecfg.clone();
-                tosend.consul = config.consul.clone();
                 print_upstreams(&tosend.upstreams);
                 toreturn.send(tosend).await.unwrap();
             }
@@ -99,7 +78,7 @@ async fn get_by_http(url: String, token: Option<String>, conf: &ServiceMapping) 
     }
     let mut inner_vec = Vec::new();
     let upstreams: DashMap<String, (Vec<InnerMap>, AtomicUsize)> = DashMap::new();
-    let endpoints: Vec<Service> = resp.json().await.ok()?;
+    let endpoints: Vec<ConsulService> = resp.json().await.ok()?;
     for subsets in endpoints {
         let addr = subsets.tagged_addresses.get("lan_ipv4").unwrap().address.clone();
         let prt = subsets.tagged_addresses.get("lan_ipv4").unwrap().port.clone();

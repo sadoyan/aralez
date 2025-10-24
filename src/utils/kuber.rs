@@ -1,4 +1,4 @@
-use crate::utils::kuberconsul::{list_to_upstreams, match_path};
+use crate::utils::kuberconsul::*;
 use crate::utils::parceyaml::build_headers;
 use crate::utils::structs::{Configuration, InnerMap, ServiceMapping, UpstreamsDashMap};
 use crate::utils::tools::{clone_dashmap_into, compare_dashmaps, print_upstreams};
@@ -15,32 +15,17 @@ use std::time::Duration;
 use tokio::fs::File;
 use tokio::io::AsyncReadExt;
 
-#[derive(Debug, serde::Deserialize)]
-struct Endpoints {
-    subsets: Option<Vec<Subset>>,
+async fn read_token(path: &str) -> String {
+    let mut file = File::open(path).await.unwrap();
+    let mut contents = String::new();
+    file.read_to_string(&mut contents).await.unwrap();
+    contents.trim().to_string()
 }
-
-#[derive(Debug, serde::Deserialize)]
-struct Subset {
-    addresses: Option<Vec<Address>>,
-    ports: Option<Vec<Port>>,
-}
-
-#[derive(Debug, serde::Deserialize)]
-struct Address {
-    ip: String,
-}
-
-#[derive(Debug, serde::Deserialize)]
-struct Port {
-    port: u16,
-}
-
 pub async fn start(mut toreturn: Sender<Configuration>, config: Arc<Configuration>) {
     let prev_upstreams = UpstreamsDashMap::new();
     loop {
+        let upstreams = UpstreamsDashMap::new();
         if let Some(kuber) = config.kubernetes.clone() {
-            let upstreams = UpstreamsDashMap::new();
             let path = kuber.tokenpath.unwrap_or("/var/run/secrets/kubernetes.io/serviceaccount/token".to_string());
             let token = read_token(path.as_str()).await;
             let servers = kuber.servers.unwrap_or(vec![format!(
@@ -58,7 +43,6 @@ pub async fn start(mut toreturn: Sender<Configuration>, config: Arc<Configuratio
             if let Some(svc) = kuber.services {
                 for i in svc {
                     let header_list = DashMap::new();
-
                     let mut hl = Vec::new();
                     build_headers(&i.headers, config.as_ref(), &mut hl);
                     if hl.len() > 0 {
@@ -70,7 +54,6 @@ pub async fn start(mut toreturn: Sender<Configuration>, config: Arc<Configuratio
                     list_to_upstreams(list, &upstreams, &i);
                 }
             }
-
             if !compare_dashmaps(&upstreams, &prev_upstreams) {
                 let tosend: Configuration = Configuration {
                     upstreams: Default::default(),
@@ -91,14 +74,14 @@ pub async fn start(mut toreturn: Sender<Configuration>, config: Arc<Configuratio
 }
 
 pub async fn get_by_http(url: &str, token: &str, conf: &ServiceMapping) -> Option<DashMap<String, (Vec<InnerMap>, AtomicUsize)>> {
-    let client = Client::builder().timeout(Duration::from_secs(2)).danger_accept_invalid_certs(true).build().ok()?;
-    let to = Duration::from_secs(1);
+    let to = Duration::from_secs(10);
+    let client = Client::builder().timeout(Duration::from_secs(10)).danger_accept_invalid_certs(true).build().ok()?;
     let resp = client.get(url).timeout(to).bearer_auth(token).send().await.ok()?;
     if !resp.status().is_success() {
         eprintln!("Kubernetes API returned status: {}", resp.status());
         return None;
     }
-    let endpoints: Endpoints = resp.json().await.ok()?;
+    let endpoints: KubeEndpoints = resp.json().await.ok()?;
     let upstreams: DashMap<String, (Vec<InnerMap>, AtomicUsize)> = DashMap::new();
     if let Some(subsets) = endpoints.subsets {
         for subset in subsets {
@@ -123,11 +106,4 @@ pub async fn get_by_http(url: &str, token: &str, conf: &ServiceMapping) -> Optio
         }
     }
     Some(upstreams)
-}
-
-async fn read_token(path: &str) -> String {
-    let mut file = File::open(path).await.unwrap();
-    let mut contents = String::new();
-    file.read_to_string(&mut contents).await.unwrap();
-    contents.trim().to_string()
 }
