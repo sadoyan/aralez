@@ -1,6 +1,6 @@
 use crate::utils::filewatch;
+use crate::utils::kuberconsul::{ConsulDiscovery, KubernetesDiscovery, ServiceDiscovery};
 use crate::utils::structs::Configuration;
-use crate::utils::{consul, kuber};
 use crate::web::webserver;
 use async_trait::async_trait;
 use futures::channel::mpsc::Sender;
@@ -51,13 +51,13 @@ impl Discovery for FromFileProvider {
 #[async_trait]
 impl Discovery for ConsulProvider {
     async fn start(&self, tx: Sender<Configuration>) {
-        tokio::spawn(consul::start(tx.clone(), self.config.clone()));
+        tokio::spawn(ConsulDiscovery.fetch_upstreams(self.config.clone(), tx));
     }
 }
 
 #[async_trait]
 impl Discovery for KubernetesProvider {
     async fn start(&self, tx: Sender<Configuration>) {
-        tokio::spawn(kuber::start(tx.clone(), self.config.clone()));
+        tokio::spawn(KubernetesDiscovery.fetch_upstreams(self.config.clone(), tx));
     }
 }
