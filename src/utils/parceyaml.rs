@@ -67,18 +67,33 @@ pub async fn load_configuration(d: &str, kind: &str) -> Option<Configuration> {
 }
 
 async fn populate_headers_and_auth(config: &mut Configuration, parsed: &Config) {
-    if let Some(headers) = &parsed.headers {
-        let mut hl = Vec::new();
+    let mut ch = Vec::new();
+    ch.push(("Server".to_string(), "Aralez".to_string()));
+    // println!("{:?}", &parsed.client_headers);
+    if let Some(headers) = &parsed.client_headers {
         for header in headers {
             if let Some((key, val)) = header.split_once(':') {
-                hl.push((key.trim().to_string(), val.trim().to_string()));
+                println!("{}:{}", key.trim().to_string(), val.trim().to_string());
+                ch.push((key.trim().to_string(), val.trim().to_string()));
             }
         }
-
-        let global_headers = DashMap::new();
-        global_headers.insert("/".to_string(), hl);
-        config.headers.insert("GLOBAL_HEADERS".to_string(), global_headers);
     }
+    let global_headers = DashMap::new();
+    global_headers.insert("/".to_string(), ch);
+    config.client_headers.insert("GLOBAL_CLIENT_HEADERS".to_string(), global_headers);
+
+    let mut sh = Vec::new();
+    sh.push(("X-Proxy-Server".to_string(), "Aralez".to_string()));
+    if let Some(headers) = &parsed.server_headers {
+        for header in headers {
+            if let Some((key, val)) = header.split_once(':') {
+                sh.push((key.trim().to_string(), val.trim().to_string()));
+            }
+        }
+    }
+    let server_global_headers = DashMap::new();
+    server_global_headers.insert("/".to_string(), sh);
+    config.server_headers.insert("GLOBAL_SERVER_HEADERS".to_string(), server_global_headers);
 
     config.extraparams.sticky_sessions = parsed.sticky_sessions;
     config.extraparams.to_https = parsed.to_https;
@@ -102,15 +117,19 @@ async fn populate_file_upstreams(config: &mut Configuration, parsed: &Config) {
     if let Some(upstreams) = &parsed.upstreams {
         for (hostname, host_config) in upstreams {
             let path_map = DashMap::new();
-            let header_list = DashMap::new();
+            let client_header_list = DashMap::new();
+            let server_header_list = DashMap::new();
             for (path, path_config) in &host_config.paths {
                 if let Some(rate) = &path_config.rate_limit {
                     info!("Applied Rate Limit for {} : {} request per second", hostname, rate);
                 }
 
                 let mut hl: Vec<(String, String)> = Vec::new();
-                build_headers(&path_config.headers, config, &mut hl);
-                header_list.insert(path.clone(), hl);
+                let mut sl: Vec<(String, String)> = Vec::new();
+                build_headers(&path_config.client_headers, config, &mut hl);
+                build_headers(&path_config.server_headers, config, &mut sl);
+                client_header_list.insert(path.clone(), hl);
+                server_header_list.insert(path.clone(), sl);
 
                 let mut server_list = Vec::new();
                 for server in &path_config.servers {
@@ -130,7 +149,8 @@ async fn populate_file_upstreams(config: &mut Configuration, parsed: &Config) {
                 }
                 path_map.insert(path.clone(), (server_list, AtomicUsize::new(0)));
             }
-            config.headers.insert(hostname.clone(), header_list);
+            config.client_headers.insert(hostname.clone(), client_header_list);
+            config.server_headers.insert(hostname.clone(), server_header_list);
             imtdashmap.insert(hostname.clone(), path_map);
         }
 
@@ -218,19 +238,19 @@ fn log_builder(conf: &AppConfig) {
     env_logger::builder().init();
 }
 
-pub fn build_headers(path_config: &Option<Vec<String>>, config: &Configuration, hl: &mut Vec<(String, String)>) {
+pub fn build_headers(path_config: &Option<Vec<String>>, _config: &Configuration, hl: &mut Vec<(String, String)>) {
     if let Some(headers) = &path_config {
         for header in headers {
             if let Some((key, val)) = header.split_once(':') {
                 hl.push((key.trim().to_string(), val.trim().to_string()));
             }
         }
-        if let Some(push) = config.headers.get("GLOBAL_HEADERS") {
-            for k in push.iter() {
-                for x in k.value() {
-                    hl.push(x.to_owned());
-                }
-            }
-        }
+        // if let Some(push) = config.client_headers.get("GLOBAL_HEADERS") {
+        //     for k in push.iter() {
+        //         for x in k.value() {
+        //             hl.push(x.to_owned());
+        //         }
+        //     }
+        // }
     }
 }

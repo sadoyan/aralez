@@ -15,7 +15,8 @@ pub struct ServiceMapping {
     pub path: Option<String>,
     pub to_https: Option<bool>,
     pub rate_limit: Option<isize>,
-    pub headers: Option<Vec<String>>,
+    pub client_headers: Option<Vec<String>>,
+    pub server_headers: Option<Vec<String>>,
 }
 
 // pub type Services = DashMap<String, Vec<(String, Option<String>)>>;
@@ -50,7 +51,9 @@ pub struct Config {
     #[serde(default)]
     pub globals: Option<HashMap<String, Vec<String>>>,
     #[serde(default)]
-    pub headers: Option<Vec<String>>,
+    pub client_headers: Option<Vec<String>>,
+    #[serde(default)]
+    pub server_headers: Option<Vec<String>>,
     #[serde(default)]
     pub authorization: Option<HashMap<String, String>>,
     #[serde(default)]
@@ -71,14 +74,16 @@ pub struct HostConfig {
 pub struct PathConfig {
     pub servers: Vec<String>,
     pub to_https: Option<bool>,
-    pub headers: Option<Vec<String>>,
+    pub client_headers: Option<Vec<String>>,
+    pub server_headers: Option<Vec<String>>,
     pub rate_limit: Option<isize>,
     pub healthcheck: Option<bool>,
 }
 #[derive(Debug, Default)]
 pub struct Configuration {
     pub upstreams: UpstreamsDashMap,
-    pub headers: Headers,
+    pub client_headers: Headers,
+    pub server_headers: Headers,
     pub consul: Option<Consul>,
     pub kubernetes: Option<Kubernetes>,
     pub typecfg: String,

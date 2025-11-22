@@ -191,7 +191,10 @@ provider: "file"
 sticky_sessions: false
 to_https: false
 rate_limit: 10
-headers:
+server_headers:
+  - "X-Forwarded-Proto:https"
+  - "X-Forwarded-Port:443"
+client_headers:
   - "Access-Control-Allow-Origin:*"
   - "Access-Control-Allow-Methods:POST, GET, OPTIONS"
   - "Access-Control-Max-Age:86400"
@@ -203,7 +206,10 @@ myhost.mydomain.com:
     "/":
       rate_limit: 20
       to_https: false
-      headers:
+      server_headers:
+        - "X-Something-Else:Foobar"
+        - "X-Another-Header:Hohohohoho"
+      client_headers:
         - "X-Some-Thing:Yaaaaaaaaaaaaaaa"
         - "X-Proxy-From:Hopaaaaaaaaaaaar"
       servers:
@@ -211,7 +217,7 @@ myhost.mydomain.com:
         - "127.0.0.2:8000"
     "/foo":
       to_https: true
-      headers:
+      client_headers:
         - "X-Another-Header:Hohohohoho"
       servers:
         - "127.0.0.4:8443"
@@ -226,6 +232,8 @@ myhost.mydomain.com:
 
 - Sticky sessions are disabled globally. This setting applies to all upstreams. If enabled all requests will be 301 redirected to HTTPS.
 - HTTP to HTTPS redirect disabled globally, but can be overridden by `to_https` setting per upstream.
+- All upstreams will receive custom headers : `X-Forwarded-Proto:https` and `X-Forwarded-Port:443`
+- Additionally, myhost.mydomain.com with path `/` will receive custom headers : `X-Another-Header:Hohohohoho` and `X-Something-Else:Foobar`
 - Requests to each hosted domains will be limited to 10 requests per second per virtualhost.
     - Requests limits are calculated per requester ip plus requested virtualhost.
     - If the requester exceeds the limit it will receive `429 Too Many Requests` error.

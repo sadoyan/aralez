@@ -25,7 +25,8 @@ pub struct LB {
     pub ump_upst: Arc<UpstreamsDashMap>,
     pub ump_full: Arc<UpstreamsDashMap>,
     pub ump_byid: Arc<UpstreamsIdMap>,
-    pub headers: Arc<Headers>,
+    pub client_headers: Arc<Headers>,
+    pub server_headers: Arc<Headers>,
     pub config: Arc<AppConfig>,
     pub extraparams: Arc<ArcSwap<Extraparams>>,
 }
@@ -180,13 +181,22 @@ impl ProxyHttp for LB {
         }
     }
 
-    async fn upstream_request_filter(&self, _session: &mut Session, upstream_request: &mut RequestHeader, ctx: &mut Self::CTX) -> Result<()> {
+    async fn upstream_request_filter(&self, session: &mut Session, upstream_request: &mut RequestHeader, ctx: &mut Self::CTX) -> Result<()> {
         if let Some(hostname) = ctx.hostname.as_ref() {
             upstream_request.insert_header("Host", hostname)?;
         }
         if let Some(peer) = ctx.upstream_peer.as_ref() {
             upstream_request.insert_header("X-Forwarded-For", peer.address.as_str())?;
         }
+
+        if let Some(headers) = self.get_header(ctx.hostname.as_ref().unwrap_or(&"localhost".to_string()), session.req_header().uri.path()) {
+            if let Some(client_headers) = headers.server_headers {
+                for k in client_headers {
+                    upstream_request.insert_header(k.0, k.1)?;
+                }
+            }
+        }
+
         Ok(())
     }
 
@@ -213,27 +223,46 @@ impl ProxyHttp for LB {
         match ctx.hostname.as_ref() {
             Some(host) => {
                 let path = session.req_header().uri.path();
-                let host_header = host;
-                let split_header = host_header.split_once(':');
-
+                let split_header = host.split_once(':');
                 match split_header {
-                    Some(sh) => {
-                        let yoyo = self.get_header(sh.0, path);
-                        for k in yoyo.iter() {
-                            for t in k.iter() {
-                                _upstream_response.insert_header(t.0.clone(), t.1.clone()).unwrap();
+                    Some((host, _port)) => {
+                        if let Some(headers) = self.get_header(host, path) {
+                            if let Some(server_headers) = headers.client_headers {
+                                for k in server_headers {
+                                    _upstream_response.insert_header(k.0, k.1).unwrap();
+                                }
                             }
                         }
                     }
                     None => {
-                        let yoyo = self.get_header(host_header, path);
-                        for k in yoyo.iter() {
-                            for t in k.iter() {
-                                _upstream_response.insert_header(t.0.clone(), t.1.clone()).unwrap();
+                        if let Some(headers) = self.get_header(host, path) {
+                            if let Some(server_headers) = headers.client_headers {
+                                for k in server_headers {
+                                    _upstream_response.insert_header(k.0, k.1).unwrap();
+                                }
                             }
                         }
                     }
                 }
+
+                // match split_header {
+                //     Some(sh) => {
+                //         let client_header = self.get_header(sh.0, path);
+                //         for k in client_header.iter() {
+                //             for t in k.iter() {
+                //                 _upstream_response.insert_header(t.0.clone(), t.1.clone()).unwrap();
+                //             }
+                //         }
+                //     }
+                //     None => {
+                //         let client_header = self.get_header(host_header, path);
+                //         for k in client_header.iter() {
+                //             for t in k.iter() {
+                //                 _upstream_response.insert_header(t.0.clone(), t.1.clone()).unwrap();
+                //             }
+                //         }
+                //     }
+                // }
             }
             None => {}
         }

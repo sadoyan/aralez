@@ -3,17 +3,22 @@ use crate::web::proxyhttp::LB;
 use async_trait::async_trait;
 use std::sync::atomic::Ordering;
 
+#[derive(Debug, Clone)]
+pub struct GetHostsReturHeaders {
+    pub client_headers: Option<Vec<(String, String)>>,
+    pub server_headers: Option<Vec<(String, String)>>,
+}
+
 #[async_trait]
 pub trait GetHost {
     fn get_host(&self, peer: &str, path: &str, backend_id: Option<&str>) -> Option<InnerMap>;
-    fn get_header(&self, peer: &str, path: &str) -> Option<Vec<(String, String)>>;
+    fn get_header(&self, peer: &str, path: &str) -> Option<GetHostsReturHeaders>;
 }
 #[async_trait]
 impl GetHost for LB {
     fn get_host(&self, peer: &str, path: &str, backend_id: Option<&str>) -> Option<InnerMap> {
         if let Some(b) = backend_id {
             if let Some(bb) = self.ump_byid.get(b) {
-                // println!("BIB :===> {:?}", Some(bb.value()));
                 return Some(bb.value().clone());
             }
         }
@@ -45,33 +50,54 @@ impl GetHost for LB {
                 }
             }
         }
-        // println!("Best Match :===> {:?}", best_match);
         best_match
     }
-    fn get_header(&self, peer: &str, path: &str) -> Option<Vec<(String, String)>> {
-        let host_entry = self.headers.get(peer)?;
-        let mut current_path = path.to_string();
-        let mut best_match: Option<Vec<(String, String)>> = None;
+
+    fn get_header(&self, peer: &str, path: &str) -> Option<GetHostsReturHeaders> {
+        let client_entry = self.client_headers.get(peer)?;
+        let server_entry = self.server_headers.get(peer)?;
+        let mut current_path = path;
+        let mut best_match = None;
         loop {
-            if let Some(entry) = host_entry.get(&current_path) {
+            if let Some(entry) = client_entry.get(current_path) {
                 if !entry.value().is_empty() {
                     best_match = Some(entry.value().clone());
                     break;
                 }
             }
             if let Some(pos) = current_path.rfind('/') {
-                current_path.truncate(pos);
+                current_path = if pos == 0 { "/" } else { &current_path[..pos] };
             } else {
                 break;
             }
         }
-        if best_match.is_none() {
-            if let Some(entry) = host_entry.get("/") {
+        current_path = path;
+        let mut serv_match = None;
+        loop {
+            if let Some(entry) = server_entry.get(current_path) {
                 if !entry.value().is_empty() {
-                    best_match = Some(entry.value().clone());
+                    serv_match = Some(entry.value().clone());
+                    break;
+                }
+            }
+            if let Some(pos) = current_path.rfind('/') {
+                current_path = if pos == 0 { "/" } else { &current_path[..pos] };
+            } else {
+                break;
+            }
+            if best_match.is_none() {
+                if let Some(entry) = server_entry.get("/") {
+                    if !entry.value().is_empty() {
+                        best_match = Some(entry.value().clone());
+                        break;
+                    }
                 }
             }
         }
-        best_match
+        let result = GetHostsReturHeaders {
+            client_headers: best_match,
+            server_headers: serv_match,
+        };
+        Some(result)
     }
 }

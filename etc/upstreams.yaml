@@ -3,11 +3,13 @@ provider: "file" # "file" "consul" "kubernetes"
 sticky_sessions: false
 to_https: false
 rate_limit: 100
-headers:
+server_headers:
+  - "X-Forwarded-Proto:https"
+  - "X-Forwarded-Port:443"
+client_headers:
   - "Access-Control-Allow-Origin:*"
   - "Access-Control-Allow-Methods:POST, GET, OPTIONS"
   - "Access-Control-Max-Age:86400"
-  - "Strict-Transport-Security:max-age=31536000; includeSubDomains; preload"
 #authorization:
 #  type: "jwt"
 #  creds: "910517d9-f9a1-48de-8826-dbadacbd84af-cb6f830e-ab16-47ec-9d8f-0090de732774"
@@ -21,38 +23,38 @@ consul:
     - "http://192.168.1.200:8500"
     - "http://192.168.1.201:8500"
   services: # hostname: The hostname to access the proxy server, upstream : The real service name in Consul database.
-    - hostname: "vt-webapi-service"
-      upstream: "vt-webapi-service-health"
+    - hostname: "webapi-service"
+      upstream: "webapi-service-health"
       path: "/one"
-      headers:
+      client_headers:
         - "X-Some-Thing:Yaaaaaaaaaaaaaaa"
         - "X-Proxy-From:Aralez"
       rate_limit: 1
       to_https: false
-    - hostname: "vt-webapi-service"
-      upstream: "vt-webapi-service-health"
+    - hostname: "webapi-service"
+      upstream: "webapi-service-health"
       path: "/"
   token: "8e2db809-845b-45e1-8b47-2c8356a09da0-a4370955-18c2-4d6e-a8f8-ffcc0b47be81" # Consul server access token, If Consul auth is enabled
 kubernetes:
   servers:
     - "192.168.1.55:443" #For testing only, overrides with KUBERNETES_SERVICE_HOST : KUBERNETES_SERVICE_PORT_HTTPS env variables.
   services:
-    - hostname: "vt-webapi-service"
+    - hostname: "webapi-service"
       path: "/"
-      upstream: "vt-webapi-service"
-    - hostname: "vt-webapi-service"
+      upstream: "webapi-service"
+    - hostname: "webapi-service"
       upstream: "vt-console-service"
       path: "/one"
-      headers:
+      client_headers:
         - "X-Some-Thing:Yaaaaaaaaaaaaaaa"
         - "X-Proxy-From:Aralez"
       rate_limit: 100
       to_https: false
-    - hostname: "vt-webapi-service"
+    - hostname: "webapi-service"
       upstream: "vt-rambulik-service"
       path: "/two"
-    - hostname: "vt-websocket-service"
-      upstream: "vt-websocket-service"
+    - hostname: "websocket-service"
+      upstream: "websocket-service"
       path: "/"
   tokenpath: "/path/to/kubetoken.txt" #If not set, will default to /var/run/secrets/kubernetes.io/serviceaccount/token
 upstreams:
@@ -61,7 +63,7 @@ upstreams:
       "/":
         rate_limit: 200
         to_https: false
-        headers:
+        client_headers:
           - "X-Proxy-From:Aralez"
         servers:
           - "127.0.0.1:8000"
@@ -71,7 +73,10 @@ upstreams:
           - "127.0.0.5:8000"
       "/ping":
         to_https: false
-        headers:
+        server_headers:
+          - "X-Forwarded-Proto:https"
+          - "X-Forwarded-Port:443"
+        client_headers:
           - "X-Some-Thing:Yaaaaaaaaaaaaaaa"
           - "X-Proxy-From:Aralez"
         servers:
@@ -84,7 +89,7 @@ upstreams:
     paths:
       "/":
         to_https: false
-        headers:
+        client_headers:
           - "X-Some-Thing:Yaaaaaaaaaaaaaaa"
         servers:
           - "192.168.1.1:8000"

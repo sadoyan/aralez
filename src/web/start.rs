@@ -27,7 +27,8 @@ pub fn run() {
     let uf_config = Arc::new(DashMap::new());
     let ff_config = Arc::new(DashMap::new());
     let im_config = Arc::new(DashMap::new());
-    let hh_config = Arc::new(DashMap::new());
+    let ch_config = Arc::new(DashMap::new());
+    let sh_config = Arc::new(DashMap::new());
 
     let ec_config = Arc::new(ArcSwap::from_pointee(Extraparams {
         sticky_sessions: false,
@@ -43,7 +44,8 @@ pub fn run() {
         ump_full: ff_config,
         ump_byid: im_config,
         config: cfg.clone(),
-        headers: hh_config,
+        client_headers: ch_config,
+        server_headers: sh_config,
         extraparams: ec_config,
     };
 

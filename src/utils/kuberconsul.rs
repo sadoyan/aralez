@@ -94,43 +94,45 @@ pub struct ConsulDiscovery;
 impl ServiceDiscovery for KubernetesDiscovery {
     async fn fetch_upstreams(&self, config: Arc<Configuration>, mut toreturn: Sender<Configuration>) {
         let prev_upstreams = UpstreamsDashMap::new();
-        loop {
-            let upstreams = UpstreamsDashMap::new();
 
-            if let Some(kuber) = config.kubernetes.clone() {
-                let path = kuber.tokenpath.unwrap_or("/var/run/secrets/kubernetes.io/serviceaccount/token".to_string());
-                let token = read_token(path.as_str()).await;
+        if let Some(kuber) = config.kubernetes.clone() {
+            let servers = kuber.servers.unwrap_or(vec![format!(
+                "{}:{}",
+                env::var("KUBERNETES_SERVICE_HOST").unwrap_or("0.0.0.0".to_string()),
+                env::var("KUBERNETES_SERVICE_PORT_HTTPS").unwrap_or("0".to_string())
+            )]);
 
-                let servers = kuber.servers.unwrap_or(vec![format!(
-                    "{}:{}",
-                    env::var("KUBERNETES_SERVICE_HOST").unwrap_or("0.0.0.0".to_string()),
-                    env::var("KUBERNETES_SERVICE_PORT_HTTPS").unwrap_or("0".to_string())
-                )]);
+            let end = servers.len().saturating_sub(1);
+            let num = if end > 0 { rand::rng().random_range(0..end) } else { 0 };
+            let server = servers.get(num).unwrap().to_string();
+            let path = kuber.tokenpath.unwrap_or("/var/run/secrets/kubernetes.io/serviceaccount/token".to_string());
+            let token = read_token(path.as_str()).await;
+            // let mut oldcrt: HashMap<String, String> = HashMap::new();
 
-                let end = servers.len().saturating_sub(1);
-                let num = if end > 0 { rand::rng().random_range(0..end) } else { 0 };
-                let server = servers.get(num).unwrap().to_string();
-
-                if let Some(svc) = kuber.services {
-                    for i in svc {
-                        let header_list = DashMap::new();
-                        let mut hl = Vec::new();
-                        build_headers(&i.headers, config.as_ref(), &mut hl);
-                        if !hl.is_empty() {
-                            header_list.insert(i.path.clone().unwrap_or("/".to_string()), hl);
-                            config.headers.insert(i.hostname.clone(), header_list);
+            loop {
+                // crate::utils::watchksecret::watch_secret("ar-tls", "staging", server.clone(), token.clone(), &mut oldcrt).await;
+                let upstreams = UpstreamsDashMap::new();
+                if let Some(kuber) = config.kubernetes.clone() {
+                    if let Some(svc) = kuber.services {
+                        for i in svc {
+                            let header_list = DashMap::new();
+                            let mut hl = Vec::new();
+                            build_headers(&i.client_headers, config.as_ref(), &mut hl);
+                            if !hl.is_empty() {
+                                header_list.insert(i.path.clone().unwrap_or("/".to_string()), hl);
+                                config.client_headers.insert(i.hostname.clone(), header_list);
+                            }
+                            let url = format!("https://{}/api/v1/namespaces/staging/endpoints/{}", server, i.hostname);
+                            let list = httpclient::for_kuber(&*url, &*token, &i).await;
+                            list_to_upstreams(list, &upstreams, &i);
                         }
-
-                        let url = format!("https://{}/api/v1/namespaces/staging/endpoints/{}", server, i.hostname);
-                        let list = httpclient::for_kuber(&*url, &*token, &i).await;
-                        list_to_upstreams(list, &upstreams, &i);
+                    }
+                    if let Some(lt) = clone_compare(&upstreams, &prev_upstreams, &config).await {
+                        toreturn.send(lt).await.unwrap();
                     }
                 }
-                if let Some(lt) = clone_compare(&upstreams, &prev_upstreams, &config).await {
-                    toreturn.send(lt).await.unwrap();
-                }
+                sleep(Duration::from_secs(5)).await;
             }
-            sleep(Duration::from_secs(5)).await;
         }
     }
 }
@@ -157,10 +159,10 @@ impl ServiceDiscovery for ConsulDiscovery {
                     for i in svc {
                         let header_list = DashMap::new();
                         let mut hl = Vec::new();
-                        build_headers(&i.headers, config.as_ref(), &mut hl);
+                        build_headers(&i.client_headers, config.as_ref(), &mut hl);
                         if !hl.is_empty() {
                             header_list.insert(i.path.clone().unwrap_or("/".to_string()), hl);
-                            config.headers.insert(i.hostname.clone(), header_list);
+                            config.client_headers.insert(i.hostname.clone(), header_list);
                         }
 
                         let pref = ss.clone() + &i.upstream;
@@ -180,7 +182,8 @@ async fn clone_compare(upstreams: &UpstreamsDashMap, prev_upstreams: &UpstreamsD
     if !compare_dashmaps(&upstreams, &prev_upstreams) {
         let tosend: Configuration = Configuration {
             upstreams: Default::default(),
-            headers: config.headers.clone(),
+            client_headers: config.client_headers.clone(),
+            server_headers: config.server_headers.clone(),
             consul: config.consul.clone(),
             kubernetes: config.kubernetes.clone(),
             typecfg: config.typecfg.clone(),

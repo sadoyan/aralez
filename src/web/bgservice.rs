@@ -85,22 +85,38 @@ impl BackgroundService for LB {
                             new.authentication = ss.extraparams.authentication.clone();
                             new.rate_limit = ss.extraparams.rate_limit;
                             self.extraparams.store(Arc::new(new));
-                            self.headers.clear();
+                            self.client_headers.clear();
+                            self.server_headers.clear();
 
                             for entry in ss.upstreams.iter() {
                                 let global_key = entry.key().clone();
-                                let global_values = DashMap::new();
-                                let mut target_entry = ss.headers.entry(global_key).or_insert_with(DashMap::new);
-                                target_entry.extend(global_values);
-                                self.headers.insert(target_entry.key().to_owned(), target_entry.value().to_owned());
+                                let client_global_values = DashMap::new();
+                                let server_global_values = DashMap::new();
+
+                                let mut client_target_entry = ss.client_headers.entry(global_key.clone()).or_insert_with(DashMap::new);
+                                client_target_entry.extend(client_global_values);
+                                let mut server_target_entry = ss.server_headers.entry(global_key).or_insert_with(DashMap::new);
+                                server_target_entry.extend(server_global_values);
+                                self.server_headers.insert(server_target_entry.key().to_owned(), server_target_entry.value().to_owned());
                             }
 
-                            for path in ss.headers.iter() {
+                            for path in ss.client_headers.iter() {
                                 let path_key = path.key().clone();
                                 let path_headers = path.value().clone();
-                                self.headers.insert(path_key.clone(), path_headers);
-                                if let Some(global_headers) = ss.headers.get("GLOBAL_HEADERS") {
-                                    if let Some(existing_headers) = self.headers.get_mut(&path_key) {
+                                self.client_headers.insert(path_key.clone(), path_headers);
+                                if let Some(global_headers) = ss.client_headers.get("GLOBAL_CLIENT_HEADERS") {
+                                    if let Some(existing_headers) = self.client_headers.get_mut(&path_key) {
+                                        merge_headers(&existing_headers, &global_headers);
+                                    }
+                                }
+                            }
+
+                            for path in ss.server_headers.iter() {
+                                let path_key = path.key().clone();
+                                let path_headers = path.value().clone();
+                                self.server_headers.insert(path_key.clone(), path_headers);
+                                if let Some(global_headers) = ss.server_headers.get("GLOBAL_SERVER_HEADERS") {
+                                    if let Some(existing_headers) = self.server_headers.get_mut(&path_key) {
                                         merge_headers(&existing_headers, &global_headers);
                                     }
                                 }
