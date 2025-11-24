@@ -73,7 +73,6 @@ async fn populate_headers_and_auth(config: &mut Configuration, parsed: &Config) 
     if let Some(headers) = &parsed.client_headers {
         for header in headers {
             if let Some((key, val)) = header.split_once(':') {
-                println!("{}:{}", key.trim().to_string(), val.trim().to_string());
                 ch.push((key.trim().to_string(), val.trim().to_string()));
             }
         }

@@ -11,6 +11,8 @@ use rand::Rng;
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::env;
+use std::fs;
+use std::path::Path;
 use std::sync::atomic::AtomicUsize;
 use std::sync::Arc;
 use std::time::Duration;
@@ -106,9 +108,8 @@ impl ServiceDiscovery for KubernetesDiscovery {
             let num = if end > 0 { rand::rng().random_range(0..end) } else { 0 };
             let server = servers.get(num).unwrap().to_string();
             let path = kuber.tokenpath.unwrap_or("/var/run/secrets/kubernetes.io/serviceaccount/token".to_string());
+            let namespace = get_current_namespace().unwrap_or_else(|| "staging".to_string());
             let token = read_token(path.as_str()).await;
-            // let mut oldcrt: HashMap<String, String> = HashMap::new();
-
             loop {
                 // crate::utils::watchksecret::watch_secret("ar-tls", "staging", server.clone(), token.clone(), &mut oldcrt).await;
                 let upstreams = UpstreamsDashMap::new();
@@ -122,7 +123,7 @@ impl ServiceDiscovery for KubernetesDiscovery {
                                 header_list.insert(i.path.clone().unwrap_or("/".to_string()), hl);
                                 config.client_headers.insert(i.hostname.clone(), header_list);
                             }
-                            let url = format!("https://{}/api/v1/namespaces/staging/endpoints/{}", server, i.hostname);
+                            let url = format!("https://{}/api/v1/namespaces/{}/endpoints/{}", server, namespace, i.hostname);
                             let list = httpclient::for_kuber(&*url, &*token, &i).await;
                             list_to_upstreams(list, &upstreams, &i);
                         }
@@ -135,6 +136,16 @@ impl ServiceDiscovery for KubernetesDiscovery {
             }
         }
     }
+}
+
+fn get_current_namespace() -> Option<String> {
+    let ns_path = "/var/run/secrets/kubernetes.io/serviceaccount/namespace";
+    if Path::new(ns_path).exists() {
+        if let Ok(contents) = fs::read_to_string(ns_path) {
+            return Some(contents.trim().to_string());
+        }
+    }
+    std::env::var("POD_NAMESPACE").ok()
 }
 
 #[async_trait]
