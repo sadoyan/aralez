@@ -108,10 +108,9 @@ impl ServiceDiscovery for KubernetesDiscovery {
             let num = if end > 0 { rand::rng().random_range(0..end) } else { 0 };
             let server = servers.get(num).unwrap().to_string();
             let path = kuber.tokenpath.unwrap_or("/var/run/secrets/kubernetes.io/serviceaccount/token".to_string());
-            let namespace = get_current_namespace().unwrap_or_else(|| "staging".to_string());
+            let namespace = get_current_namespace().unwrap_or_else(|| "default".to_string());
             let token = read_token(path.as_str()).await;
             loop {
-                // crate::utils::watchksecret::watch_secret("ar-tls", "staging", server.clone(), token.clone(), &mut oldcrt).await;
                 let upstreams = UpstreamsDashMap::new();
                 if let Some(kuber) = config.kubernetes.clone() {
                     if let Some(svc) = kuber.services {

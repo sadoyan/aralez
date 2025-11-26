@@ -11,7 +11,10 @@ pub struct GetHostsReturHeaders {
 
 #[async_trait]
 pub trait GetHost {
+    // fn get_host<'a>(&self, peer: &str, path: &str, backend_id: Option<&str>) -> Option<&'a InnerMap>;
+
     fn get_host(&self, peer: &str, path: &str, backend_id: Option<&str>) -> Option<InnerMap>;
+
     fn get_header(&self, peer: &str, path: &str) -> Option<GetHostsReturHeaders>;
 }
 #[async_trait]
@@ -22,35 +25,31 @@ impl GetHost for LB {
                 return Some(bb.value().clone());
             }
         }
-
         let host_entry = self.ump_upst.get(peer)?;
-        let mut current_path = path.to_string();
-        let mut best_match: Option<InnerMap> = None;
+        let mut end = path.len();
         loop {
-            if let Some(entry) = host_entry.get(&current_path) {
+            let slice = &path[..end];
+            if let Some(entry) = host_entry.get(slice) {
                 let (servers, index) = entry.value();
                 if !servers.is_empty() {
                     let idx = index.fetch_add(1, Ordering::Relaxed) % servers.len();
-                    best_match = Some(servers[idx].clone());
-                    break;
+                    return Some(servers[idx].clone());
                 }
             }
-            if let Some(pos) = current_path.rfind('/') {
-                current_path.truncate(pos);
+            if let Some(pos) = slice.rfind('/') {
+                end = pos;
             } else {
                 break;
             }
         }
-        if best_match.is_none() {
-            if let Some(entry) = host_entry.get("/") {
-                let (servers, index) = entry.value();
-                if !servers.is_empty() {
-                    let idx = index.fetch_add(1, Ordering::Relaxed) % servers.len();
-                    best_match = Some(servers[idx].clone());
-                }
+        if let Some(entry) = host_entry.get("/") {
+            let (servers, index) = entry.value();
+            if !servers.is_empty() {
+                let idx = index.fetch_add(1, Ordering::Relaxed) % servers.len();
+                return Some(servers[idx].clone());
             }
         }
-        best_match
+        None
     }
 
     fn get_header(&self, peer: &str, path: &str) -> Option<GetHostsReturHeaders> {

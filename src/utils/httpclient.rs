@@ -22,7 +22,9 @@ pub async fn for_consul(url: String, token: Option<String>, conf: &ServiceMappin
     let upstreams: DashMap<String, (Vec<InnerMap>, AtomicUsize)> = DashMap::new();
     let endpoints: Vec<ConsulService> = resp.json().await.ok()?;
     for subsets in endpoints {
-        let addr = subsets.tagged_addresses.get("lan_ipv4").unwrap().address.clone();
+        // let addr = subsets.tagged_addresses.get("lan_ipv4").unwrap().address.clone();
+        // let prt = subsets.tagged_addresses.get("lan_ipv4").unwrap().port.clone();
+        let addr = subsets.tagged_addresses.get("lan_ipv4").unwrap().address.clone().parse().unwrap();
         let prt = subsets.tagged_addresses.get("lan_ipv4").unwrap().port.clone();
         let to_add = InnerMap {
             address: addr,
@@ -56,7 +58,7 @@ pub async fn for_kuber(url: &str, token: &str, conf: &ServiceMapping) -> Option<
                 for addr in addresses {
                     for port in &ports {
                         let to_add = InnerMap {
-                            address: addr.ip.clone(),
+                            address: addr.ip.parse().unwrap(),
                             port: port.port.clone(),
                             is_ssl: false,
                             is_http2: false,

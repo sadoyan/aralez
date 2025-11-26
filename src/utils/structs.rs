@@ -2,8 +2,8 @@ use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::atomic::AtomicUsize;
-
 pub type UpstreamsDashMap = DashMap<String, DashMap<String, (Vec<InnerMap>, AtomicUsize)>>;
+use std::net::IpAddr;
 
 pub type UpstreamsIdMap = DashMap<String, InnerMap>;
 pub type Headers = DashMap<String, DashMap<String, Vec<(String, String)>>>;
@@ -116,7 +116,7 @@ pub struct AppConfig {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct InnerMap {
-    pub address: String,
+    pub address: IpAddr,
     pub port: u16,
     pub is_ssl: bool,
     pub is_http2: bool,
@@ -129,7 +129,7 @@ pub struct InnerMap {
 impl InnerMap {
     pub fn new() -> Self {
         Self {
-            address: Default::default(),
+            address: "127.0.0.1".parse().unwrap(),
             port: Default::default(),
             is_ssl: Default::default(),
             is_http2: Default::default(),

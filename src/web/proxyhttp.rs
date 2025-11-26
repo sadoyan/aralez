@@ -186,7 +186,7 @@ impl ProxyHttp for LB {
             upstream_request.insert_header("Host", hostname)?;
         }
         if let Some(peer) = ctx.upstream_peer.as_ref() {
-            upstream_request.insert_header("X-Forwarded-For", peer.address.as_str())?;
+            upstream_request.insert_header("X-Forwarded-For", peer.address.to_string())?;
         }
 
         if let Some(headers) = self.get_header(ctx.hostname.as_ref().unwrap_or(&"localhost".to_string()), session.req_header().uri.path()) {

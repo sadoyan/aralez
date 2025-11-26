@@ -159,7 +159,7 @@ pub fn clone_idmap_into(original: &UpstreamsDashMap, cloned: &UpstreamsIdMap) {
                 let hex_hash = base16ct::lower::encode_string(&hash);
                 let hh = hex_hash[0..50].to_string();
                 let to_add = InnerMap {
-                    address: hh.clone(),
+                    address: "127.0.0.1".parse().unwrap(),
                     port: 0,
                     is_ssl: false,
                     is_http2: false,

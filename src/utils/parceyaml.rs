@@ -135,7 +135,7 @@ async fn populate_file_upstreams(config: &mut Configuration, parsed: &Config) {
                     if let Some((ip, port_str)) = server.split_once(':') {
                         if let Ok(port) = port_str.parse::<u16>() {
                             server_list.push(InnerMap {
-                                address: ip.trim().to_string(),
+                                address: ip.trim().parse().unwrap(),
                                 port,
                                 is_ssl: true,
                                 is_http2: false,

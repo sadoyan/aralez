@@ -46,7 +46,7 @@ async fn build_upstreams(fullist: &UpstreamsDashMap, method: &str, client: &Clie
             let mut innervec = Vec::new();
 
             for (_, upstream) in path_entry.value().0.iter().enumerate() {
-                let tls = detect_tls(upstream.address.as_str(), &upstream.port, &client).await;
+                let tls = detect_tls(&upstream.address.to_string(), &upstream.port, &client).await;
                 let is_h2 = matches!(tls.1, Some(Version::HTTP_2));
 
                 let link = if tls.0 {
