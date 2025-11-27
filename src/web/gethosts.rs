@@ -56,11 +56,11 @@ impl GetHost for LB {
         let client_entry = self.client_headers.get(peer)?;
         let server_entry = self.server_headers.get(peer)?;
         let mut current_path = path;
-        let mut best_match = None;
+        let mut clnt_match = None;
         loop {
             if let Some(entry) = client_entry.get(current_path) {
                 if !entry.value().is_empty() {
-                    best_match = Some(entry.value().clone());
+                    clnt_match = Some(entry.value().clone());
                     break;
                 }
             }
@@ -84,19 +84,18 @@ impl GetHost for LB {
             } else {
                 break;
             }
-            if best_match.is_none() {
+            if serv_match.is_none() {
                 if let Some(entry) = server_entry.get("/") {
                     if !entry.value().is_empty() {
-                        best_match = Some(entry.value().clone());
+                        serv_match = Some(entry.value().clone());
                         break;
                     }
                 }
             }
         }
-        let result = GetHostsReturHeaders {
-            client_headers: best_match,
+        Some(GetHostsReturHeaders {
+            client_headers: clnt_match,
             server_headers: serv_match,
-        };
-        Some(result)
+        })
     }
 }

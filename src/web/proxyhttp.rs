@@ -39,6 +39,7 @@ pub struct Context {
     hostname: Option<String>,
     upstream_peer: Option<InnerMap>,
     extraparams: arc_swap::Guard<Arc<Extraparams>>,
+    client_headers: Arc<Vec<(Arc<str>, Arc<str>)>>,
 }
 
 #[async_trait]
@@ -53,6 +54,7 @@ impl ProxyHttp for LB {
             hostname: None,
             upstream_peer: None,
             extraparams: self.extraparams.load(),
+            client_headers: Arc::new(Vec::new()),
         }
     }
     async fn request_filter(&self, session: &mut Session, _ctx: &mut Self::CTX) -> Result<bool> {
@@ -117,7 +119,6 @@ impl ProxyHttp for LB {
         Ok(false)
     }
     async fn upstream_peer(&self, session: &mut Session, ctx: &mut Self::CTX) -> Result<Box<HttpPeer>> {
-        // let host_name = return_header_host(&session);
         match ctx.hostname.as_ref() {
             Some(hostname) => {
                 match ctx.upstream_peer.as_ref() {
@@ -190,24 +191,21 @@ impl ProxyHttp for LB {
         }
 
         if let Some(headers) = self.get_header(ctx.hostname.as_ref().unwrap_or(&"localhost".to_string()), session.req_header().uri.path()) {
-            if let Some(client_headers) = headers.server_headers {
-                for k in client_headers {
+            if let Some(server_headers) = headers.server_headers {
+                for k in server_headers {
                     upstream_request.insert_header(k.0, k.1)?;
                 }
+            }
+            if let Some(client_headers) = headers.client_headers {
+                let converted: Vec<(Arc<str>, Arc<str>)> = client_headers.into_iter().map(|(k, v)| (Arc::<str>::from(k), Arc::<str>::from(v))).collect();
+
+                ctx.client_headers = Arc::new(converted);
             }
         }
 
         Ok(())
     }
-
-    // async fn request_body_filter(&self, _session: &mut Session, _body: &mut Option<Bytes>, _end_of_stream: bool, _ctx: &mut Self::CTX) -> Result<()>
-    // where
-    //     Self::CTX: Send + Sync,
-    // {
-    //     Ok(())
-    // }
     async fn response_filter(&self, session: &mut Session, _upstream_response: &mut ResponseHeader, ctx: &mut Self::CTX) -> Result<()> {
-        // _upstream_response.insert_header("X-Proxied-From", "Fooooooooooooooo").unwrap();
         if ctx.extraparams.sticky_sessions {
             let backend_id = ctx.backend_id.clone();
             if let Some(bid) = self.ump_byid.get(&backend_id) {
@@ -220,52 +218,11 @@ impl ProxyHttp for LB {
             redirect_response.insert_header("Content-Length", "0")?;
             session.write_response_header(Box::new(redirect_response), false).await?;
         }
-        match ctx.hostname.as_ref() {
-            Some(host) => {
-                let path = session.req_header().uri.path();
-                let split_header = host.split_once(':');
-                match split_header {
-                    Some((host, _port)) => {
-                        if let Some(headers) = self.get_header(host, path) {
-                            if let Some(server_headers) = headers.client_headers {
-                                for k in server_headers {
-                                    _upstream_response.insert_header(k.0, k.1).unwrap();
-                                }
-                            }
-                        }
-                    }
-                    None => {
-                        if let Some(headers) = self.get_header(host, path) {
-                            if let Some(server_headers) = headers.client_headers {
-                                for k in server_headers {
-                                    _upstream_response.insert_header(k.0, k.1).unwrap();
-                                }
-                            }
-                        }
-                    }
-                }
 
-                // match split_header {
-                //     Some(sh) => {
-                //         let client_header = self.get_header(sh.0, path);
-                //         for k in client_header.iter() {
-                //             for t in k.iter() {
-                //                 _upstream_response.insert_header(t.0.clone(), t.1.clone()).unwrap();
-                //             }
-                //         }
-                //     }
-                //     None => {
-                //         let client_header = self.get_header(host_header, path);
-                //         for k in client_header.iter() {
-                //             for t in k.iter() {
-                //                 _upstream_response.insert_header(t.0.clone(), t.1.clone()).unwrap();
-                //             }
-                //         }
-                //     }
-                // }
-            }
-            None => {}
+        for (key, value) in ctx.client_headers.iter() {
+            _upstream_response.insert_header(key.to_string(), value.as_ref()).unwrap();
         }
+
         session.set_keepalive(Some(300));
         Ok(())
     }
