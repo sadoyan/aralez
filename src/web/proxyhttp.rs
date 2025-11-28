@@ -206,7 +206,7 @@ impl ProxyHttp for LB {
     async fn response_filter(&self, session: &mut Session, _upstream_response: &mut ResponseHeader, ctx: &mut Self::CTX) -> Result<()> {
         if ctx.extraparams.sticky_sessions {
             let backend_id = ctx.backend_id.clone();
-            if let Some(bid) = self.ump_byid.get(&backend_id.to_string()) {
+            if let Some(bid) = self.ump_byid.get(backend_id.as_ref()) {
                 let _ = _upstream_response.insert_header("set-cookie", format!("backend_id={}; Path=/; Max-Age=600; HttpOnly; SameSite=Lax", bid.address));
             }
         }
@@ -247,8 +247,8 @@ fn return_header_host(session: &Session) -> Option<Arc<str>> {
     } else {
         match session.req_header().headers.get("host") {
             Some(host) => {
-                let header_host = host.to_str().unwrap().splitn(2, ':').collect::<Vec<&str>>();
-                Option::from(Arc::from(header_host[0].to_string()))
+                let header_host: &str = host.to_str().unwrap().split_once(':').map_or(host.to_str().unwrap(), |(h, _)| h);
+                Option::from(Arc::<str>::from(header_host))
             }
             None => None,
         }
