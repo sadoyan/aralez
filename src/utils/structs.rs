@@ -4,9 +4,10 @@ use std::collections::HashMap;
 use std::sync::atomic::AtomicUsize;
 pub type UpstreamsDashMap = DashMap<String, DashMap<String, (Vec<InnerMap>, AtomicUsize)>>;
 use std::net::IpAddr;
+use std::sync::Arc;
 
 pub type UpstreamsIdMap = DashMap<String, InnerMap>;
-pub type Headers = DashMap<String, DashMap<String, Vec<(String, String)>>>;
+pub type Headers = DashMap<String, DashMap<Arc<str>, Vec<(Arc<str>, Arc<str>)>>>;
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct ServiceMapping {

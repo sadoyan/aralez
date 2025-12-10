@@ -6,7 +6,7 @@ use dashmap::DashMap;
 use log::{error, info, warn};
 use std::collections::HashMap;
 use std::sync::atomic::AtomicUsize;
-// use std::sync::mpsc::{channel, Receiver, Sender};
+use std::sync::Arc;
 use std::{env, fs};
 // use tokio::sync::oneshot::{Receiver, Sender};
 
@@ -67,31 +67,31 @@ pub async fn load_configuration(d: &str, kind: &str) -> Option<Configuration> {
 }
 
 async fn populate_headers_and_auth(config: &mut Configuration, parsed: &Config) {
-    let mut ch = Vec::new();
-    ch.push(("Server".to_string(), "Aralez".to_string()));
+    let mut ch: Vec<(Arc<str>, Arc<str>)> = Vec::new();
+    ch.push((Arc::from("Server"), Arc::from("Aralez")));
     // println!("{:?}", &parsed.client_headers);
     if let Some(headers) = &parsed.client_headers {
         for header in headers {
             if let Some((key, val)) = header.split_once(':') {
-                ch.push((key.trim().to_string(), val.trim().to_string()));
+                ch.push((Arc::from(key), Arc::from(val)));
             }
         }
     }
-    let global_headers = DashMap::new();
-    global_headers.insert("/".to_string(), ch);
+    let global_headers: DashMap<Arc<str>, Vec<(Arc<str>, Arc<str>)>> = DashMap::new();
+    global_headers.insert(Arc::from("/"), ch);
     config.client_headers.insert("GLOBAL_CLIENT_HEADERS".to_string(), global_headers);
 
-    let mut sh = Vec::new();
-    sh.push(("X-Proxy-Server".to_string(), "Aralez".to_string()));
+    let mut sh: Vec<(Arc<str>, Arc<str>)> = Vec::new();
+    sh.push((Arc::from("X-Proxy-Server"), Arc::from("Aralez")));
     if let Some(headers) = &parsed.server_headers {
         for header in headers {
             if let Some((key, val)) = header.split_once(':') {
-                sh.push((key.trim().to_string(), val.trim().to_string()));
+                sh.push((Arc::from(key.trim()), Arc::from(val.trim())));
             }
         }
     }
-    let server_global_headers = DashMap::new();
-    server_global_headers.insert("/".to_string(), sh);
+    let server_global_headers: DashMap<Arc<str>, Vec<(Arc<str>, Arc<str>)>> = DashMap::new();
+    server_global_headers.insert(Arc::from("/"), sh);
     config.server_headers.insert("GLOBAL_SERVER_HEADERS".to_string(), server_global_headers);
 
     config.extraparams.sticky_sessions = parsed.sticky_sessions;
@@ -123,12 +123,12 @@ async fn populate_file_upstreams(config: &mut Configuration, parsed: &Config) {
                     info!("Applied Rate Limit for {} : {} request per second", hostname, rate);
                 }
 
-                let mut hl: Vec<(String, String)> = Vec::new();
-                let mut sl: Vec<(String, String)> = Vec::new();
+                let mut hl: Vec<(Arc<str>, Arc<str>)> = Vec::new();
+                let mut sl: Vec<(Arc<str>, Arc<str>)> = Vec::new();
                 build_headers(&path_config.client_headers, config, &mut hl);
                 build_headers(&path_config.server_headers, config, &mut sl);
-                client_header_list.insert(path.clone(), hl);
-                server_header_list.insert(path.clone(), sl);
+                client_header_list.insert(Arc::from(path.as_str()), hl);
+                server_header_list.insert(Arc::from(path.as_str()), sl);
 
                 let mut server_list = Vec::new();
                 for server in &path_config.servers {
@@ -237,11 +237,11 @@ fn log_builder(conf: &AppConfig) {
     env_logger::builder().init();
 }
 
-pub fn build_headers(path_config: &Option<Vec<String>>, _config: &Configuration, hl: &mut Vec<(String, String)>) {
+pub fn build_headers(path_config: &Option<Vec<String>>, _config: &Configuration, hl: &mut Vec<(Arc<str>, Arc<str>)>) {
     if let Some(headers) = &path_config {
         for header in headers {
             if let Some((key, val)) = header.split_once(':') {
-                hl.push((key.trim().to_string(), val.trim().to_string()));
+                hl.push((Arc::from(key.trim()), Arc::from(val.trim())));
             }
         }
         // if let Some(push) = config.client_headers.get("GLOBAL_HEADERS") {

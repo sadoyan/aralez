@@ -15,6 +15,7 @@ use std::os::unix::fs::MetadataExt;
 use std::str::FromStr;
 use std::sync::atomic::AtomicUsize;
 use std::sync::mpsc::{channel, Sender};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 use std::{fs, process, thread, time};
 
@@ -132,7 +133,7 @@ pub fn compare_dashmaps(map1: &UpstreamsDashMap, map2: &UpstreamsDashMap) -> boo
     true
 }
 
-pub fn merge_headers(target: &DashMap<String, Vec<(String, String)>>, source: &DashMap<String, Vec<(String, String)>>) {
+pub fn merge_headers(target: &DashMap<Arc<str>, Vec<(Arc<str>, Arc<str>)>>, source: &DashMap<Arc<str>, Vec<(Arc<str>, Arc<str>)>>) {
     for entry in source.iter() {
         let global_key = entry.key().clone();
         let global_values = entry.value().clone();

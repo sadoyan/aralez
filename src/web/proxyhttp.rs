@@ -191,7 +191,7 @@ impl ProxyHttp for LB {
         if let Some(headers) = self.get_header(ctx.hostname.as_ref().unwrap_or(&Arc::from("localhost")), session.req_header().uri.path()) {
             if let Some(server_headers) = headers.server_headers {
                 for k in server_headers {
-                    upstream_request.insert_header(k.0, k.1)?;
+                    upstream_request.insert_header(k.0.to_string(), k.1.as_ref())?;
                 }
             }
             if let Some(client_headers) = headers.client_headers {

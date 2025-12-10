@@ -2,11 +2,12 @@ use crate::utils::structs::InnerMap;
 use crate::web::proxyhttp::LB;
 use async_trait::async_trait;
 use std::sync::atomic::Ordering;
+use std::sync::Arc;
 
 #[derive(Debug, Clone)]
 pub struct GetHostsReturHeaders {
-    pub client_headers: Option<Vec<(String, String)>>,
-    pub server_headers: Option<Vec<(String, String)>>,
+    pub client_headers: Option<Vec<(Arc<str>, Arc<str>)>>,
+    pub server_headers: Option<Vec<(Arc<str>, Arc<str>)>>,
 }
 
 #[async_trait]

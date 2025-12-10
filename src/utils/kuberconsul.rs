@@ -115,11 +115,21 @@ impl ServiceDiscovery for KubernetesDiscovery {
                 if let Some(kuber) = config.kubernetes.clone() {
                     if let Some(svc) = kuber.services {
                         for i in svc {
-                            let header_list = DashMap::new();
+                            let header_list: DashMap<Arc<str>, Vec<(Arc<str>, Arc<str>)>> = DashMap::new();
                             let mut hl = Vec::new();
                             build_headers(&i.client_headers, config.as_ref(), &mut hl);
                             if !hl.is_empty() {
-                                header_list.insert(i.path.clone().unwrap_or("/".to_string()), hl);
+                                match i.path.clone() {
+                                    Some(path) => {
+                                        header_list.insert(Arc::from(path.as_str()), hl);
+                                    }
+                                    None => {
+                                        header_list.insert(Arc::from("/"), hl);
+                                    }
+                                }
+
+                                // header_list.insert(Arc::from(path.as_str()), hl);
+                                // header_list.insert(Arc::from(i.path).unwrap_or(Arc::from("/")).as_str(), hl);
                                 config.client_headers.insert(i.hostname.clone(), header_list);
                             }
                             let url = format!("https://{}/api/v1/namespaces/{}/endpoints/{}", server, namespace, i.hostname);
@@ -171,7 +181,15 @@ impl ServiceDiscovery for ConsulDiscovery {
                         let mut hl = Vec::new();
                         build_headers(&i.client_headers, config.as_ref(), &mut hl);
                         if !hl.is_empty() {
-                            header_list.insert(i.path.clone().unwrap_or("/".to_string()), hl);
+                            match i.path.clone() {
+                                Some(path) => {
+                                    header_list.insert(Arc::from(path.as_str()), hl);
+                                }
+                                None => {
+                                    header_list.insert(Arc::from("/"), hl);
+                                }
+                            }
+                            // header_list.insert(i.path.clone().unwrap_or("/".to_string()), hl);
                             config.client_headers.insert(i.hostname.clone(), header_list);
                         }
 
