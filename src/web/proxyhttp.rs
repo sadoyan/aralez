@@ -137,14 +137,20 @@ impl ProxyHttp for LB {
                     if ctx.to_https || innermap.to_https {
                         if let Some(stream) = session.stream() {
                             if stream.get_ssl().is_none() {
-                                if let Some(addr) = session.server_addr() {
-                                    if let Some((host, _)) = addr.to_string().split_once(':') {
-                                        let uri = session.req_header().uri.path_and_query().map_or("/", |pq| pq.as_str());
-                                        let port = self.config.proxy_port_tls.unwrap_or(403);
-                                        ctx.to_https = true;
-                                        ctx.redirect_to = Arc::from(format!("https://{}:{}{}", host, port, uri));
-                                    }
+                                if let Some(host) = ctx.hostname.as_ref() {
+                                    let uri = session.req_header().uri.path_and_query().map_or("/", |pq| pq.as_str());
+                                    let port = self.config.proxy_port_tls.unwrap_or(403);
+                                    ctx.to_https = true;
+                                    ctx.redirect_to = Arc::from(format!("https://{}:{}{}", host, port, uri));
                                 }
+                                // if let Some(addr) = session.server_addr() {
+                                //     if let Some((host, _)) = addr.to_string().split_once(':') {
+                                //         let uri = session.req_header().uri.path_and_query().map_or("/", |pq| pq.as_str());
+                                //         let port = self.config.proxy_port_tls.unwrap_or(403);
+                                //         ctx.to_https = true;
+                                //         ctx.redirect_to = Arc::from(format!("https://{}:{}{}", host, port, uri));
+                                //     }
+                                // }
                             }
                         }
                     }
