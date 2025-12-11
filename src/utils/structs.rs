@@ -2,11 +2,11 @@ use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::atomic::AtomicUsize;
-pub type UpstreamsDashMap = DashMap<String, DashMap<String, (Vec<InnerMap>, AtomicUsize)>>;
+pub type UpstreamsDashMap = DashMap<String, DashMap<String, (Vec<Arc<InnerMap>>, AtomicUsize)>>;
 use std::net::IpAddr;
 use std::sync::Arc;
 
-pub type UpstreamsIdMap = DashMap<String, InnerMap>;
+pub type UpstreamsIdMap = DashMap<String, Arc<InnerMap>>;
 pub type Headers = DashMap<String, DashMap<Arc<str>, Vec<(Arc<str>, Arc<str>)>>>;
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]

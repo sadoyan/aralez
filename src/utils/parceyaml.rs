@@ -134,7 +134,7 @@ async fn populate_file_upstreams(config: &mut Configuration, parsed: &Config) {
                 for server in &path_config.servers {
                     if let Some((ip, port_str)) = server.split_once(':') {
                         if let Ok(port) = port_str.parse::<u16>() {
-                            server_list.push(InnerMap {
+                            server_list.push(Arc::from(InnerMap {
                                 address: ip.trim().parse().unwrap(),
                                 port,
                                 is_ssl: true,
@@ -142,7 +142,7 @@ async fn populate_file_upstreams(config: &mut Configuration, parsed: &Config) {
                                 to_https: path_config.to_https.unwrap_or(false),
                                 rate_limit: path_config.rate_limit,
                                 healthcheck: path_config.healthcheck,
-                            });
+                            }));
                         }
                     }
                 }

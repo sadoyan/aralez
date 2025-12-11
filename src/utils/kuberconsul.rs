@@ -52,7 +52,7 @@ pub struct ConsulTaggedAddress {
     #[serde(rename = "Port")]
     pub port: u16,
 }
-pub fn list_to_upstreams(lt: Option<DashMap<String, (Vec<InnerMap>, AtomicUsize)>>, upstreams: &UpstreamsDashMap, i: &ServiceMapping) {
+pub fn list_to_upstreams(lt: Option<DashMap<String, (Vec<Arc<InnerMap>>, AtomicUsize)>>, upstreams: &UpstreamsDashMap, i: &ServiceMapping) {
     if let Some(list) = lt {
         match upstreams.get(&i.hostname.clone()) {
             Some(upstr) => {
@@ -67,7 +67,7 @@ pub fn list_to_upstreams(lt: Option<DashMap<String, (Vec<InnerMap>, AtomicUsize)
     }
 }
 
-pub fn match_path(conf: &ServiceMapping, upstreams: &DashMap<String, (Vec<InnerMap>, AtomicUsize)>, values: Vec<InnerMap>) {
+pub fn match_path(conf: &ServiceMapping, upstreams: &DashMap<String, (Vec<Arc<InnerMap>>, AtomicUsize)>, values: Vec<Arc<InnerMap>>) {
     match conf.path {
         Some(ref p) => {
             upstreams.insert(p.to_string(), (values, AtomicUsize::new(0)));

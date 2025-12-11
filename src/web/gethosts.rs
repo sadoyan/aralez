@@ -14,13 +14,13 @@ pub struct GetHostsReturHeaders {
 pub trait GetHost {
     // fn get_host<'a>(&self, peer: &str, path: &str, backend_id: Option<&str>) -> Option<&'a InnerMap>;
 
-    fn get_host(&self, peer: &str, path: &str, backend_id: Option<&str>) -> Option<InnerMap>;
+    fn get_host(&self, peer: &str, path: &str, backend_id: Option<&str>) -> Option<Arc<InnerMap>>;
 
     fn get_header(&self, peer: &str, path: &str) -> Option<GetHostsReturHeaders>;
 }
 #[async_trait]
 impl GetHost for LB {
-    fn get_host(&self, peer: &str, path: &str, backend_id: Option<&str>) -> Option<InnerMap> {
+    fn get_host(&self, peer: &str, path: &str, backend_id: Option<&str>) -> Option<Arc<InnerMap>> {
         if let Some(b) = backend_id {
             if let Some(bb) = self.ump_byid.get(b) {
                 return Some(bb.value().clone());

@@ -71,23 +71,13 @@ async fn build_upstreams(fullist: &UpstreamsDashMap, method: &str, client: &Clie
                         if resp.1 {
                             scheme.is_http2 = is_h2; // could be adjusted further
                         }
-                        innervec.push(scheme);
+                        innervec.push(Arc::from(scheme));
                     } else {
                         warn!("Dead Upstream : {}", link);
                     }
                 } else {
-                    innervec.push(scheme);
+                    innervec.push(Arc::from(scheme));
                 }
-
-                // let resp = http_request(&link, method, "", &client).await;
-                // if resp.0 {
-                //     if resp.1 {
-                //         scheme.is_http2 = is_h2; // could be adjusted further
-                //     }
-                //     innervec.push(scheme);
-                // } else {
-                //     warn!("Dead Upstream : {}", link);
-                // }
             }
             inner.insert(path.clone(), (innervec, AtomicUsize::new(0)));
         }

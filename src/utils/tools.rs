@@ -168,8 +168,8 @@ pub fn clone_idmap_into(original: &UpstreamsDashMap, cloned: &UpstreamsIdMap) {
                     rate_limit: None,
                     healthcheck: None,
                 };
-                cloned.insert(id, to_add);
-                cloned.insert(hh, x.to_owned());
+                cloned.insert(id, Arc::from(to_add));
+                cloned.insert(hh, Arc::from(x.to_owned()));
             }
             new_inner_map.insert(path.clone(), new_vec);
         }

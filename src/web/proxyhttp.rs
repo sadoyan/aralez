@@ -39,7 +39,7 @@ pub struct Context {
     redirect_to: Arc<str>,
     start_time: Instant,
     hostname: Option<Arc<str>>,
-    upstream_peer: Option<InnerMap>,
+    upstream_peer: Option<Arc<InnerMap>>,
     extraparams: arc_swap::Guard<Arc<Extraparams>>,
     client_headers: Arc<Vec<(Arc<str>, Arc<str>)>>,
 }
@@ -61,7 +61,7 @@ impl ProxyHttp for LB {
         }
     }
     async fn request_filter(&self, session: &mut Session, _ctx: &mut Self::CTX) -> Result<bool> {
-        let ep = _ctx.extraparams.clone();
+        let ep = _ctx.extraparams.as_ref();
 
         if let Some(auth) = ep.authentication.get("authorization") {
             let authenticated = authenticate(&auth.value(), &session);
@@ -125,7 +125,7 @@ impl ProxyHttp for LB {
         match ctx.hostname.as_ref() {
             Some(hostname) => match ctx.upstream_peer.as_ref() {
                 Some(innermap) => {
-                    let mut peer = Box::new(HttpPeer::new((innermap.address.clone(), innermap.port.clone()), innermap.is_ssl, String::new()));
+                    let mut peer = Box::new(HttpPeer::new((innermap.address, innermap.port), innermap.is_ssl, String::new()));
                     if innermap.is_http2 {
                         peer.options.alpn = ALPN::H2;
                     }
@@ -211,8 +211,7 @@ impl ProxyHttp for LB {
     }
     async fn response_filter(&self, session: &mut Session, _upstream_response: &mut ResponseHeader, ctx: &mut Self::CTX) -> Result<()> {
         if ctx.extraparams.sticky_sessions {
-            let backend_id = ctx.backend_id.clone();
-            if let Some(bid) = self.ump_byid.get(backend_id.as_ref()) {
+            if let Some(bid) = self.ump_byid.get(ctx.backend_id.as_ref()) {
                 let _ = _upstream_response.insert_header("set-cookie", format!("backend_id={}; Path=/; Max-Age=600; HttpOnly; SameSite=Lax", bid.address));
             }
         }
