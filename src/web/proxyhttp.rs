@@ -196,14 +196,12 @@ impl ProxyHttp for LB {
 
         if let Some(headers) = self.get_header(ctx.hostname.as_ref().unwrap_or(&Arc::from("localhost")), session.req_header().uri.path()) {
             if let Some(server_headers) = headers.server_headers {
-                for k in server_headers {
-                    upstream_request.insert_header(k.0.to_string(), k.1.as_ref())?;
+                for (k, v) in server_headers.iter() {
+                    upstream_request.insert_header(k.to_string(), v.as_ref())?;
                 }
             }
             if let Some(client_headers) = headers.client_headers {
-                let converted: Vec<(Arc<str>, Arc<str>)> = client_headers.into_iter().map(|(k, v)| (Arc::<str>::from(k), Arc::<str>::from(v))).collect();
-
-                ctx.client_headers = Arc::new(converted);
+                ctx.client_headers = Arc::new(client_headers);
             }
         }
 
@@ -222,8 +220,8 @@ impl ProxyHttp for LB {
             session.write_response_header(Box::new(redirect_response), false).await?;
         }
 
-        for (key, value) in ctx.client_headers.iter() {
-            _upstream_response.insert_header(key.to_string(), value.as_ref()).unwrap();
+        for (k, v) in ctx.client_headers.iter() {
+            _upstream_response.insert_header(k.to_string(), v.as_ref())?;
         }
 
         session.set_keepalive(Some(300));
