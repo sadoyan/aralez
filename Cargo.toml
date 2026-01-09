@@ -11,9 +11,9 @@ panic = "abort"
 strip = true
 
 [dependencies]
-tokio = { version = "1.45.1", features = ["full"] }
+tokio = { version = "1.48.0", features = ["full"] }
 pingora = { version = "0.6.0", features = ["lb", "openssl"] } # openssl, rustls, boringssl
-serde = { version = "1.0.219", features = ["derive"] }
+serde = { version = "1.0.228", features = ["derive"] }
 dashmap = "7.0.0-rc2"
 pingora-core = "0.6.0"
 pingora-proxy = "0.6.0"
@@ -21,21 +21,21 @@ pingora-http = "0.6.0"
 pingora-limits = "0.6.0"
 async-trait = "0.1.89"
 env_logger = "0.11.8"
-log = "0.4.28"
+log = "0.4.29"
 futures = "0.3.31"
 notify = "8.2.0"
-axum = { version = "0.8.4" }
-axum-server = { version = "0.7.2", features = ["tls-openssl"] }
-reqwest = { version = "0.12.23", features = ["json", "native-tls-alpn", "stream"] }
+axum = { version = "0.8.7" }
+axum-server = { version = "0.8.0", features = ["tls-openssl"] }
+reqwest = { version = "0.12.25", features = ["json", "native-tls-alpn", "stream"] }
 #reqwest = { version = "0.12.15", features = ["json", "rustls-tls"] }
 #reqwest = { version = "0.12.15", default-features = false, features = ["rustls-tls", "json"] }
 
 serde_yaml = "0.9.34-deprecated"
-rand = "0.9.2"
+rand = "0.10.0-rc.5"
 base64 = "0.22.1"
-jsonwebtoken = "9.3.1"
+jsonwebtoken = { version = "10.2.0", features = ["aws_lc_rs"] }
 tonic = "0.14.2"
-sha2 = { version = "0.11.0-rc.2", default-features = false }
+sha2 = { version = "0.11.0-rc.3", default-features = false }
 base16ct = { version = "0.3.0", features = ["alloc"] }
 urlencoding = "2.1.3"
 arc-swap = "1.7.1"
@@ -44,10 +44,10 @@ prometheus = "0.14.0"
 lazy_static = "1.5.0"
 x509-parser = "0.18.0"
 rustls-pemfile = "2.2.0"
-tower-http = { version = "0.6.6", features = ["fs"] }
+tower-http = { version = "0.6.8", features = ["fs"] }
 once_cell = "1.21.3"
 privdrop = "0.5.6"
-ctrlc = "3.5.0"
+ctrlc = "3.5.1"
 port_check = "0.3.0"
 #moka = { version = "0.12.10", features = ["sync"] }
 #rustls = { version = "0.23.27", features = ["ring"] }

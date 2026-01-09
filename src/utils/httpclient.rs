@@ -51,7 +51,34 @@ pub async fn for_kuber(url: &str, token: &str, conf: &ServiceMapping) -> Option<
         return None;
     }
     let endpoints: KubeEndpoints = resp.json().await.ok()?;
+    // let endpoints: KubeEndpointsList = resp.json().await.ok()?;
+
     let upstreams: DashMap<String, (Vec<Arc<InnerMap>>, AtomicUsize)> = DashMap::new();
+    // for endpoints in endpoints.items {
+    //     if let Some(subsets) = endpoints.subsets {
+    //         for subset in subsets {
+    //             if let (Some(addresses), Some(ports)) = (subset.addresses, subset.ports) {
+    //                 let mut inner_vec = Vec::new();
+    //                 for addr in addresses {
+    //                     for port in &ports {
+    //                         let to_add = Arc::from(InnerMap {
+    //                             address: addr.ip.parse().unwrap(),
+    //                             port: port.port.clone(),
+    //                             is_ssl: false,
+    //                             is_http2: false,
+    //                             to_https: conf.to_https.unwrap_or(false),
+    //                             rate_limit: conf.rate_limit,
+    //                             healthcheck: None,
+    //                         });
+    //                         inner_vec.push(to_add);
+    //                     }
+    //                 }
+    //                 match_path(&conf, &upstreams, inner_vec.clone());
+    //             }
+    //         }
+    //     }
+    // }
+
     if let Some(subsets) = endpoints.subsets {
         for subset in subsets {
             if let (Some(addresses), Some(ports)) = (subset.addresses, subset.ports) {

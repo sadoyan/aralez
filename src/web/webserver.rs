@@ -92,11 +92,21 @@ async fn conf(State(mut st): State<AppState>, Query(params): Query<HashMap<Strin
 
     if let Some(s) = params.get("key") {
         if s.to_owned() == st.master_key {
-            if let Some(serverlist) = crate::utils::parceyaml::load_configuration(content.as_str(), "content").await {
-                st.config_sender.send(serverlist).await.unwrap();
-                return Response::builder().status(StatusCode::OK).body(Body::from("Config, conf file, updated !\n")).unwrap();
+            let sl = crate::utils::parceyaml::load_configuration(content.as_str(), "content").await;
+            if let Some(serverlist) = sl.0 {
+                let r = st.config_sender.send(serverlist).await;
+                match r {
+                    Ok(_) => {
+                        return Response::builder().status(StatusCode::OK).body(Body::from("Config, conf file, updated!\n")).unwrap();
+                    }
+                    Err(e) => {
+                        let error_msg = format!("Failed to send configuration: {}\n", e);
+                        return Response::builder().status(StatusCode::INTERNAL_SERVER_ERROR).body(Body::from(error_msg)).unwrap();
+                    }
+                }
             } else {
-                return Response::builder().status(StatusCode::BAD_GATEWAY).body(Body::from("Failed to parse config!\n")).unwrap();
+                let err: String = "Error parsing config file: ".to_owned() + sl.1.as_str() + "\n";
+                return Response::builder().status(StatusCode::BAD_GATEWAY).body(Body::from(err)).unwrap();
             };
         }
     }

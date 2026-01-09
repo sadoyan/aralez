@@ -21,6 +21,7 @@ impl BackgroundService for LB {
         let tx_api = tx.clone();
         let config = load_configuration(self.config.upstreams_conf.clone().as_str(), "filepath")
             .await
+            .0
             .expect("Failed to load configuration");
 
         match config.typecfg.as_str() {

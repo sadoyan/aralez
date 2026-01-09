@@ -10,7 +10,7 @@ use std::sync::Arc;
 use std::{env, fs};
 // use tokio::sync::oneshot::{Receiver, Sender};
 
-pub async fn load_configuration(d: &str, kind: &str) -> Option<Configuration> {
+pub async fn load_configuration(d: &str, kind: &str) -> (Option<Configuration>, String) {
     let yaml_data = match kind {
         "filepath" => match fs::read_to_string(d) {
             Ok(data) => {
@@ -20,7 +20,7 @@ pub async fn load_configuration(d: &str, kind: &str) -> Option<Configuration> {
             Err(e) => {
                 error!("Reading: {}: {:?}", d, e);
                 warn!("Running with empty upstreams list, update it via API");
-                return None;
+                return (None, e.to_string());
             }
         },
         "content" => {
@@ -29,7 +29,7 @@ pub async fn load_configuration(d: &str, kind: &str) -> Option<Configuration> {
         }
         _ => {
             error!("Mismatched parameter, only filepath|content is allowed");
-            return None;
+            return (None, "Mismatched parameter, only filepath|content is allowed".to_string());
         }
     };
 
@@ -37,7 +37,7 @@ pub async fn load_configuration(d: &str, kind: &str) -> Option<Configuration> {
         Ok(cfg) => cfg,
         Err(e) => {
             error!("Failed to parse upstreams file: {}", e);
-            return None;
+            return (None, e.to_string());
         }
     };
 
@@ -49,19 +49,19 @@ pub async fn load_configuration(d: &str, kind: &str) -> Option<Configuration> {
     match parsed.provider.as_str() {
         "file" => {
             populate_file_upstreams(&mut toreturn, &parsed).await;
-            Some(toreturn)
+            (Some(toreturn), "Ok".to_string())
         }
         "consul" => {
             toreturn.consul = parsed.consul;
-            toreturn.consul.is_some().then_some(toreturn)
+            (toreturn.consul.is_some().then_some(toreturn), "Ok".to_string())
         }
         "kubernetes" => {
             toreturn.kubernetes = parsed.kubernetes;
-            toreturn.kubernetes.is_some().then_some(toreturn)
+            (toreturn.kubernetes.is_some().then_some(toreturn), "Ok".to_string())
         }
         _ => {
             warn!("Unknown provider {}", parsed.provider);
-            None
+            (None, "Unknown provider".to_string())
         }
     }
 }

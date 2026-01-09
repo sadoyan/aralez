@@ -19,6 +19,10 @@ use std::time::Duration;
 use tokio::fs::File;
 use tokio::io::AsyncReadExt;
 
+// #[derive(Debug, Deserialize)]
+// pub struct KubeEndpointsList {
+//     pub items: Vec<KubeEndpoints>,
+// }
 #[derive(Debug, serde::Deserialize)]
 pub struct KubeEndpoints {
     pub subsets: Option<Vec<KubeSubset>>,
@@ -114,12 +118,12 @@ impl ServiceDiscovery for KubernetesDiscovery {
                 let upstreams = UpstreamsDashMap::new();
                 if let Some(kuber) = config.kubernetes.clone() {
                     if let Some(svc) = kuber.services {
-                        for i in svc {
+                        for service in svc {
                             let header_list: DashMap<Arc<str>, Vec<(Arc<str>, Arc<str>)>> = DashMap::new();
                             let mut hl = Vec::new();
-                            build_headers(&i.client_headers, config.as_ref(), &mut hl);
+                            build_headers(&service.client_headers, config.as_ref(), &mut hl);
                             if !hl.is_empty() {
-                                match i.path.clone() {
+                                match service.path.clone() {
                                     Some(path) => {
                                         header_list.insert(Arc::from(path.as_str()), hl);
                                     }
@@ -130,11 +134,13 @@ impl ServiceDiscovery for KubernetesDiscovery {
 
                                 // header_list.insert(Arc::from(path.as_str()), hl);
                                 // header_list.insert(Arc::from(i.path).unwrap_or(Arc::from("/")).as_str(), hl);
-                                config.client_headers.insert(i.hostname.clone(), header_list);
+                                config.client_headers.insert(service.hostname.clone(), header_list);
                             }
-                            let url = format!("https://{}/api/v1/namespaces/{}/endpoints/{}", server, namespace, i.hostname);
-                            let list = httpclient::for_kuber(&*url, &*token, &i).await;
-                            list_to_upstreams(list, &upstreams, &i);
+                            let url = format!("https://{}/api/v1/namespaces/{}/endpoints/{}", server, namespace, service.hostname);
+                            // let url = format!("https://{}/api/v1/namespaces/{}/endpoints?labelSelector=app", server, namespace);
+                            let list = httpclient::for_kuber(&*url, &*token, &service).await;
+                            // println!("{:?}", list);
+                            list_to_upstreams(list, &upstreams, &service);
                         }
                     }
                     if let Some(lt) = clone_compare(&upstreams, &prev_upstreams, &config).await {

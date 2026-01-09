@@ -41,7 +41,7 @@ pub async fn start(fp: String, mut toreturn: Sender<Configuration>) {
                         if start.elapsed() > Duration::from_secs(2) {
                             start = Instant::now();
                             // info!("Config File changed :=> {:?}", e);
-                            let snd = load_configuration(file_path, "filepath").await;
+                            let snd = load_configuration(file_path, "filepath").await.0;
                             match snd {
                                 Some(snd) => {
                                     toreturn.send(snd).await.unwrap();
