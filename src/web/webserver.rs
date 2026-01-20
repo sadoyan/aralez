@@ -1,5 +1,5 @@
 use crate::utils::discovery::APIUpstreamProvider;
-use crate::utils::structs::Configuration;
+use crate::utils::structs::{Config, Configuration};
 use axum::body::Body;
 use axum::extract::{Query, State};
 use axum::http::{Response, StatusCode};
@@ -82,35 +82,39 @@ pub async fn run_server(config: &APIUpstreamProvider, mut to_return: Sender<Conf
     axum::serve(listener, app).await.unwrap();
 }
 
-async fn conf(State(mut st): State<AppState>, Query(params): Query<HashMap<String, String>>, content: String) -> impl IntoResponse {
+async fn conf(State(st): State<AppState>, Query(params): Query<HashMap<String, String>>, content: String) -> impl IntoResponse {
     if !st.config_api_enabled {
-        return Response::builder()
-            .status(StatusCode::FORBIDDEN)
-            .body(Body::from("Config remote API is disabled !\n"))
-            .unwrap();
+        return Response::builder().status(StatusCode::FORBIDDEN).body(Body::from("Config API is disabled !\n")).unwrap();
     }
-
     if let Some(s) = params.get("key") {
         if s.to_owned() == st.master_key {
-            let sl = crate::utils::parceyaml::load_configuration(content.as_str(), "content").await;
-            if let Some(serverlist) = sl.0 {
-                let r = st.config_sender.send(serverlist).await;
-                match r {
-                    Ok(_) => {
-                        return Response::builder().status(StatusCode::OK).body(Body::from("Config, conf file, updated!\n")).unwrap();
+            let strcontent = content.as_str();
+            let parsed = serde_yaml::from_str::<Config>(strcontent);
+            match parsed {
+                Ok(_) => {
+                    if let Some(s) = params.get("key") {
+                        if s.to_owned() == st.master_key {
+                            let _ = tokio::spawn(async move { apply_config(content.as_str(), st).await });
+                            return Response::builder().status(StatusCode::OK).body(Body::from("Accepted! Applying in background\n")).unwrap();
+                        }
                     }
-                    Err(e) => {
-                        let error_msg = format!("Failed to send configuration: {}\n", e);
-                        return Response::builder().status(StatusCode::INTERNAL_SERVER_ERROR).body(Body::from(error_msg)).unwrap();
-                    }
+                    return Response::builder().status(StatusCode::FORBIDDEN).body(Body::from("Access Denied !\n")).unwrap();
                 }
-            } else {
-                let err: String = "Error parsing config file: ".to_owned() + sl.1.as_str() + "\n";
-                return Response::builder().status(StatusCode::BAD_GATEWAY).body(Body::from(err)).unwrap();
-            };
+                Err(err) => {
+                    error!("Failed to parse upstreams file: {}", err);
+                    return Response::builder().status(StatusCode::BAD_GATEWAY).body(Body::from(format!("Failed: {}\n", err))).unwrap();
+                }
+            }
         }
     }
     Response::builder().status(StatusCode::FORBIDDEN).body(Body::from("Access Denied !\n")).unwrap()
+}
+
+async fn apply_config(content: &str, mut st: AppState) {
+    let sl = crate::utils::parceyaml::load_configuration(content, "content").await;
+    if let Some(serverlist) = sl.0 {
+        let _ = st.config_sender.send(serverlist).await;
+    }
 }
 
 async fn jwt_gen(State(state): State<AppState>, Json(payload): Json<InputKey>) -> (StatusCode, Json<OutToken>) {
@@ -142,7 +146,6 @@ async fn jwt_gen(State(state): State<AppState>, Json(payload): Json<InputKey>) -
 async fn metrics() -> impl IntoResponse {
     let metric_families = gather();
     let encoder = TextEncoder::new();
-
     let mut buffer = Vec::new();
     if let Err(e) = encoder.encode(&metric_families, &mut buffer) {
         // encoding error fallback

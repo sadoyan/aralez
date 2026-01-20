@@ -40,7 +40,6 @@ pub async fn load_configuration(d: &str, kind: &str) -> (Option<Configuration>, 
             return (None, e.to_string());
         }
     };
-
     let mut toreturn = Configuration::default();
 
     populate_headers_and_auth(&mut toreturn, &parsed).await;
@@ -69,7 +68,6 @@ pub async fn load_configuration(d: &str, kind: &str) -> (Option<Configuration>, 
 async fn populate_headers_and_auth(config: &mut Configuration, parsed: &Config) {
     let mut ch: Vec<(Arc<str>, Arc<str>)> = Vec::new();
     ch.push((Arc::from("Server"), Arc::from("Aralez")));
-    // println!("{:?}", &parsed.client_headers);
     if let Some(headers) = &parsed.client_headers {
         for header in headers {
             if let Some((key, val)) = header.split_once(':') {
