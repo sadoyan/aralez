@@ -15,12 +15,18 @@ pub async fn hc2(upslist: Arc<UpstreamsDashMap>, fullist: Arc<UpstreamsDashMap>,
     loop {
         tokio::select! {
             _ = period.tick() => {
-                populate_upstreams(&upslist, &fullist, &idlist, params, &client).await;
+                // populate_upstreams(&upslist, &fullist, &idlist, params, &client).await;
+                let totest = build_upstreams(&fullist, params.0, &client).await;
+                if !compare_dashmaps(&totest, &upslist) {
+                    clone_dashmap_into(&totest, &upslist);
+                    clone_idmap_into(&totest, &idlist);
+                }
             }
         }
     }
 }
 
+/*
 pub async fn populate_upstreams(upslist: &Arc<UpstreamsDashMap>, fullist: &Arc<UpstreamsDashMap>, idlist: &Arc<UpstreamsIdMap>, params: (&str, u64), client: &Client) {
     let totest = build_upstreams(fullist, params.0, client).await;
     if !compare_dashmaps(&totest, upslist) {
@@ -28,6 +34,7 @@ pub async fn populate_upstreams(upslist: &Arc<UpstreamsDashMap>, fullist: &Arc<U
         clone_idmap_into(&totest, idlist);
     }
 }
+*/
 
 pub async fn initiate_upstreams(fullist: UpstreamsDashMap) -> UpstreamsDashMap {
     let client = Client::builder().timeout(Duration::from_secs(2)).danger_accept_invalid_certs(true).build().unwrap();
