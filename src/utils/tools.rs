@@ -1,4 +1,4 @@
-use crate::utils::structs::{InnerMap, UpstreamsDashMap, UpstreamsIdMap};
+use crate::utils::structs::{InnerMap, UpstreamSnapshot, UpstreamsDashMap, UpstreamsIdMap};
 use crate::utils::tls;
 use crate::utils::tls::CertificateConfig;
 use dashmap::DashMap;
@@ -6,6 +6,7 @@ use log::{error, info};
 use notify::{event::ModifyKind, Config, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use port_check::is_port_reachable;
 use privdrop::PrivDrop;
+use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::any::type_name;
 use std::collections::{HashMap, HashSet};
@@ -13,7 +14,7 @@ use std::fmt::Write;
 use std::net::SocketAddr;
 use std::os::unix::fs::MetadataExt;
 use std::str::FromStr;
-use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc::{channel, Sender};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -268,4 +269,76 @@ pub fn check_priv(addr: &str) {
         }
         false => {}
     }
+}
+
+#[allow(dead_code)]
+pub fn upstreams_to_json(upstreams: &UpstreamsDashMap) -> serde_json::Result<String> {
+    let mut outer = HashMap::new();
+
+    for outer_entry in upstreams.iter() {
+        let mut inner_map = HashMap::new();
+
+        for inner_entry in outer_entry.value().iter() {
+            let (backends, counter) = inner_entry.value();
+
+            inner_map.insert(
+                inner_entry.key().clone(),
+                UpstreamSnapshot {
+                    backends: backends.iter().map(|a| (**a).clone()).collect(),
+                    requests: counter.load(Ordering::Relaxed),
+                },
+            );
+        }
+
+        outer.insert(outer_entry.key().clone(), inner_map);
+    }
+
+    // serde_json::to_string_pretty(&outer)
+    serde_json::to_string(&outer)
+}
+
+pub fn upstreams_liveness_json(configured: &UpstreamsDashMap, current: &UpstreamsDashMap) -> Value {
+    let mut result = serde_json::Map::new();
+
+    for host_entry in configured.iter() {
+        let hostname = host_entry.key().clone();
+        let configured_paths = host_entry.value();
+
+        let mut paths_json = serde_json::Map::new();
+
+        for path_entry in configured_paths.iter() {
+            let path = path_entry.key().clone();
+            let (configured_backends, _) = path_entry.value();
+            let backends_json: Vec<Value> = configured_backends
+                .iter()
+                .map(|backend| {
+                    let alive = if let Some(host_map) = current.get(&hostname) {
+                        if let Some(path_entry) = host_map.get(&path) {
+                            let list = &path_entry.value().0; // Vec<Arc<InnerMap>>
+                            list.iter().any(|b| b.address == backend.address && b.port == backend.port)
+                        } else {
+                            false
+                        }
+                    } else {
+                        false
+                    };
+                    json!({
+                        "address": backend.address,
+                        "port": backend.port,
+                        "alive": alive
+                    })
+                })
+                .collect();
+
+            paths_json.insert(
+                path,
+                json!({
+                    "backends": backends_json
+                }),
+            );
+        }
+
+        result.insert(hostname, Value::Object(paths_json));
+    }
+    Value::Object(result)
 }

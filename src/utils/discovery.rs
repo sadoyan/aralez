@@ -1,6 +1,6 @@
 use crate::utils::filewatch;
 use crate::utils::kuberconsul::{ConsulDiscovery, KubernetesDiscovery, ServiceDiscovery};
-use crate::utils::structs::Configuration;
+use crate::utils::structs::{Configuration, UpstreamsDashMap};
 use crate::web::webserver;
 use async_trait::async_trait;
 use futures::channel::mpsc::Sender;
@@ -15,13 +15,8 @@ pub struct APIUpstreamProvider {
     pub tls_key_file: Option<String>,
     pub file_server_address: Option<String>,
     pub file_server_folder: Option<String>,
-}
-
-#[async_trait]
-impl Discovery for APIUpstreamProvider {
-    async fn start(&self, toreturn: Sender<Configuration>) {
-        webserver::run_server(self, toreturn).await;
-    }
+    pub current_upstreams: Arc<UpstreamsDashMap>,
+    pub full_upstreams: Arc<UpstreamsDashMap>,
 }
 
 pub struct FromFileProvider {
@@ -39,6 +34,13 @@ pub struct KubernetesProvider {
 #[async_trait]
 pub trait Discovery {
     async fn start(&self, tx: Sender<Configuration>);
+}
+
+#[async_trait]
+impl Discovery for APIUpstreamProvider {
+    async fn start(&self, toreturn: Sender<Configuration>) {
+        webserver::run_server(self, toreturn, self.current_upstreams.clone(), self.full_upstreams.clone()).await;
+    }
 }
 
 #[async_trait]

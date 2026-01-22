@@ -1,10 +1,11 @@
 use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::sync::atomic::AtomicUsize;
-pub type UpstreamsDashMap = DashMap<String, DashMap<String, (Vec<Arc<InnerMap>>, AtomicUsize)>>;
 use std::net::IpAddr;
+use std::sync::atomic::AtomicUsize;
 use std::sync::Arc;
+
+pub type UpstreamsDashMap = DashMap<String, DashMap<String, (Vec<Arc<InnerMap>>, AtomicUsize)>>;
 
 pub type UpstreamsIdMap = DashMap<String, Arc<InnerMap>>;
 pub type Headers = DashMap<String, DashMap<Arc<str>, Vec<(Arc<str>, Arc<str>)>>>;
@@ -115,7 +116,7 @@ pub struct AppConfig {
     pub rungroup: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
 pub struct InnerMap {
     pub address: IpAddr,
     pub port: u16,
@@ -140,3 +141,10 @@ impl InnerMap {
         }
     }
 }
+
+#[derive(Serialize)]
+pub struct UpstreamSnapshot {
+    pub backends: Vec<InnerMap>,
+    pub requests: usize,
+}
+// pub type UpstreamsSnapshot = HashMap<String, HashMap<String, UpstreamSnapshot>>;

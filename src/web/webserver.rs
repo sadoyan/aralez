@@ -1,5 +1,6 @@
 use crate::utils::discovery::APIUpstreamProvider;
-use crate::utils::structs::{Config, Configuration};
+use crate::utils::structs::{Config, Configuration, UpstreamsDashMap};
+use crate::utils::tools::{upstreams_liveness_json, upstreams_to_json};
 use axum::body::Body;
 use axum::extract::{Query, State};
 use axum::http::{Response, StatusCode};
@@ -15,6 +16,7 @@ use prometheus::{gather, Encoder, TextEncoder};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::net::SocketAddr;
+use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::net::TcpListener;
 use tower_http::services::ServeDir;
@@ -36,16 +38,19 @@ struct AppState {
     master_key: String,
     config_sender: Sender<Configuration>,
     config_api_enabled: bool,
+    current_upstreams: Arc<UpstreamsDashMap>,
+    full_upstreams: Arc<UpstreamsDashMap>,
 }
 
 #[allow(unused_mut)]
-pub async fn run_server(config: &APIUpstreamProvider, mut to_return: Sender<Configuration>) {
+pub async fn run_server(config: &APIUpstreamProvider, mut to_return: Sender<Configuration>, upstreams_curr: Arc<UpstreamsDashMap>, upstreams_full: Arc<UpstreamsDashMap>) {
     let app_state = AppState {
         master_key: config.masterkey.clone(),
         config_sender: to_return.clone(),
         config_api_enabled: config.config_api_enabled.clone(),
+        current_upstreams: upstreams_curr,
+        full_upstreams: upstreams_full,
     };
-
     let app = Router::new()
         // .route("/{*wildcard}", get(senderror))
         // .route("/{*wildcard}", post(senderror))
@@ -56,6 +61,7 @@ pub async fn run_server(config: &APIUpstreamProvider, mut to_return: Sender<Conf
         .route("/jwt", post(jwt_gen))
         .route("/conf", post(conf))
         .route("/metrics", get(metrics))
+        .route("/status", get(status))
         .with_state(app_state);
 
     if let Some(value) = &config.tls_address {
@@ -154,7 +160,6 @@ async fn metrics() -> impl IntoResponse {
             .body(Body::from(format!("Failed to encode metrics: {}", e)))
             .unwrap();
     }
-
     Response::builder()
         .status(StatusCode::OK)
         .header("Content-Type", encoder.format_type())
@@ -162,7 +167,35 @@ async fn metrics() -> impl IntoResponse {
         .unwrap()
 }
 
-// #[allow(dead_code)]
-// async fn senderror() -> impl IntoResponse {
-//     Response::builder().status(StatusCode::BAD_GATEWAY).body(Body::from("No live upstream found!\n")).unwrap()
-// }
+async fn status(State(st): State<AppState>, Query(params): Query<HashMap<String, String>>) -> impl IntoResponse {
+    if let Some(_) = params.get("live") {
+        let r = upstreams_liveness_json(&st.full_upstreams, &st.current_upstreams);
+        return Response::builder()
+            .status(StatusCode::OK)
+            .header("Content-Type", "application/json")
+            .body(Body::from(format!("{}", r)))
+            .unwrap();
+    }
+    if let Some(_) = params.get("all") {
+        let resp = upstreams_to_json(&st.current_upstreams);
+        match resp {
+            Ok(j) => {
+                return Response::builder()
+                    .status(StatusCode::OK)
+                    .header("Content-Type", "application/json")
+                    .body(Body::from(j))
+                    .unwrap()
+            }
+            Err(e) => {
+                return Response::builder()
+                    .status(StatusCode::INTERNAL_SERVER_ERROR)
+                    .body(Body::from(format!("Failed to get status: {}", e)))
+                    .unwrap();
+            }
+        }
+    }
+    Response::builder()
+        .status(StatusCode::INTERNAL_SERVER_ERROR)
+        .body(Body::from(format!("Parameter mismatch")))
+        .unwrap()
+}

@@ -59,6 +59,8 @@ impl BackgroundService for LB {
             tls_key_file: self.config.config_tls_key_file.clone(),
             file_server_address: self.config.file_server_address.clone(),
             file_server_folder: self.config.file_server_folder.clone(),
+            current_upstreams: self.ump_upst.clone(),
+            full_upstreams: self.ump_full.clone(),
         };
         // let tx_api = tx.clone();
         let _ = tokio::spawn(async move { api_load.start(tx_api).await });
