@@ -1,9 +1,12 @@
+use http::method::Method;
 use pingora_http::Version;
 use prometheus::{register_histogram, register_int_counter, register_int_counter_vec, Histogram, IntCounter, IntCounterVec};
+use std::sync::Arc;
 use std::time::Duration;
 
 pub struct MetricTypes {
-    pub method: String,
+    pub method: Method,
+    pub upstream: Arc<str>,
     pub code: String,
     pub latency: Duration,
     pub version: Version,
@@ -33,6 +36,11 @@ lazy_static::lazy_static! {
         "Number of requests by HTTP method",
         &["method"]
     ).unwrap();
+    pub static ref REQUESTS_BY_UPSTREAM: IntCounterVec = register_int_counter_vec!(
+        "aralez_requests_by_upstream",
+        "Number of requests by UPSTREAM server",
+        &["method"]
+    ).unwrap();
     pub static ref REQUESTS_BY_VERSION: IntCounterVec = register_int_counter_vec!(
         "aralez_requests_by_version_total",
         "Number of requests by HTTP versions",
@@ -57,7 +65,8 @@ pub fn calc_metrics(metric_types: &MetricTypes) {
         _ => "Unknown",
     };
     REQUESTS_BY_VERSION.with_label_values(&[&version_str]).inc();
-    RESPONSE_CODES.with_label_values(&[&metric_types.code.to_string()]).inc();
+    RESPONSE_CODES.with_label_values(&[&metric_types.code]).inc();
     REQUESTS_BY_METHOD.with_label_values(&[&metric_types.method]).inc();
+    REQUESTS_BY_UPSTREAM.with_label_values(&[metric_types.upstream.as_ref()]).inc();
     RESPONSE_LATENCY.observe(metric_types.latency.as_secs_f64());
 }

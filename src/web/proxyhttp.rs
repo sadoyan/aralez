@@ -143,14 +143,6 @@ impl ProxyHttp for LB {
                                     ctx.to_https = true;
                                     ctx.redirect_to = Arc::from(format!("https://{}:{}{}", host, port, uri));
                                 }
-                                // if let Some(addr) = session.server_addr() {
-                                //     if let Some((host, _)) = addr.to_string().split_once(':') {
-                                //         let uri = session.req_header().uri.path_and_query().map_or("/", |pq| pq.as_str());
-                                //         let port = self.config.proxy_port_tls.unwrap_or(403);
-                                //         ctx.to_https = true;
-                                //         ctx.redirect_to = Arc::from(format!("https://{}:{}{}", host, port, uri));
-                                //     }
-                                // }
                             }
                         }
                     }
@@ -232,10 +224,12 @@ impl ProxyHttp for LB {
         let response_code = session.response_written().map_or(0, |resp| resp.status.as_u16());
         debug!("{}, response code: {response_code}", self.request_summary(session, ctx));
         let m = &MetricTypes {
-            method: session.req_header().method.to_string(),
+            method: session.req_header().method.clone(),
+            // method: Arc::from(session.req_header().method.as_str()),
             code: session.response_written().map(|resp| resp.status.as_str().to_owned()).unwrap_or("0".to_string()),
             latency: ctx.start_time.elapsed(),
             version: session.req_header().version,
+            upstream: ctx.hostname.clone().unwrap_or(Arc::from("localhost")),
         };
         calc_metrics(m);
     }
@@ -255,5 +249,19 @@ fn return_header_host(session: &Session) -> Option<Arc<str>> {
             }
             None => None,
         }
+    }
+}
+
+#[allow(dead_code)]
+fn return_str_host<'a>(session: &'a Session) -> Option<&'a str> {
+    if session.is_http2() {
+        session.req_header().uri.host()
+    } else {
+        session
+            .req_header()
+            .headers
+            .get("host")
+            .and_then(|h| h.to_str().ok())
+            .map(|h| h.split_once(':').map_or(h, |(host, _)| host))
     }
 }

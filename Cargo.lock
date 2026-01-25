@@ -124,6 +124,7 @@ dependencies = [
  "dashmap",
  "env_logger",
  "futures",
+ "http",
  "jsonwebtoken",
  "lazy_static",
  "log",
