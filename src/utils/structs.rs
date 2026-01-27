@@ -5,10 +5,10 @@ use std::net::IpAddr;
 use std::sync::atomic::AtomicUsize;
 use std::sync::Arc;
 
-pub type UpstreamsDashMap = DashMap<String, DashMap<String, (Vec<Arc<InnerMap>>, AtomicUsize)>>;
+pub type UpstreamsDashMap = DashMap<Arc<str>, DashMap<Arc<str>, (Vec<Arc<InnerMap>>, AtomicUsize)>>;
 
-pub type UpstreamsIdMap = DashMap<String, Arc<InnerMap>>;
-pub type Headers = DashMap<String, DashMap<Arc<str>, Vec<(Arc<str>, Arc<str>)>>>;
+pub type UpstreamsIdMap = DashMap<Arc<str>, Arc<InnerMap>>;
+pub type Headers = DashMap<Arc<str>, DashMap<Arc<str>, Vec<(Arc<str>, Arc<str>)>>>;
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct ServiceMapping {
@@ -21,13 +21,11 @@ pub struct ServiceMapping {
     pub server_headers: Option<Vec<String>>,
 }
 
-// pub type Services = DashMap<String, Vec<(String, Option<String>)>>;
-
 #[derive(Clone, Debug, Default)]
 pub struct Extraparams {
     pub sticky_sessions: bool,
     pub to_https: Option<bool>,
-    pub authentication: DashMap<String, Vec<String>>,
+    pub authentication: DashMap<Arc<str>, Vec<Arc<str>>>,
     pub rate_limit: Option<isize>,
 }
 #[derive(Clone, Default, Debug, Serialize, Deserialize)]

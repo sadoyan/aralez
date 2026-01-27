@@ -3,6 +3,7 @@ use base64::engine::general_purpose::STANDARD;
 use base64::Engine;
 use pingora_proxy::Session;
 use std::collections::HashMap;
+use std::sync::Arc;
 use urlencoding::decode;
 
 trait AuthValidator {
@@ -56,18 +57,18 @@ fn validate(auth: &dyn AuthValidator, session: &Session) -> bool {
     auth.validate(session)
 }
 
-pub fn authenticate(c: &[String], session: &Session) -> bool {
-    match c[0].as_str() {
+pub fn authenticate(c: &[Arc<str>], session: &Session) -> bool {
+    match &*c[0] {
         "basic" => {
-            let auth = BasicAuth(c[1].as_str().into());
+            let auth = BasicAuth(&*c[1]);
             validate(&auth, session)
         }
         "apikey" => {
-            let auth = ApiKeyAuth(c[1].as_str().into());
+            let auth = ApiKeyAuth(&*c[1]);
             validate(&auth, session)
         }
         "jwt" => {
-            let auth = JwtAuth(c[1].as_str().into());
+            let auth = JwtAuth(&*c[1]);
             validate(&auth, session)
         }
         _ => {

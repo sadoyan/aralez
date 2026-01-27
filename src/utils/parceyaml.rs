@@ -77,7 +77,7 @@ async fn populate_headers_and_auth(config: &mut Configuration, parsed: &Config) 
     }
     let global_headers: DashMap<Arc<str>, Vec<(Arc<str>, Arc<str>)>> = DashMap::new();
     global_headers.insert(Arc::from("/"), ch);
-    config.client_headers.insert("GLOBAL_CLIENT_HEADERS".to_string(), global_headers);
+    config.client_headers.insert(Arc::from("GLOBAL_CLIENT_HEADERS"), global_headers);
 
     let mut sh: Vec<(Arc<str>, Arc<str>)> = Vec::new();
     sh.push((Arc::from("X-Proxy-Server"), Arc::from("Aralez")));
@@ -90,7 +90,7 @@ async fn populate_headers_and_auth(config: &mut Configuration, parsed: &Config) 
     }
     let server_global_headers: DashMap<Arc<str>, Vec<(Arc<str>, Arc<str>)>> = DashMap::new();
     server_global_headers.insert(Arc::from("/"), sh);
-    config.server_headers.insert("GLOBAL_SERVER_HEADERS".to_string(), server_global_headers);
+    config.server_headers.insert(Arc::from("GLOBAL_SERVER_HEADERS"), server_global_headers);
 
     config.extraparams.sticky_sessions = parsed.sticky_sessions;
     config.extraparams.to_https = parsed.to_https;
@@ -103,7 +103,10 @@ async fn populate_headers_and_auth(config: &mut Configuration, parsed: &Config) 
     if let Some(auth) = &parsed.authorization {
         let name = auth.get("type").unwrap_or(&"".to_string()).to_string();
         let creds = auth.get("creds").unwrap_or(&"".to_string()).to_string();
-        config.extraparams.authentication.insert("authorization".to_string(), vec![name, creds]);
+        config
+            .extraparams
+            .authentication
+            .insert(Arc::from("authorization"), vec![Arc::from(name), Arc::from(creds)]);
     } else {
         config.extraparams.authentication = DashMap::new();
     }
@@ -144,11 +147,11 @@ async fn populate_file_upstreams(config: &mut Configuration, parsed: &Config) {
                         }
                     }
                 }
-                path_map.insert(path.clone(), (server_list, AtomicUsize::new(0)));
+                path_map.insert(Arc::from(path.clone()), (server_list, AtomicUsize::new(0)));
             }
-            config.client_headers.insert(hostname.clone(), client_header_list);
-            config.server_headers.insert(hostname.clone(), server_header_list);
-            imtdashmap.insert(hostname.clone(), path_map);
+            config.client_headers.insert(Arc::from(hostname.clone()), client_header_list);
+            config.server_headers.insert(Arc::from(hostname.clone()), server_header_list);
+            imtdashmap.insert(Arc::from(hostname.clone()), path_map);
         }
 
         if is_first_run() {

@@ -169,8 +169,8 @@ pub fn clone_idmap_into(original: &UpstreamsDashMap, cloned: &UpstreamsIdMap) {
                     rate_limit: None,
                     healthcheck: None,
                 };
-                cloned.insert(id, Arc::from(to_add));
-                cloned.insert(hh, Arc::from(x.to_owned()));
+                cloned.insert(Arc::from(id.as_str()), Arc::from(to_add));
+                cloned.insert(Arc::from(hh.as_str()), Arc::from(x.to_owned()));
             }
             new_inner_map.insert(path.clone(), new_vec);
         }
@@ -282,7 +282,7 @@ pub fn upstreams_to_json(upstreams: &UpstreamsDashMap) -> serde_json::Result<Str
             let (backends, counter) = inner_entry.value();
 
             inner_map.insert(
-                inner_entry.key().clone(),
+                inner_entry.key().to_string(),
                 UpstreamSnapshot {
                     backends: backends.iter().map(|a| (**a).clone()).collect(),
                     requests: counter.load(Ordering::Relaxed),
@@ -290,7 +290,7 @@ pub fn upstreams_to_json(upstreams: &UpstreamsDashMap) -> serde_json::Result<Str
             );
         }
 
-        outer.insert(outer_entry.key().clone(), inner_map);
+        outer.insert(outer_entry.key().to_string(), inner_map);
     }
 
     // serde_json::to_string_pretty(&outer)
@@ -301,7 +301,7 @@ pub fn upstreams_liveness_json(configured: &UpstreamsDashMap, current: &Upstream
     let mut result = serde_json::Map::new();
 
     for host_entry in configured.iter() {
-        let hostname = host_entry.key().clone();
+        let hostname = host_entry.key().to_string();
         let configured_paths = host_entry.value();
 
         let mut paths_json = serde_json::Map::new();
@@ -312,8 +312,8 @@ pub fn upstreams_liveness_json(configured: &UpstreamsDashMap, current: &Upstream
             let backends_json: Vec<Value> = configured_backends
                 .iter()
                 .map(|backend| {
-                    let alive = if let Some(host_map) = current.get(&hostname) {
-                        if let Some(path_entry) = host_map.get(&path) {
+                    let alive = if let Some(host_map) = current.get(&*hostname) {
+                        if let Some(path_entry) = host_map.get(&*path) {
                             let list = &path_entry.value().0; // Vec<Arc<InnerMap>>
                             list.iter().any(|b| b.address == backend.address && b.port == backend.port)
                         } else {
@@ -331,7 +331,7 @@ pub fn upstreams_liveness_json(configured: &UpstreamsDashMap, current: &Upstream
                 .collect();
 
             paths_json.insert(
-                path,
+                path.to_string(),
                 json!({
                     "backends": backends_json
                 }),

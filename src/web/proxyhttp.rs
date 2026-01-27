@@ -50,7 +50,6 @@ impl ProxyHttp for LB {
     fn new_ctx(&self) -> Self::CTX {
         Context {
             backend_id: Arc::from(""),
-            // backend_id: Arc::new((IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0, false)),
             to_https: false,
             redirect_to: Arc::from(""),
             start_time: Instant::now(),
@@ -64,7 +63,7 @@ impl ProxyHttp for LB {
         let ep = _ctx.extraparams.as_ref();
 
         if let Some(auth) = ep.authentication.get("authorization") {
-            let authenticated = authenticate(&auth.value(), &session);
+            let authenticated = authenticate(auth.value(), &session);
             if !authenticated {
                 let _ = session.respond_error(401).await;
                 warn!("Forbidden: {:?}, {}", session.client_addr(), session.req_header().uri.path());
@@ -72,7 +71,7 @@ impl ProxyHttp for LB {
             }
         };
 
-        let hostname = return_header_host(&session);
+        let hostname = return_header_host_from_upstream(session, &self.ump_upst);
         _ctx.hostname = hostname;
 
         let mut backend_id = None;
@@ -235,33 +234,56 @@ impl ProxyHttp for LB {
     }
 }
 
-fn return_header_host(session: &Session) -> Option<Arc<str>> {
-    if session.is_http2() {
-        match session.req_header().uri.host() {
-            Some(host) => Option::from(Arc::from(host)),
-            None => None,
-        }
-    } else {
-        match session.req_header().headers.get("host") {
-            Some(host) => {
-                let header_host: &str = host.to_str().unwrap().split_once(':').map_or(host.to_str().unwrap(), |(h, _)| h);
-                Option::from(Arc::<str>::from(header_host))
-            }
-            None => None,
-        }
-    }
-}
+// use moka::sync::Cache;
+// Using Moka for a high-concurrency, size-limited cache
+// static HOST_CACHE: Lazy<Cache<String, Arc<str>>> = Lazy::new(|| {
+//     Cache::builder()
+//         .max_capacity(10_000) // Limits memory usage if attacked
+//         .build()
+// });
+// fn return_header_host_cached(session: &Session) -> Option<Arc<str>> {
+//     let host_str = if session.is_http2() {
+//         session.req_header().uri.host()?
+//     } else {
+//         let h = session.req_header().headers.get("host")?.to_str().ok()?;
+//         h.split_once(':').map_or(h, |(host, _)| host)
+//     };
+//     HOST_CACHE
+//         .get_with(host_str.to_string(), || {
+//             Arc::from(host_str)
+//         })
+//         .into()
+// }
 
-#[allow(dead_code)]
-fn return_str_host<'a>(session: &'a Session) -> Option<&'a str> {
-    if session.is_http2() {
-        session.req_header().uri.host()
+// use dashmap::DashMap;
+// A simple cache to reuse Arcs for common hostnames
+// static HOST_CACHE: Lazy<DashMap<String, Arc<str>>> = Lazy::new(|| DashMap::with_capacity(200));
+//
+// fn return_header_host_cached(session: &Session) -> Option<Arc<str>> {
+//     let host_str = if session.is_http2() {
+//         session.req_header().uri.host()?
+//     } else {
+//         let h = session.req_header().headers.get("host")?.to_str().ok()?;
+//         h.split_once(':').map_or(h, |(host, _)| host)
+//     };
+//
+//     // Fast path: check if we already have an Arc for this host
+//     if let Some(arc) = HOST_CACHE.get(host_str) {
+//         return Some(arc.clone()); // Only an atomic increment!
+//     }
+//
+//     // Slow path: create new Arc and cache it
+//     let new_arc: Arc<str> = Arc::from(host_str);
+//     HOST_CACHE.insert(host_str.to_string(), new_arc.clone());
+//     Some(new_arc)
+// }
+
+fn return_header_host_from_upstream(session: &Session, ump_upst: &UpstreamsDashMap) -> Option<Arc<str>> {
+    let host_str = if session.is_http2() {
+        session.req_header().uri.host()?
     } else {
-        session
-            .req_header()
-            .headers
-            .get("host")
-            .and_then(|h| h.to_str().ok())
-            .map(|h| h.split_once(':').map_or(h, |(host, _)| host))
-    }
+        let h = session.req_header().headers.get("host")?.to_str().ok()?;
+        h.split_once(':').map_or(h, |(host, _)| host)
+    };
+    ump_upst.get(host_str).map(|entry| entry.key().clone())
 }
