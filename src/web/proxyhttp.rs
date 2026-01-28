@@ -124,7 +124,7 @@ impl ProxyHttp for LB {
         match ctx.hostname.as_ref() {
             Some(hostname) => match ctx.upstream_peer.as_ref() {
                 Some(innermap) => {
-                    let mut peer = Box::new(HttpPeer::new((innermap.address, innermap.port), innermap.is_ssl, String::new()));
+                    let mut peer = Box::new(HttpPeer::new((&*innermap.address, innermap.port), innermap.is_ssl, String::new()));
                     if innermap.is_http2 {
                         peer.options.alpn = ALPN::H2;
                     }
@@ -182,7 +182,7 @@ impl ProxyHttp for LB {
             upstream_request.insert_header("Host", hostname.as_ref())?;
         }
         if let Some(peer) = ctx.upstream_peer.as_ref() {
-            upstream_request.insert_header("X-Forwarded-For", peer.address.to_string())?;
+            upstream_request.insert_header("X-Forwarded-For", &*peer.address)?;
         }
 
         if let Some(headers) = self.get_header(ctx.hostname.as_ref().unwrap_or(&Arc::from("localhost")), session.req_header().uri.path()) {

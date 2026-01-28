@@ -1,4 +1,4 @@
-use crate::utils::structs::{InnerMap, UpstreamSnapshot, UpstreamsDashMap, UpstreamsIdMap};
+use crate::utils::structs::{InnerMap, InnerMapForJson, UpstreamSnapshotForJson, UpstreamsDashMap, UpstreamsIdMap};
 use crate::utils::tls;
 use crate::utils::tls::CertificateConfig;
 use dashmap::DashMap;
@@ -161,7 +161,7 @@ pub fn clone_idmap_into(original: &UpstreamsDashMap, cloned: &UpstreamsIdMap) {
                 let hex_hash = base16ct::lower::encode_string(&hash);
                 let hh = hex_hash[0..50].to_string();
                 let to_add = InnerMap {
-                    address: "127.0.0.1".parse().unwrap(),
+                    address: Arc::from("127.0.0.1"),
                     port: 0,
                     is_ssl: false,
                     is_http2: false,
@@ -283,8 +283,19 @@ pub fn upstreams_to_json(upstreams: &UpstreamsDashMap) -> serde_json::Result<Str
 
             inner_map.insert(
                 inner_entry.key().to_string(),
-                UpstreamSnapshot {
-                    backends: backends.iter().map(|a| (**a).clone()).collect(),
+                UpstreamSnapshotForJson {
+                    backends: backends
+                        .iter()
+                        .map(|a| InnerMapForJson {
+                            address: a.address.to_string(),
+                            port: a.port,
+                            is_ssl: a.is_ssl,
+                            is_http2: a.is_http2,
+                            to_https: a.to_https,
+                            rate_limit: a.rate_limit,
+                            healthcheck: a.healthcheck,
+                        })
+                        .collect(),
                     requests: counter.load(Ordering::Relaxed),
                 },
             );
@@ -323,7 +334,7 @@ pub fn upstreams_liveness_json(configured: &UpstreamsDashMap, current: &Upstream
                         false
                     };
                     json!({
-                        "address": backend.address,
+                        "address": &*backend.address,
                         "port": backend.port,
                         "alive": alive
                     })

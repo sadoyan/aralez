@@ -25,10 +25,10 @@ pub async fn for_consul(url: String, token: Option<String>, conf: &ServiceMappin
     for subsets in endpoints {
         // let addr = subsets.tagged_addresses.get("lan_ipv4").unwrap().address.clone();
         // let prt = subsets.tagged_addresses.get("lan_ipv4").unwrap().port.clone();
-        let addr = subsets.tagged_addresses.get("lan_ipv4").unwrap().address.clone().parse().unwrap();
+        let addr = subsets.tagged_addresses.get("lan_ipv4").unwrap().address.clone();
         let prt = subsets.tagged_addresses.get("lan_ipv4").unwrap().port.clone();
         let to_add = Arc::from(InnerMap {
-            address: addr,
+            address: Arc::from(&*addr),
             port: prt,
             is_ssl: false,
             is_http2: false,
@@ -61,7 +61,7 @@ pub async fn for_kuber(url: &str, token: &str, conf: &ServiceMapping) -> Option<
                 for addr in addresses {
                     for port in &ports {
                         let to_add = Arc::from(InnerMap {
-                            address: addr.ip.parse().unwrap(),
+                            address: Arc::from(addr.ip.clone()),
                             port: port.port.clone(),
                             is_ssl: false,
                             is_http2: false,

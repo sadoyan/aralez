@@ -1,7 +1,6 @@
 use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::net::IpAddr;
 use std::sync::atomic::AtomicUsize;
 use std::sync::Arc;
 
@@ -9,6 +8,14 @@ pub type UpstreamsDashMap = DashMap<Arc<str>, DashMap<Arc<str>, (Vec<Arc<InnerMa
 
 pub type UpstreamsIdMap = DashMap<Arc<str>, Arc<InnerMap>>;
 pub type Headers = DashMap<Arc<str>, DashMap<Arc<str>, Vec<(Arc<str>, Arc<str>)>>>;
+
+#[derive(Clone, Debug, Default)]
+pub struct Extraparams {
+    pub sticky_sessions: bool,
+    pub to_https: Option<bool>,
+    pub authentication: DashMap<Arc<str>, Vec<Arc<str>>>,
+    pub rate_limit: Option<isize>,
+}
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct ServiceMapping {
@@ -21,13 +28,6 @@ pub struct ServiceMapping {
     pub server_headers: Option<Vec<String>>,
 }
 
-#[derive(Clone, Debug, Default)]
-pub struct Extraparams {
-    pub sticky_sessions: bool,
-    pub to_https: Option<bool>,
-    pub authentication: DashMap<Arc<str>, Vec<Arc<str>>>,
-    pub rate_limit: Option<isize>,
-}
 #[derive(Clone, Default, Debug, Serialize, Deserialize)]
 pub struct Kubernetes {
     pub servers: Option<Vec<String>>,
@@ -114,9 +114,9 @@ pub struct AppConfig {
     pub rungroup: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct InnerMap {
-    pub address: IpAddr,
+    pub address: Arc<str>,
     pub port: u16,
     pub is_ssl: bool,
     pub is_http2: bool,
@@ -129,7 +129,8 @@ pub struct InnerMap {
 impl InnerMap {
     pub fn new() -> Self {
         Self {
-            address: "127.0.0.1".parse().unwrap(),
+            // address: "127.0.0.1".parse().unwrap(),
+            address: Arc::from("127.0.0.1"),
             port: Default::default(),
             is_ssl: Default::default(),
             is_http2: Default::default(),
@@ -140,9 +141,18 @@ impl InnerMap {
     }
 }
 
-#[derive(Serialize)]
-pub struct UpstreamSnapshot {
-    pub backends: Vec<InnerMap>,
+#[derive(Debug, Default, Serialize, Deserialize)]
+pub struct InnerMapForJson {
+    pub address: String,
+    pub port: u16,
+    pub is_ssl: bool,
+    pub is_http2: bool,
+    pub to_https: bool,
+    pub rate_limit: Option<isize>,
+    pub healthcheck: Option<bool>,
+}
+#[derive(Debug, Default, Serialize, Deserialize)]
+pub struct UpstreamSnapshotForJson {
+    pub backends: Vec<InnerMapForJson>,
     pub requests: usize,
 }
-// pub type UpstreamsSnapshot = HashMap<String, HashMap<String, UpstreamSnapshot>>;
