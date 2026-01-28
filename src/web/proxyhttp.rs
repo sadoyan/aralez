@@ -1,7 +1,7 @@
 use crate::utils::auth::authenticate;
 use crate::utils::metrics::*;
 use crate::utils::structs::{AppConfig, Extraparams, Headers, InnerMap, UpstreamsDashMap, UpstreamsIdMap};
-use crate::web::gethosts::GetHost;
+use crate::web::gethosts::{GetHost, GetHostsReturHeaders};
 use arc_swap::ArcSwap;
 use async_trait::async_trait;
 use axum::body::Bytes;
@@ -41,7 +41,7 @@ pub struct Context {
     hostname: Option<Arc<str>>,
     upstream_peer: Option<Arc<InnerMap>>,
     extraparams: arc_swap::Guard<Arc<Extraparams>>,
-    client_headers: Arc<Vec<(Arc<str>, Arc<str>)>>,
+    client_headers: Option<Arc<Vec<(Arc<str>, Arc<str>)>>>,
 }
 
 #[async_trait]
@@ -56,7 +56,7 @@ impl ProxyHttp for LB {
             hostname: None,
             upstream_peer: None,
             extraparams: self.extraparams.load(),
-            client_headers: Arc::new(Vec::new()),
+            client_headers: None,
         }
     }
     async fn request_filter(&self, session: &mut Session, _ctx: &mut Self::CTX) -> Result<bool> {
@@ -178,24 +178,28 @@ impl ProxyHttp for LB {
     }
 
     async fn upstream_request_filter(&self, session: &mut Session, upstream_request: &mut RequestHeader, ctx: &mut Self::CTX) -> Result<()> {
-        if let Some(hostname) = ctx.hostname.as_ref() {
-            upstream_request.insert_header("Host", hostname.as_ref())?;
+        if let Some(hostname) = ctx.hostname.as_deref() {
+            upstream_request.insert_header("Host", hostname)?;
         }
-        if let Some(peer) = ctx.upstream_peer.as_ref() {
+        if let Some(peer) = &ctx.upstream_peer {
             upstream_request.insert_header("X-Forwarded-For", &*peer.address)?;
         }
+        let hostname = ctx.hostname.as_deref().unwrap_or("localhost");
+        let path = session.req_header().uri.path();
 
-        if let Some(headers) = self.get_header(ctx.hostname.as_ref().unwrap_or(&Arc::from("localhost")), session.req_header().uri.path()) {
-            if let Some(server_headers) = headers.server_headers {
-                for (k, v) in server_headers.iter() {
-                    upstream_request.insert_header(k.to_string(), v.as_ref())?;
-                }
-            }
-            if let Some(client_headers) = headers.client_headers {
-                ctx.client_headers = Arc::new(client_headers);
+        let GetHostsReturHeaders { server_headers, client_headers } = match self.get_header(hostname, path) {
+            Some(h) => h,
+            None => return Ok(()),
+        };
+
+        if let Some(sh) = server_headers {
+            for (k, v) in sh {
+                upstream_request.insert_header(k.to_string(), v.as_ref())?;
             }
         }
-
+        if let Some(ch) = client_headers {
+            ctx.client_headers = Some(Arc::new(ch));
+        }
         Ok(())
     }
     async fn response_filter(&self, session: &mut Session, _upstream_response: &mut ResponseHeader, ctx: &mut Self::CTX) -> Result<()> {
@@ -211,8 +215,10 @@ impl ProxyHttp for LB {
             session.write_response_header(Box::new(redirect_response), false).await?;
         }
 
-        for (k, v) in ctx.client_headers.iter() {
-            _upstream_response.insert_header(k.to_string(), v.as_ref())?;
+        if let Some(client_headers) = &ctx.client_headers {
+            for (k, v) in client_headers.iter() {
+                _upstream_response.insert_header(k.to_string(), v.as_ref())?;
+            }
         }
 
         session.set_keepalive(Some(300));

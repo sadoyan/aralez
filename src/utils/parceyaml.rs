@@ -67,7 +67,6 @@ pub async fn load_configuration(d: &str, kind: &str) -> (Option<Configuration>, 
 
 async fn populate_headers_and_auth(config: &mut Configuration, parsed: &Config) {
     let mut ch: Vec<(Arc<str>, Arc<str>)> = Vec::new();
-    ch.push((Arc::from("Server"), Arc::from("Aralez")));
     if let Some(headers) = &parsed.client_headers {
         for header in headers {
             if let Some((key, val)) = header.split_once(':') {
@@ -80,7 +79,6 @@ async fn populate_headers_and_auth(config: &mut Configuration, parsed: &Config) 
     config.client_headers.insert(Arc::from("GLOBAL_CLIENT_HEADERS"), global_headers);
 
     let mut sh: Vec<(Arc<str>, Arc<str>)> = Vec::new();
-    sh.push((Arc::from("X-Proxy-Server"), Arc::from("Aralez")));
     if let Some(headers) = &parsed.server_headers {
         for header in headers {
             if let Some((key, val)) = header.split_once(':') {

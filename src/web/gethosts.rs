@@ -56,49 +56,66 @@ impl GetHost for LB {
     }
 
     fn get_header(&self, peer: &str, path: &str) -> Option<GetHostsReturHeaders> {
-        let client_entry = self.client_headers.get(peer)?;
-        let server_entry = self.server_headers.get(peer)?;
+        let client_entry = self.client_headers.get(peer);
+        let server_entry = self.server_headers.get(peer);
+        if client_entry.is_none() && server_entry.is_none() {
+            return None;
+        }
         let mut current_path = path;
         let mut clnt_match = None;
-        loop {
-            if let Some(entry) = client_entry.get(current_path) {
-                if !entry.value().is_empty() {
-                    clnt_match = Some(entry.value().clone());
+        if let Some(client_entry) = client_entry {
+            loop {
+                if let Some(entry) = client_entry.get(current_path) {
+                    if !entry.value().is_empty() {
+                        clnt_match = Some(entry.value().clone());
+                        break;
+                    }
+                }
+                if current_path == "/" {
                     break;
                 }
-            }
-            if let Some(pos) = current_path.rfind('/') {
-                current_path = if pos == 0 { "/" } else { &current_path[..pos] };
-            } else {
-                break;
+                if let Some(pos) = current_path.rfind('/') {
+                    current_path = if pos == 0 { "/" } else { &current_path[..pos] };
+                } else {
+                    break;
+                }
             }
         }
         current_path = path;
         let mut serv_match = None;
-        loop {
-            if let Some(entry) = server_entry.get(current_path) {
-                if !entry.value().is_empty() {
-                    serv_match = Some(entry.value().clone());
-                    break;
-                }
-            }
-            if let Some(pos) = current_path.rfind('/') {
-                current_path = if pos == 0 { "/" } else { &current_path[..pos] };
-            } else {
-                break;
-            }
-            if serv_match.is_none() {
-                if let Some(entry) = server_entry.get("/") {
+        if let Some(server_entry) = server_entry {
+            loop {
+                if let Some(entry) = server_entry.get(current_path) {
                     if !entry.value().is_empty() {
                         serv_match = Some(entry.value().clone());
                         break;
                     }
                 }
+                if current_path == "/" {
+                    if let Some(entry) = server_entry.get("/") {
+                        if !entry.value().is_empty() {
+                            serv_match = Some(entry.value().clone());
+                            break;
+                        }
+                    }
+                    break;
+                }
+                if let Some(pos) = current_path.rfind('/') {
+                    current_path = if pos == 0 { "/" } else { &current_path[..pos] };
+                } else {
+                    break;
+                }
             }
         }
-        Some(GetHostsReturHeaders {
+        let result = GetHostsReturHeaders {
             client_headers: clnt_match,
             server_headers: serv_match,
-        })
+        };
+
+        if result.client_headers.is_some() || result.server_headers.is_some() {
+            Some(result)
+        } else {
+            None
+        }
     }
 }
