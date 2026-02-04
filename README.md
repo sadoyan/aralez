@@ -11,7 +11,7 @@ featuring Consul and Kubernetes integration for dynamic pod discovery and health
 
 ---
 What Aralez means ?
-**Aralez = Արալեզ** <ins>.Named after the legendary Armenian guardian spirit, winged dog-like creature, that descend upon fallen heroes to lick their wounds and resurrect them.</ins>.
+**Aralez = Արալեզ** <ins>Named after the legendary Armenian guardian spirit, winged dog-like creature, that descend upon fallen heroes to lick their wounds and resurrect them</ins>.
 
 Built on Rust, on top of **Cloudflare’s Pingora engine**, **Aralez** delivers world-class performance, security and scalability — right out of the box.
 
@@ -23,7 +23,7 @@ Built on Rust, on top of **Cloudflare’s Pingora engine**, **Aralez** delivers 
 
 - **Dynamic Config Reloads** — Upstreams can be updated live via API, no restart required.
 - **TLS Termination** — Built-in OpenSSL support.
-    - **Automatic load of certificates** — Automatically reads and loads certificates from a folder, without a restart.
+    - **Automatic loading of certificates** — Automatically reads and loads certificates from a folder, without a restart.
 - **Upstreams TLS detection** — Aralez will automatically detect if upstreams uses secure connection.
 - **Built in rate limiter** — Limit requests to server, by setting up upper limit for requests per seconds, per virtualhost.
     - **Global rate limiter** — Set rate limit for all virtualhosts.
