@@ -14,7 +14,6 @@ use pingora_core::listeners::ALPN;
 use pingora_core::prelude::HttpPeer;
 use pingora_limits::rate::Rate;
 use pingora_proxy::{ProxyHttp, Session};
-// use std::net::{IpAddr, Ipv4Addr};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::time::Instant;
@@ -72,8 +71,8 @@ impl ProxyHttp for LB {
         };
 
         let hostname = return_header_host_from_upstream(session, &self.ump_upst);
-        _ctx.hostname = hostname;
 
+        _ctx.hostname = hostname;
         let mut backend_id = None;
 
         if ep.sticky_sessions {
@@ -93,8 +92,8 @@ impl ProxyHttp for LB {
         match _ctx.hostname.as_ref() {
             None => return Ok(false),
             Some(host) => {
-                // let optioninnermap = self.get_host(host.as_str(), host.as_str(), backend_id);
                 let optioninnermap = self.get_host(host, session.req_header().uri.path(), backend_id);
+
                 match optioninnermap {
                     None => return Ok(false),
                     Some(ref innermap) => {
@@ -118,6 +117,7 @@ impl ProxyHttp for LB {
                 _ctx.upstream_peer = optioninnermap;
             }
         }
+
         Ok(false)
     }
     async fn upstream_peer(&self, session: &mut Session, ctx: &mut Self::CTX) -> Result<Box<HttpPeer>> {
@@ -230,8 +230,7 @@ impl ProxyHttp for LB {
         debug!("{}, response code: {response_code}", self.request_summary(session, ctx));
         let m = &MetricTypes {
             method: session.req_header().method.clone(),
-            // method: Arc::from(session.req_header().method.as_str()),
-            code: session.response_written().map(|resp| resp.status.as_str().to_owned()).unwrap_or("0".to_string()),
+            code: session.response_written().map(|resp| resp.status),
             latency: ctx.start_time.elapsed(),
             version: session.req_header().version,
             upstream: ctx.hostname.clone().unwrap_or(Arc::from("localhost")),
@@ -239,50 +238,6 @@ impl ProxyHttp for LB {
         calc_metrics(m);
     }
 }
-
-// use moka::sync::Cache;
-// Using Moka for a high-concurrency, size-limited cache
-// static HOST_CACHE: Lazy<Cache<String, Arc<str>>> = Lazy::new(|| {
-//     Cache::builder()
-//         .max_capacity(10_000) // Limits memory usage if attacked
-//         .build()
-// });
-// fn return_header_host_cached(session: &Session) -> Option<Arc<str>> {
-//     let host_str = if session.is_http2() {
-//         session.req_header().uri.host()?
-//     } else {
-//         let h = session.req_header().headers.get("host")?.to_str().ok()?;
-//         h.split_once(':').map_or(h, |(host, _)| host)
-//     };
-//     HOST_CACHE
-//         .get_with(host_str.to_string(), || {
-//             Arc::from(host_str)
-//         })
-//         .into()
-// }
-
-// use dashmap::DashMap;
-// A simple cache to reuse Arcs for common hostnames
-// static HOST_CACHE: Lazy<DashMap<String, Arc<str>>> = Lazy::new(|| DashMap::with_capacity(200));
-//
-// fn return_header_host_cached(session: &Session) -> Option<Arc<str>> {
-//     let host_str = if session.is_http2() {
-//         session.req_header().uri.host()?
-//     } else {
-//         let h = session.req_header().headers.get("host")?.to_str().ok()?;
-//         h.split_once(':').map_or(h, |(host, _)| host)
-//     };
-//
-//     // Fast path: check if we already have an Arc for this host
-//     if let Some(arc) = HOST_CACHE.get(host_str) {
-//         return Some(arc.clone()); // Only an atomic increment!
-//     }
-//
-//     // Slow path: create new Arc and cache it
-//     let new_arc: Arc<str> = Arc::from(host_str);
-//     HOST_CACHE.insert(host_str.to_string(), new_arc.clone());
-//     Some(new_arc)
-// }
 
 fn return_header_host_from_upstream(session: &Session, ump_upst: &UpstreamsDashMap) -> Option<Arc<str>> {
     let host_str = if session.is_http2() {

@@ -7,7 +7,7 @@ use dashmap::DashMap;
 use futures::channel::mpsc::Sender;
 use futures::SinkExt;
 use pingora::prelude::sleep;
-use rand::Rng;
+use rand::RngExt;
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::env;
@@ -19,10 +19,6 @@ use std::time::Duration;
 use tokio::fs::File;
 use tokio::io::AsyncReadExt;
 
-// #[derive(Debug, Deserialize)]
-// pub struct KubeEndpointsList {
-//     pub items: Vec<KubeEndpoints>,
-// }
 #[derive(Debug, serde::Deserialize)]
 pub struct KubeEndpoints {
     pub subsets: Option<Vec<KubeSubset>>,

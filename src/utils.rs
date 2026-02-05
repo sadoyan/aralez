@@ -2,6 +2,7 @@ pub mod auth;
 pub mod discovery;
 pub mod dnsclient;
 mod filewatch;
+pub mod fordebug;
 pub mod healthcheck;
 pub mod httpclient;
 pub mod jwt;

@@ -1,4 +1,5 @@
 use http::method::Method;
+use http::StatusCode;
 use pingora_http::Version;
 use prometheus::{register_histogram, register_int_counter, register_int_counter_vec, Histogram, IntCounter, IntCounterVec};
 use std::sync::Arc;
@@ -7,7 +8,7 @@ use std::time::Duration;
 pub struct MetricTypes {
     pub method: Method,
     pub upstream: Arc<str>,
-    pub code: String,
+    pub code: Option<StatusCode>,
     pub latency: Duration,
     pub version: Version,
 }
@@ -65,7 +66,7 @@ pub fn calc_metrics(metric_types: &MetricTypes) {
         _ => "Unknown",
     };
     REQUESTS_BY_VERSION.with_label_values(&[&version_str]).inc();
-    RESPONSE_CODES.with_label_values(&[&metric_types.code]).inc();
+    RESPONSE_CODES.with_label_values(&[metric_types.code.unwrap_or(http::StatusCode::GONE).as_str()]).inc();
     REQUESTS_BY_METHOD.with_label_values(&[&metric_types.method]).inc();
     REQUESTS_BY_UPSTREAM.with_label_values(&[metric_types.upstream.as_ref()]).inc();
     RESPONSE_LATENCY.observe(metric_types.latency.as_secs_f64());
