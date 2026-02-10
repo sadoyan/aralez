@@ -89,9 +89,8 @@ async fn populate_headers_and_auth(config: &mut Configuration, parsed: &Config) 
     let server_global_headers: DashMap<Arc<str>, Vec<(Arc<str>, Arc<str>)>> = DashMap::new();
     server_global_headers.insert(Arc::from("/"), sh);
     config.server_headers.insert(Arc::from("GLOBAL_SERVER_HEADERS"), server_global_headers);
-
-    config.extraparams.sticky_sessions = parsed.sticky_sessions;
     config.extraparams.to_https = parsed.to_https;
+    config.extraparams.sticky_sessions = parsed.sticky_sessions;
     config.extraparams.rate_limit = parsed.rate_limit;
 
     if let Some(rate) = &parsed.rate_limit {
@@ -121,7 +120,6 @@ async fn populate_file_upstreams(config: &mut Configuration, parsed: &Config) {
                 if let Some(rate) = &path_config.rate_limit {
                     info!("Applied Rate Limit for {} : {} request per second", hostname, rate);
                 }
-
                 let mut hl: Vec<(Arc<str>, Arc<str>)> = Vec::new();
                 let mut sl: Vec<(Arc<str>, Arc<str>)> = Vec::new();
                 build_headers(&path_config.client_headers, config, &mut hl);

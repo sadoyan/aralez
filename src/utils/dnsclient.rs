@@ -103,6 +103,7 @@ impl DnsClient {
                             is_ssl: false,
                             is_http2: false,
                             to_https: false,
+                            sticky_sessions: false,
                             rate_limit: None,
                         };
                         values.push(to_add);

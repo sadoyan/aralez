@@ -5,6 +5,7 @@ use crate::web::gethosts::{GetHost, GetHostsReturHeaders};
 use arc_swap::ArcSwap;
 use async_trait::async_trait;
 use axum::body::Bytes;
+use dashmap::DashMap;
 use log::{debug, error, warn};
 use once_cell::sync::Lazy;
 use pingora::http::{RequestHeader, ResponseHeader, StatusCode};
@@ -14,11 +15,17 @@ use pingora_core::listeners::ALPN;
 use pingora_core::prelude::HttpPeer;
 use pingora_limits::rate::Rate;
 use pingora_proxy::{ProxyHttp, Session};
+use sha2::{Digest, Sha256};
+use std::fmt::Write;
+// use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::time::Instant;
 
 static RATE_LIMITER: Lazy<Rate> = Lazy::new(|| Rate::new(Duration::from_secs(1)));
+static REVERSE_STORE: Lazy<DashMap<String, String>> = Lazy::new(|| DashMap::new());
+
+// static BARADI: String = String::new();
 
 #[derive(Clone)]
 pub struct LB {
@@ -32,10 +39,11 @@ pub struct LB {
 }
 
 pub struct Context {
-    backend_id: Arc<str>,
-    // backend_id: Arc<(IpAddr, u16, bool)>,
+    backend_id: Option<String>,
+    // backend_id: Option<(IpAddr, u16, bool)>,
     to_https: bool,
-    redirect_to: Arc<str>,
+    sticky_sessions: bool,
+    redirect_to: Option<String>,
     start_time: Instant,
     hostname: Option<Arc<str>>,
     upstream_peer: Option<Arc<InnerMap>>,
@@ -48,9 +56,10 @@ impl ProxyHttp for LB {
     type CTX = Context;
     fn new_ctx(&self) -> Self::CTX {
         Context {
-            backend_id: Arc::from(""),
+            backend_id: None,
             to_https: false,
-            redirect_to: Arc::from(""),
+            sticky_sessions: false,
+            redirect_to: None,
             start_time: Instant::now(),
             hostname: None,
             upstream_peer: None,
@@ -88,12 +97,11 @@ impl ProxyHttp for LB {
                 }
             }
         }
-
+        // println!("backend_id ===========> {:?}", backend_id);
         match _ctx.hostname.as_ref() {
             None => return Ok(false),
             Some(host) => {
                 let optioninnermap = self.get_host(host, session.req_header().uri.path(), backend_id);
-
                 match optioninnermap {
                     None => return Ok(false),
                     Some(ref innermap) => {
@@ -117,35 +125,47 @@ impl ProxyHttp for LB {
                 _ctx.upstream_peer = optioninnermap;
             }
         }
-
         Ok(false)
     }
     async fn upstream_peer(&self, session: &mut Session, ctx: &mut Self::CTX) -> Result<Box<HttpPeer>> {
+        // let before = crate::utils::fordebug::ALLOC_COUNT.load(Ordering::Relaxed);
         match ctx.hostname.as_ref() {
             Some(hostname) => match ctx.upstream_peer.as_ref() {
                 Some(innermap) => {
-                    let mut peer = Box::new(HttpPeer::new((&*innermap.address, innermap.port), innermap.is_ssl, String::new()));
+                    let mut peer = Box::new(HttpPeer::new((&*innermap.address, innermap.port), innermap.is_ssl, hostname.to_string()));
+
                     if innermap.is_http2 {
                         peer.options.alpn = ALPN::H2;
                     }
                     if innermap.is_ssl {
-                        peer.sni = hostname.to_string();
                         peer.options.verify_cert = false;
                         peer.options.verify_hostname = false;
                     }
-                    if ctx.to_https || innermap.to_https {
+
+                    if ctx.extraparams.to_https.unwrap_or(false) || innermap.to_https {
                         if let Some(stream) = session.stream() {
                             if stream.get_ssl().is_none() {
                                 if let Some(host) = ctx.hostname.as_ref() {
                                     let uri = session.req_header().uri.path_and_query().map_or("/", |pq| pq.as_str());
-                                    let port = self.config.proxy_port_tls.unwrap_or(403);
+                                    let port = self.config.proxy_port_tls.unwrap_or(443);
                                     ctx.to_https = true;
-                                    ctx.redirect_to = Arc::from(format!("https://{}:{}{}", host, port, uri));
+                                    let mut s = String::with_capacity(64);
+                                    write!(&mut s, "https://{}:{}{}", host, port, uri).unwrap();
+                                    ctx.redirect_to = Some(s);
                                 }
                             }
                         }
                     }
-                    ctx.backend_id = Arc::from(format!("{}:{}:{}", innermap.address, innermap.port, innermap.is_ssl));
+
+                    if ctx.extraparams.sticky_sessions {
+                        let mut s = String::with_capacity(64);
+                        write!(&mut s, "{}:{}:{}", innermap.address, innermap.port, innermap.is_ssl).unwrap();
+                        ctx.backend_id = Some(s);
+                        ctx.sticky_sessions = true;
+                    }
+                    // let after = crate::utils::fordebug::ALLOC_COUNT.load(Ordering::Relaxed);
+                    // println!("Allocations : {} : {:?}", after - before, ctx.backend_id);
+
                     Ok(peer)
                 }
                 None => {
@@ -203,14 +223,27 @@ impl ProxyHttp for LB {
         Ok(())
     }
     async fn response_filter(&self, session: &mut Session, _upstream_response: &mut ResponseHeader, ctx: &mut Self::CTX) -> Result<()> {
-        if ctx.extraparams.sticky_sessions {
-            if let Some(bid) = self.ump_byid.get(ctx.backend_id.as_ref()) {
-                let _ = _upstream_response.insert_header("set-cookie", format!("backend_id={}; Path=/; Max-Age=600; HttpOnly; SameSite=Lax", bid.address));
+        if ctx.sticky_sessions {
+            if let Some(bid) = ctx.backend_id.clone() {
+                // CHECK ALLOCATIONS TOMORROW
+                if REVERSE_STORE.get(&*bid).is_none() {
+                    let mut hasher = Sha256::new();
+                    hasher.update(bid.clone().into_bytes());
+                    let hash = hasher.finalize();
+                    let hex_hash = base16ct::lower::encode_string(&hash);
+                    let hh = hex_hash[0..50].to_string();
+                    REVERSE_STORE.insert(bid.clone(), hh.clone());
+                    REVERSE_STORE.insert(hh.clone(), bid.clone());
+                }
+                if let Some(tt) = REVERSE_STORE.get(&*bid) {
+                    let _ = _upstream_response.insert_header("set-cookie", format!("backend_id={}; Path=/; Max-Age=600; HttpOnly; SameSite=Lax", tt.value()));
+                }
             }
         }
+
         if ctx.to_https {
             let mut redirect_response = ResponseHeader::build(StatusCode::MOVED_PERMANENTLY, None)?;
-            redirect_response.insert_header("Location", ctx.redirect_to.as_ref())?;
+            redirect_response.insert_header("Location", ctx.redirect_to.clone().unwrap_or(String::from("/")))?;
             redirect_response.insert_header("Content-Length", "0")?;
             session.write_response_header(Box::new(redirect_response), false).await?;
         }

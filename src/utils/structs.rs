@@ -6,13 +6,13 @@ use std::sync::Arc;
 
 pub type UpstreamsDashMap = DashMap<Arc<str>, DashMap<Arc<str>, (Vec<Arc<InnerMap>>, AtomicUsize)>>;
 
-pub type UpstreamsIdMap = DashMap<Arc<str>, Arc<InnerMap>>;
+pub type UpstreamsIdMap = DashMap<String, Arc<InnerMap>>;
 pub type Headers = DashMap<Arc<str>, DashMap<Arc<str>, Vec<(Arc<str>, Arc<str>)>>>;
 
 #[derive(Clone, Debug, Default)]
 pub struct Extraparams {
-    pub sticky_sessions: bool,
     pub to_https: Option<bool>,
+    pub sticky_sessions: bool,
     pub authentication: DashMap<Arc<str>, Vec<Arc<str>>>,
     pub rate_limit: Option<isize>,
 }
@@ -23,6 +23,7 @@ pub struct ServiceMapping {
     pub hostname: String,
     pub path: Option<String>,
     pub to_https: Option<bool>,
+    pub sticky_sessions: Option<bool>,
     pub rate_limit: Option<isize>,
     pub client_headers: Option<Vec<String>>,
     pub server_headers: Option<Vec<String>>,
@@ -44,8 +45,8 @@ pub struct Consul {
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Config {
     pub provider: String,
-    pub sticky_sessions: bool,
     pub to_https: Option<bool>,
+    pub sticky_sessions: bool,
     #[serde(default)]
     pub upstreams: Option<HashMap<String, HostConfig>>,
     #[serde(default)]
@@ -74,6 +75,7 @@ pub struct HostConfig {
 pub struct PathConfig {
     pub servers: Vec<String>,
     pub to_https: Option<bool>,
+    pub sticky_sessions: Option<bool>,
     pub client_headers: Option<Vec<String>>,
     pub server_headers: Option<Vec<String>>,
     pub rate_limit: Option<isize>,

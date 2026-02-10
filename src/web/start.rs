@@ -31,8 +31,8 @@ pub fn run() {
     let sh_config = Arc::new(DashMap::new());
 
     let ec_config = Arc::new(ArcSwap::from_pointee(Extraparams {
-        sticky_sessions: false,
         to_https: None,
+        sticky_sessions: false,
         authentication: DashMap::new(),
         rate_limit: None,
     }));
