@@ -40,7 +40,7 @@ lazy_static::lazy_static! {
     pub static ref REQUESTS_BY_UPSTREAM: IntCounterVec = register_int_counter_vec!(
         "aralez_requests_by_upstream",
         "Number of requests by UPSTREAM server",
-        &["method"]
+        &["upstream"]
     ).unwrap();
     pub static ref REQUESTS_BY_VERSION: IntCounterVec = register_int_counter_vec!(
         "aralez_requests_by_version_total",

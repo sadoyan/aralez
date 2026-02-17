@@ -20,10 +20,10 @@ pingora-proxy = "0.7.0"
 pingora-http = "0.7.0"
 pingora-limits = "0.7.0"
 async-trait = "0.1.89"
-env_logger = "0.11.8"
+env_logger = "0.11.9"
 log = "0.4.29"
-futures = "0.3.31"
-notify = "9.0.0-rc.1"
+futures = "0.3.32"
+notify = "9.0.0-rc.2"
 axum = { version = "0.8.8" }
 axum-server = { version = "0.8.0", features = ["tls-openssl"] }
 reqwest = { version = "0.13.1", features = ["json", "stream"] }
