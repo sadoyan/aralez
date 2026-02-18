@@ -144,7 +144,7 @@ impl ProxyHttp for LB {
                                     let port = self.config.proxy_port_tls.unwrap_or(443);
                                     ctx.to_https = true;
                                     let mut s = String::with_capacity(64);
-                                    write!(&mut s, "https://{}:{}{}", host, port, uri).unwrap();
+                                    write!(&mut s, "https://{}:{}{}", host, port, uri).unwrap_or_default();
                                     ctx.redirect_to = Some(s);
                                 }
                             }
