@@ -7,7 +7,7 @@ use axum::http::{Response, StatusCode};
 use axum::response::IntoResponse;
 use axum::routing::{get, post};
 use axum::{Json, Router};
-use axum_server::tls_openssl::OpenSSLConfig;
+// use axum_server::tls_openssl::OpenSSLConfig;
 use futures::channel::mpsc::Sender;
 use futures::SinkExt;
 use jsonwebtoken::{encode, EncodingKey, Header};
@@ -15,7 +15,7 @@ use log::{error, info, warn};
 use prometheus::{gather, Encoder, TextEncoder};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::net::SocketAddr;
+// use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::net::TcpListener;
@@ -64,17 +64,17 @@ pub async fn run_server(config: &APIUpstreamProvider, mut to_return: Sender<Conf
         .route("/status", get(status))
         .with_state(app_state);
 
-    if let Some(value) = &config.tls_address {
-        let cf = OpenSSLConfig::from_pem_file(config.tls_certificate.clone().unwrap(), config.tls_key_file.clone().unwrap()).unwrap();
-        let addr: SocketAddr = value.parse().expect("Unable to parse socket address");
-        let tls_app = app.clone();
-        tokio::spawn(async move {
-            if let Err(e) = axum_server::bind_openssl(addr, cf).serve(tls_app.into_make_service()).await {
-                eprintln!("TLS server failed: {}", e);
-            }
-        });
-        info!("Starting the TLS API server on: {}", value);
-    }
+    // if let Some(value) = &config.tls_address {
+    //     let cf = OpenSSLConfig::from_pem_file(config.tls_certificate.clone().unwrap(), config.tls_key_file.clone().unwrap()).unwrap();
+    //     let addr: SocketAddr = value.parse().expect("Unable to parse socket address");
+    //     let tls_app = app.clone();
+    //     tokio::spawn(async move {
+    //         if let Err(e) = axum_server::bind_openssl(addr, cf).serve(tls_app.into_make_service()).await {
+    //             eprintln!("TLS server failed: {}", e);
+    //         }
+    //     });
+    //     info!("Starting the TLS API server on: {}", value);
+    // }
 
     if let (Some(address), Some(folder)) = (&config.file_server_address, &config.file_server_folder) {
         let static_files = ServeDir::new(folder);

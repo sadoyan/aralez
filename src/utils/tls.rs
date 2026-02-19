@@ -228,26 +228,30 @@ pub fn set_tsl_grade(tls_settings: &mut TlsSettings, grade: &str) {
             let _ = tls_settings.set_min_proto_version(Some(SslVersion::TLS1_2));
             // let _ = tls_settings.set_max_proto_version(Some(SslVersion::TLS1_3));
             let _ = tls_settings.set_cipher_list(CIPHERS.high);
-            let _ = tls_settings.set_ciphersuites(CIPHERS.high);
+            // let _ = tls_settings.set_ciphersuites(CIPHERS.high);
+            let _ = tls_settings.set_cipher_list(CIPHERS.high);
             info!("TLS grade: {:?}, => HIGH", tls_settings.options());
         }
         Some(TlsGrade::MEDIUM) => {
             let _ = tls_settings.set_min_proto_version(Some(SslVersion::TLS1));
             let _ = tls_settings.set_cipher_list(CIPHERS.medium);
-            let _ = tls_settings.set_ciphersuites(CIPHERS.medium);
+            // let _ = tls_settings.set_ciphersuites(CIPHERS.medium);
+            let _ = tls_settings.set_cipher_list(CIPHERS.medium);
             info!("TLS grade: {:?}, => MEDIUM", tls_settings.options());
         }
         Some(TlsGrade::LEGACY) => {
             let _ = tls_settings.set_min_proto_version(Some(SslVersion::SSL3));
             let _ = tls_settings.set_cipher_list(CIPHERS.legacy);
-            let _ = tls_settings.set_ciphersuites(CIPHERS.legacy);
+            // let _ = tls_settings.set_ciphersuites(CIPHERS.legacy);
+            let _ = tls_settings.set_cipher_list(CIPHERS.legacy);
             warn!("TLS grade: {:?}, => UNSAFE", tls_settings.options());
         }
         None => {
             // Defaults to MEDIUM
             let _ = tls_settings.set_min_proto_version(Some(SslVersion::TLS1));
             let _ = tls_settings.set_cipher_list(CIPHERS.medium);
-            let _ = tls_settings.set_ciphersuites(CIPHERS.medium);
+            // let _ = tls_settings.set_ciphersuites(CIPHERS.medium);
+            let _ = tls_settings.set_cipher_list(CIPHERS.medium);
             warn!("TLS grade is not detected defaulting top MEDIUM");
         }
     }

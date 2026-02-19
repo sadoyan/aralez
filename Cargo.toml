@@ -12,7 +12,7 @@ strip = true
 
 [dependencies]
 tokio = { version = "1.49.0", features = ["full"] }
-pingora = { version = "0.7.0", features = ["lb", "openssl"] } # openssl, rustls, boringssl
+pingora = { version = "0.7.0", features = ["lb", "boringssl"] } # openssl, rustls, boringssl
 serde = { version = "1.0.228", features = ["derive"] }
 dashmap = "7.0.0-rc2"
 pingora-core = "0.7.0"
@@ -25,7 +25,7 @@ log = "0.4.29"
 futures = "0.3.32"
 notify = "9.0.0-rc.2"
 axum = { version = "0.8.8" }
-axum-server = { version = "0.8.0", features = ["tls-openssl"] }
+#axum-server = { version = "0.8.0" }
 reqwest = { version = "0.13.1", features = ["json", "stream"] }
 serde_yaml = "0.9.34-deprecated"
 rand = "0.10.0-rc.8"
