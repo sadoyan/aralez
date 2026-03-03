@@ -35,6 +35,7 @@ pub async fn for_consul(url: String, token: Option<String>, conf: &ServiceMappin
             to_https: conf.to_https.unwrap_or(false),
             rate_limit: conf.rate_limit,
             healthcheck: None,
+            authorization: None,
         });
         inner_vec.push(to_add);
     }
@@ -68,6 +69,7 @@ pub async fn for_kuber(url: &str, token: &str, conf: &ServiceMapping) -> Option<
                             to_https: conf.to_https.unwrap_or(false),
                             rate_limit: conf.rate_limit,
                             healthcheck: None,
+                            authorization: None,
                         });
                         inner_vec.push(to_add);
                     }

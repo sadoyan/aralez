@@ -70,17 +70,20 @@ impl ProxyHttp for LB {
     }
     async fn request_filter(&self, session: &mut Session, _ctx: &mut Self::CTX) -> Result<bool> {
         let ep = _ctx.extraparams.as_ref();
+
+        // ======================================================================================== //
+        println!("{:?}", ep);
         if let Some(auth) = ep.authentication.get("authorization") {
-            let authenticated = authenticate(auth.value(), &session);
+            let authenticated = authenticate(&auth.value()[0], &auth.value()[1], &session);
             if !authenticated {
                 let _ = session.respond_error(401).await;
                 warn!("Forbidden: {:?}, {}", session.client_addr(), session.req_header().uri.path());
                 return Ok(true);
             }
         };
+        // ======================================================================================== //
 
         let hostname = return_header_host_from_upstream(session, &self.ump_upst);
-
         _ctx.hostname = hostname;
         let mut backend_id = None;
 
@@ -101,9 +104,19 @@ impl ProxyHttp for LB {
             None => return Ok(false),
             Some(host) => {
                 let optioninnermap = self.get_host(host, session.req_header().uri.path(), backend_id);
+
                 match optioninnermap {
                     None => return Ok(false),
                     Some(ref innermap) => {
+                        if let Some(auth) = &innermap.authorization {
+                            let authenticated = authenticate(&auth.auth_type, &auth.auth_cred, &session);
+                            if !authenticated {
+                                let _ = session.respond_error(401).await;
+                                warn!("Forbidden: {:?}, {}", session.client_addr(), session.req_header().uri.path());
+                                return Ok(true);
+                            }
+                        }
+
                         if let Some(rate) = innermap.rate_limit.or(ep.rate_limit) {
                             let rate_key = session.client_addr().and_then(|addr| addr.as_inet()).map(|inet| inet.ip());
                             let curr_window_requests = RATE_LIMITER.observe(&rate_key, 1);

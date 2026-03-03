@@ -57,22 +57,23 @@ fn validate(auth: &dyn AuthValidator, session: &Session) -> bool {
     auth.validate(session)
 }
 
-pub fn authenticate(c: &[Arc<str>], session: &Session) -> bool {
-    match &*c[0] {
+// pub fn authenticate(c: &[Arc<str>], session: &Session) -> bool {
+pub fn authenticate(auth_type: &Arc<str>, credentials: &Arc<str>, session: &Session) -> bool {
+    match &*auth_type.clone() {
         "basic" => {
-            let auth = BasicAuth(&*c[1]);
+            let auth = BasicAuth(&*credentials.clone());
             validate(&auth, session)
         }
         "apikey" => {
-            let auth = ApiKeyAuth(&*c[1]);
+            let auth = ApiKeyAuth(&*credentials.clone());
             validate(&auth, session)
         }
         "jwt" => {
-            let auth = JwtAuth(&*c[1]);
+            let auth = JwtAuth(&*credentials.clone());
             validate(&auth, session)
         }
         _ => {
-            println!("Unsupported authentication mechanism : {}", c[0]);
+            println!("Unsupported authentication mechanism : {}", auth_type);
             false
         }
     }

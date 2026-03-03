@@ -34,7 +34,10 @@ pub async fn load_configuration(d: &str, kind: &str) -> (Option<Configuration>, 
     };
 
     let parsed: Config = match serde_yaml::from_str(&yaml_data) {
-        Ok(cfg) => cfg,
+        Ok(cfg) => {
+            // println!("{:#?}", cfg);
+            cfg
+        }
         Err(e) => {
             error!("Failed to parse upstreams file: {}", e);
             return (None, e.to_string());
@@ -97,6 +100,7 @@ async fn populate_headers_and_auth(config: &mut Configuration, parsed: &Config) 
         info!("Applied Global Rate Limit : {} request per second", rate);
     }
 
+    // ======================================================================================== //
     if let Some(auth) = &parsed.authorization {
         let name = auth.get("type").unwrap_or(&"".to_string()).to_string();
         let creds = auth.get("creds").unwrap_or(&"".to_string()).to_string();
@@ -107,6 +111,7 @@ async fn populate_headers_and_auth(config: &mut Configuration, parsed: &Config) 
     } else {
         config.extraparams.authentication = DashMap::new();
     }
+    // ======================================================================================== //
 }
 
 async fn populate_file_upstreams(config: &mut Configuration, parsed: &Config) {
@@ -126,9 +131,17 @@ async fn populate_file_upstreams(config: &mut Configuration, parsed: &Config) {
                 build_headers(&path_config.server_headers, config, &mut sl);
                 client_header_list.insert(Arc::from(path.as_str()), hl);
                 server_header_list.insert(Arc::from(path.as_str()), sl);
-
                 let mut server_list = Vec::new();
                 for server in &path_config.servers {
+                    let mut path_auth: Option<Arc<InnerAuth>> = None;
+                    if let Some(pa) = &path_config.authorization {
+                        let y: InnerAuth = InnerAuth {
+                            auth_type: Arc::from(pa.auth_type.clone()),
+                            auth_cred: Arc::from(pa.auth_cred.clone()),
+                        };
+                        path_auth = Some(Arc::from(y));
+                    }
+
                     if let Some((ip, port_str)) = server.split_once(':') {
                         if let Ok(port) = port_str.parse::<u16>() {
                             server_list.push(Arc::from(InnerMap {
@@ -139,6 +152,7 @@ async fn populate_file_upstreams(config: &mut Configuration, parsed: &Config) {
                                 to_https: path_config.to_https.unwrap_or(false),
                                 rate_limit: path_config.rate_limit,
                                 healthcheck: path_config.healthcheck,
+                                authorization: path_auth,
                             }));
                         }
                     }

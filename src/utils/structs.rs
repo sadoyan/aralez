@@ -14,6 +14,7 @@ pub struct Extraparams {
     pub to_https: Option<bool>,
     pub sticky_sessions: bool,
     pub authentication: DashMap<Arc<str>, Vec<Arc<str>>>,
+    // pub authentication: InnerAuth,
     pub rate_limit: Option<isize>,
 }
 
@@ -70,7 +71,13 @@ pub struct HostConfig {
     pub paths: HashMap<String, PathConfig>,
     pub rate_limit: Option<isize>,
 }
-
+#[derive(Debug, Default, Serialize, Deserialize, Clone)]
+pub struct Auth {
+    #[serde(rename = "type")]
+    pub auth_type: String,
+    #[serde(rename = "creds")]
+    pub auth_cred: String,
+}
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct PathConfig {
     pub servers: Vec<String>,
@@ -80,6 +87,8 @@ pub struct PathConfig {
     pub server_headers: Option<Vec<String>>,
     pub rate_limit: Option<isize>,
     pub healthcheck: Option<bool>,
+    // pub authorization: Option<HashMap<String, String>>,
+    pub authorization: Option<Auth>,
 }
 #[derive(Debug, Default)]
 pub struct Configuration {
@@ -116,7 +125,13 @@ pub struct AppConfig {
     pub rungroup: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub struct InnerAuth {
+    pub auth_type: Arc<str>,
+    pub auth_cred: Arc<str>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InnerMap {
     pub address: Arc<str>,
     pub port: u16,
@@ -125,6 +140,8 @@ pub struct InnerMap {
     pub to_https: bool,
     pub rate_limit: Option<isize>,
     pub healthcheck: Option<bool>,
+    // pub authorization: Option<DashMap<Arc<str>, Arc<str>>>,
+    pub authorization: Option<Arc<InnerAuth>>,
 }
 
 #[allow(dead_code)]
@@ -139,6 +156,7 @@ impl InnerMap {
             to_https: Default::default(),
             rate_limit: Default::default(),
             healthcheck: Default::default(),
+            authorization: Default::default(),
         }
     }
 }

@@ -124,11 +124,23 @@ pub fn compare_dashmaps(map1: &UpstreamsDashMap, map2: &UpstreamsDashMap) -> boo
                 return false; // Path exists in map1 but not in map2
             };
             let (vec2, _counter2) = entry2.value();
-            let set1: HashSet<_> = vec1.iter().collect();
-            let set2: HashSet<_> = vec2.iter().collect();
-            if set1 != set2 {
+
+            if vec1.len() != vec2.len() {
                 return false;
             }
+            for item in vec1.iter() {
+                let count1 = vec1.iter().filter(|&x| x == item).count();
+                let count2 = vec2.iter().filter(|&x| x == item).count();
+                if count1 != count2 {
+                    return false;
+                }
+            }
+
+            // let set1: HashSet<_> = vec1.iter().collect();
+            // let set2: HashSet<_> = vec2.iter().collect();
+            // if set1 != set2 {
+            //     return false;
+            // }
         }
     }
     true
@@ -168,6 +180,7 @@ pub fn clone_idmap_into(original: &UpstreamsDashMap, cloned: &UpstreamsIdMap) {
                     to_https: false,
                     rate_limit: None,
                     healthcheck: None,
+                    authorization: None,
                 };
 
                 cloned.insert(id, Arc::from(to_add));
