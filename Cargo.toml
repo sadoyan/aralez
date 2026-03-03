@@ -12,13 +12,13 @@ strip = true
 
 [dependencies]
 tokio = { version = "1.49.0", features = ["full"] }
-pingora = { version = "0.7.0", features = ["lb", "boringssl"] } # openssl, rustls, boringssl
+pingora = { version = "0.8.0", features = ["lb", "openssl"] } # openssl, rustls, boringssl
 serde = { version = "1.0.228", features = ["derive"] }
 dashmap = "7.0.0-rc2"
-pingora-core = "0.7.0"
-pingora-proxy = "0.7.0"
-pingora-http = "0.7.0"
-pingora-limits = "0.7.0"
+pingora-core = "0.8.0"
+pingora-proxy = "0.8.0"
+pingora-http = "0.8.0"
+pingora-limits = "0.8.0"
 async-trait = "0.1.89"
 env_logger = "0.11.9"
 log = "0.4.29"
@@ -26,25 +26,27 @@ futures = "0.3.32"
 notify = "9.0.0-rc.2"
 axum = { version = "0.8.8" }
 #axum-server = { version = "0.8.0" }
-reqwest = { version = "0.13.1", features = ["json", "stream"] }
+reqwest = { version = "0.13.2", features = ["json", "stream"] }
 serde_yaml = "0.9.34-deprecated"
-rand = "0.10.0-rc.8"
+rand = "0.10.0"
 base64 = "0.22.1"
-jsonwebtoken = { version = "10.3.0", features = ["aws_lc_rs"] }
-tonic = "0.14.3"
+#jsonwebtoken = { version = "10.3.0", features = ["aws_lc_rs"] }
+#jsonwebtoken = { version = "10.3.0", default-features = false, features = ["use_pem"] }
+jsonwebtoken = { version = "10.3.0", default-features = false, features = ["use_pem", "rust_crypto"] }
+tonic = "0.14.5"
 sha2 = { version = "0.11.0-rc.5", default-features = false }
 base16ct = { version = "1.0.0", features = ["alloc"] }
 urlencoding = "2.1.3"
-arc-swap = "1.8.1"
+arc-swap = "1.8.2"
 mimalloc = { version = "0.1.48", default-features = false }
 prometheus = "0.14.0"
 lazy_static = "1.5.0"
-x509-parser = "0.18.0"
+x509-parser = "0.18.1"
 rustls-pemfile = "2.2.0"
 tower-http = { version = "0.6.8", features = ["fs"] }
 once_cell = "1.21.3"
 privdrop = "0.5.6"
-ctrlc = "3.5.1"
+ctrlc = "3.5.2"
 port_check = "0.3.0"
 serde_json = "1.0.149"
 http = "1.4.0"

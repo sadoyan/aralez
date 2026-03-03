@@ -13,14 +13,17 @@ use pingora::prelude::*;
 use pingora::ErrorSource::Upstream;
 use pingora_core::listeners::ALPN;
 use pingora_core::prelude::HttpPeer;
+// use pingora_core::protocols::TcpKeepalive;
 use pingora_limits::rate::Rate;
 use pingora_proxy::{ProxyHttp, Session};
 use sha2::{Digest, Sha256};
 use std::cell::RefCell;
+// use std::collections::BTreeMap;
 use std::fmt::Write;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::time::Instant;
+// use x509_parser::asn1_rs::ToDer;
 
 static RATE_LIMITER: Lazy<Rate> = Lazy::new(|| Rate::new(Duration::from_secs(1)));
 static REVERSE_STORE: Lazy<DashMap<String, String>> = Lazy::new(|| DashMap::new());
@@ -136,6 +139,19 @@ impl ProxyHttp for LB {
                         peer.options.verify_hostname = false;
                     }
 
+                    // Experimental optionsv
+                    // The following TCP optimizations were tested but caused performance degrade under heavy load:
+                    // peer.options.tcp_keepalive = Some(TcpKeepalive {
+                    //     idle: Duration::from_secs(60),
+                    //     interval: Duration::from_secs(10),
+                    //     count: 5,
+                    //     user_timeout: Duration::from_secs(30),
+                    // });
+                    //
+                    // peer.options.idle_timeout = Some(Duration::from_secs(300));
+                    // peer.options.tcp_recv_buf = Some(128 * 1024);
+                    // End of experimental options
+
                     if ctx.extraparams.to_https.unwrap_or(false) || innermap.to_https {
                         if let Some(stream) = session.stream() {
                             if stream.get_ssl().is_none() {
@@ -250,7 +266,8 @@ impl ProxyHttp for LB {
         }
         // END ALLOCATIONS !
 
-        session.set_keepalive(Some(300));
+        // session.set_keepalive(Some(300));
+        // println!("session.get_keepalive: {:?}", session.get_keepalive());
         Ok(())
     }
 
