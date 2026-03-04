@@ -130,6 +130,7 @@ dependencies = [
  "env_logger",
  "futures",
  "http",
+ "itoa",
  "jsonwebtoken",
  "lazy_static",
  "log",

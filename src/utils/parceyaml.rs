@@ -8,7 +8,6 @@ use std::collections::HashMap;
 use std::sync::atomic::AtomicUsize;
 use std::sync::Arc;
 use std::{env, fs};
-// use tokio::sync::oneshot::{Receiver, Sender};
 
 pub async fn load_configuration(d: &str, kind: &str) -> (Option<Configuration>, String) {
     let yaml_data = match kind {
@@ -100,18 +99,13 @@ async fn populate_headers_and_auth(config: &mut Configuration, parsed: &Config) 
         info!("Applied Global Rate Limit : {} request per second", rate);
     }
 
-    // ======================================================================================== //
-    if let Some(auth) = &parsed.authorization {
-        let name = auth.get("type").unwrap_or(&"".to_string()).to_string();
-        let creds = auth.get("creds").unwrap_or(&"".to_string()).to_string();
-        config
-            .extraparams
-            .authentication
-            .insert(Arc::from("authorization"), vec![Arc::from(name), Arc::from(creds)]);
-    } else {
-        config.extraparams.authentication = DashMap::new();
+    if let Some(pa) = &parsed.authorization {
+        let y: InnerAuth = InnerAuth {
+            auth_type: Arc::from(pa.auth_type.clone()),
+            auth_cred: Arc::from(pa.auth_cred.clone()),
+        };
+        config.extraparams.authentication = Some(y);
     }
-    // ======================================================================================== //
 }
 
 async fn populate_file_upstreams(config: &mut Configuration, parsed: &Config) {
@@ -255,12 +249,5 @@ pub fn build_headers(path_config: &Option<Vec<String>>, _config: &Configuration,
                 hl.push((Arc::from(key.trim()), Arc::from(val.trim())));
             }
         }
-        // if let Some(push) = config.client_headers.get("GLOBAL_HEADERS") {
-        //     for k in push.iter() {
-        //         for x in k.value() {
-        //             hl.push(x.to_owned());
-        //         }
-        //     }
-        // }
     }
 }

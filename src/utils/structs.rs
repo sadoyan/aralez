@@ -13,8 +13,7 @@ pub type Headers = DashMap<Arc<str>, DashMap<Arc<str>, Vec<(Arc<str>, Arc<str>)>
 pub struct Extraparams {
     pub to_https: Option<bool>,
     pub sticky_sessions: bool,
-    pub authentication: DashMap<Arc<str>, Vec<Arc<str>>>,
-    // pub authentication: InnerAuth,
+    pub authentication: Option<InnerAuth>,
     pub rate_limit: Option<isize>,
 }
 
@@ -57,7 +56,7 @@ pub struct Config {
     #[serde(default)]
     pub server_headers: Option<Vec<String>>,
     #[serde(default)]
-    pub authorization: Option<HashMap<String, String>>,
+    pub authorization: Option<Auth>,
     #[serde(default)]
     pub consul: Option<Consul>,
     #[serde(default)]
@@ -87,7 +86,6 @@ pub struct PathConfig {
     pub server_headers: Option<Vec<String>>,
     pub rate_limit: Option<isize>,
     pub healthcheck: Option<bool>,
-    // pub authorization: Option<HashMap<String, String>>,
     pub authorization: Option<Auth>,
 }
 #[derive(Debug, Default)]
@@ -140,7 +138,6 @@ pub struct InnerMap {
     pub to_https: bool,
     pub rate_limit: Option<isize>,
     pub healthcheck: Option<bool>,
-    // pub authorization: Option<DashMap<Arc<str>, Arc<str>>>,
     pub authorization: Option<Arc<InnerAuth>>,
 }
 
@@ -148,7 +145,6 @@ pub struct InnerMap {
 impl InnerMap {
     pub fn new() -> Self {
         Self {
-            // address: "127.0.0.1".parse().unwrap(),
             address: Arc::from("127.0.0.1"),
             port: Default::default(),
             is_ssl: Default::default(),

@@ -6,6 +6,8 @@ use arc_swap::ArcSwap;
 use async_trait::async_trait;
 use axum::body::Bytes;
 use dashmap::DashMap;
+// use x509_parser::asn1_rs::ToDer;
+use itoa::Buffer;
 use log::{debug, error, warn};
 use once_cell::sync::Lazy;
 use pingora::http::{RequestHeader, ResponseHeader, StatusCode};
@@ -23,7 +25,6 @@ use std::fmt::Write;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::time::Instant;
-// use x509_parser::asn1_rs::ToDer;
 
 static RATE_LIMITER: Lazy<Rate> = Lazy::new(|| Rate::new(Duration::from_secs(1)));
 static REVERSE_STORE: Lazy<DashMap<String, String>> = Lazy::new(|| DashMap::new());
@@ -69,33 +70,26 @@ impl ProxyHttp for LB {
         }
     }
     async fn request_filter(&self, session: &mut Session, _ctx: &mut Self::CTX) -> Result<bool> {
-        let ep = _ctx.extraparams.as_ref();
-
-        // ======================================================================================== //
-        println!("{:?}", ep);
-        if let Some(auth) = ep.authentication.get("authorization") {
-            let authenticated = authenticate(&auth.value()[0], &auth.value()[1], &session);
+        // let ep = _ctx.extraparams.as_ref();
+        if let Some(auth) = &_ctx.extraparams.authentication {
+            let authenticated = authenticate(&auth.auth_type, &auth.auth_cred, &session);
             if !authenticated {
                 let _ = session.respond_error(401).await;
                 warn!("Forbidden: {:?}, {}", session.client_addr(), session.req_header().uri.path());
                 return Ok(true);
             }
-        };
-        // ======================================================================================== //
-
+        }
         let hostname = return_header_host_from_upstream(session, &self.ump_upst);
         _ctx.hostname = hostname;
         let mut backend_id = None;
 
-        if ep.sticky_sessions {
+        if _ctx.extraparams.sticky_sessions {
             if let Some(cookies) = session.req_header().headers.get("cookie") {
                 if let Ok(cookie_str) = cookies.to_str() {
-                    for cookie in cookie_str.split(';') {
-                        let trimmed = cookie.trim();
-                        if let Some(value) = trimmed.strip_prefix("backend_id=") {
-                            backend_id = Some(value);
-                            break;
-                        }
+                    if let Some(pos) = cookie_str.find("backend_id=") {
+                        let value = &cookie_str[pos + "backend_id=".len()..];
+                        let end = value.find(';').unwrap_or(value.len());
+                        backend_id = Some(&value[..end]);
                     }
                 }
             }
@@ -108,23 +102,28 @@ impl ProxyHttp for LB {
                 match optioninnermap {
                     None => return Ok(false),
                     Some(ref innermap) => {
+                        // Inner auth works only if global is disabled.
                         if let Some(auth) = &innermap.authorization {
-                            let authenticated = authenticate(&auth.auth_type, &auth.auth_cred, &session);
-                            if !authenticated {
-                                let _ = session.respond_error(401).await;
-                                warn!("Forbidden: {:?}, {}", session.client_addr(), session.req_header().uri.path());
-                                return Ok(true);
+                            if _ctx.extraparams.authentication.is_none() {
+                                let authenticated = authenticate(&auth.auth_type, &auth.auth_cred, &session);
+                                if !authenticated {
+                                    let _ = session.respond_error(401).await;
+                                    warn!("Forbidden: {:?}, {}", session.client_addr(), session.req_header().uri.path());
+                                    return Ok(true);
+                                }
                             }
                         }
 
-                        if let Some(rate) = innermap.rate_limit.or(ep.rate_limit) {
+                        if let Some(rate) = innermap.rate_limit.or(_ctx.extraparams.rate_limit) {
                             let rate_key = session.client_addr().and_then(|addr| addr.as_inet()).map(|inet| inet.ip());
                             let curr_window_requests = RATE_LIMITER.observe(&rate_key, 1);
                             if curr_window_requests > rate {
-                                let mut header = ResponseHeader::build(429, None).unwrap();
-                                header.insert_header("X-Rate-Limit-Limit", rate.to_string()).unwrap();
-                                header.insert_header("X-Rate-Limit-Remaining", "0").unwrap();
-                                header.insert_header("X-Rate-Limit-Reset", "1").unwrap();
+                                let mut buf = Buffer::new();
+                                let rate_str = buf.format(rate);
+                                let mut header = ResponseHeader::build(429, None)?;
+                                header.insert_header("X-Rate-Limit-Limit", rate_str)?;
+                                header.insert_header("X-Rate-Limit-Remaining", "0")?;
+                                header.insert_header("X-Rate-Limit-Reset", "1")?;
                                 session.set_keepalive(None);
                                 session.write_response_header(Box::new(header), true).await?;
                                 debug!("Rate limited: {:?}, {}", rate_key, rate);
