@@ -247,17 +247,17 @@ impl ProxyHttp for LB {
     }
     async fn response_filter(&self, session: &mut Session, _upstream_response: &mut ResponseHeader, ctx: &mut Self::CTX) -> Result<()> {
         if ctx.sticky_sessions {
-            if let Some(bid) = ctx.backend_id.clone() {
-                if REVERSE_STORE.get(&*bid).is_none() {
+            if let Some(bid) = &ctx.backend_id {
+                if REVERSE_STORE.get(bid).is_none() {
                     let mut hasher = Sha256::new();
-                    hasher.update(bid.clone().into_bytes());
+                    hasher.update(bid.as_bytes());
                     let hash = hasher.finalize();
                     let hex_hash = base16ct::lower::encode_string(&hash);
                     let hh = hex_hash[0..50].to_string();
                     REVERSE_STORE.insert(bid.clone(), hh.clone());
-                    REVERSE_STORE.insert(hh.clone(), bid.clone());
+                    REVERSE_STORE.insert(hh, bid.clone());
                 }
-                if let Some(tt) = REVERSE_STORE.get(&*bid) {
+                if let Some(tt) = REVERSE_STORE.get(bid) {
                     let _ = _upstream_response.insert_header("set-cookie", format!("backend_id={}; Path=/; Max-Age=600; HttpOnly; SameSite=Lax", tt.value()));
                 }
             }
