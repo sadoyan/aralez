@@ -50,7 +50,7 @@ pub struct Context {
     hostname: Option<Arc<str>>,
     upstream_peer: Option<Arc<InnerMap>>,
     extraparams: arc_swap::Guard<Arc<Extraparams>>,
-    client_headers: Option<Arc<Vec<(Arc<str>, Arc<str>)>>>,
+    client_headers: Option<Vec<(Arc<str>, Arc<str>)>>,
 }
 
 #[async_trait]
@@ -181,7 +181,8 @@ impl ProxyHttp for LB {
 
                     if ctx.extraparams.sticky_sessions {
                         let mut s = String::with_capacity(64);
-                        write!(&mut s, "{}:{}:{}", innermap.address, innermap.port, innermap.is_ssl).unwrap();
+                        write!(&mut s, "{}:{}:{}:{}", hostname, innermap.address, innermap.port, innermap.is_ssl).unwrap();
+                        // write!(&mut s, "{}:{}:{}", innermap.address, innermap.port, innermap.is_ssl).unwrap();
                         ctx.backend_id = Some(s);
                         ctx.sticky_sessions = true;
                     }
@@ -241,25 +242,26 @@ impl ProxyHttp for LB {
             }
         }
         if let Some(ch) = client_headers {
-            ctx.client_headers = Some(Arc::new(ch));
+            ctx.client_headers = Some(ch);
         }
         Ok(())
     }
     async fn response_filter(&self, session: &mut Session, _upstream_response: &mut ResponseHeader, ctx: &mut Self::CTX) -> Result<()> {
         if ctx.sticky_sessions {
             if let Some(bid) = &ctx.backend_id {
-                if REVERSE_STORE.get(bid).is_none() {
+                let tt = if let Some(existing) = REVERSE_STORE.get(bid) {
+                    existing.value().clone()
+                } else {
                     let mut hasher = Sha256::new();
                     hasher.update(bid.as_bytes());
                     let hash = hasher.finalize();
                     let hex_hash = base16ct::lower::encode_string(&hash);
                     let hh = hex_hash[0..50].to_string();
                     REVERSE_STORE.insert(bid.clone(), hh.clone());
-                    REVERSE_STORE.insert(hh, bid.clone());
-                }
-                if let Some(tt) = REVERSE_STORE.get(bid) {
-                    let _ = _upstream_response.insert_header("set-cookie", format!("backend_id={}; Path=/; Max-Age=600; HttpOnly; SameSite=Lax", tt.value()));
-                }
+                    REVERSE_STORE.insert(hh.clone(), bid.clone());
+                    hh
+                };
+                let _ = _upstream_response.insert_header("set-cookie", format!("backend_id={}; Path=/; Max-Age=600; HttpOnly; SameSite=Lax", tt));
             }
         }
 

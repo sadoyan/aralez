@@ -166,7 +166,7 @@ pub fn clone_idmap_into(original: &UpstreamsDashMap, cloned: &UpstreamsIdMap) {
             let new_vec = vec.clone();
             for x in vec.iter() {
                 let mut id = String::new();
-                write!(&mut id, "{}:{}:{}", x.address, x.port, x.is_ssl).unwrap();
+                write!(&mut id, "{}:{}:{}:{}", outer_entry.key(), x.address, x.port, x.is_ssl).unwrap();
                 let mut hasher = Sha256::new();
                 hasher.update(id.clone().into_bytes());
                 let hash = hasher.finalize();
