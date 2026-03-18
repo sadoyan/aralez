@@ -181,8 +181,32 @@ impl ProxyHttp for LB {
 
                     if ctx.extraparams.sticky_sessions {
                         let mut s = String::with_capacity(64);
-                        write!(&mut s, "{}:{}:{}:{}", hostname, innermap.address, innermap.port, innermap.is_ssl).unwrap();
-                        // write!(&mut s, "{}:{}:{}", innermap.address, innermap.port, innermap.is_ssl).unwrap();
+                        // write!(&mut s, "{}:{}:{}:{}", hostname, innermap.address, innermap.port, innermap.is_ssl).unwrap();
+                        write!(
+                            &mut s,
+                            "{}:{}:{}:{}:{}:{}:{}:{:?}",
+                            hostname,
+                            innermap.address,
+                            innermap.port,
+                            innermap.is_http2,
+                            innermap.to_https,
+                            innermap.rate_limit.unwrap_or_default(),
+                            innermap.healthcheck.unwrap_or_default(),
+                            innermap.authorization
+                        )
+                        .unwrap_or(());
+                        // println!(
+                        //     "{}:{}:{}:{}:{}:{}:{}:{:?}",
+                        //     hostname,
+                        //     innermap.address,
+                        //     innermap.port,
+                        //     innermap.is_http2,
+                        //     innermap.to_https,
+                        //     innermap.rate_limit.unwrap_or_default(),
+                        //     innermap.healthcheck.unwrap_or_default(),
+                        //     innermap.authorization
+                        // );
+
                         ctx.backend_id = Some(s);
                         ctx.sticky_sessions = true;
                     }

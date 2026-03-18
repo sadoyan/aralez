@@ -166,8 +166,22 @@ pub fn clone_idmap_into(original: &UpstreamsDashMap, cloned: &UpstreamsIdMap) {
             let new_vec = vec.clone();
             for x in vec.iter() {
                 let mut id = String::new();
-                write!(&mut id, "{}:{}:{}:{}", outer_entry.key(), x.address, x.port, x.is_ssl).unwrap();
+                write!(
+                    &mut id,
+                    "{}:{}:{}:{}:{}:{}:{}:{:?}",
+                    outer_entry.key(),
+                    x.address,
+                    x.port,
+                    x.is_http2,
+                    x.to_https,
+                    x.rate_limit.unwrap_or_default(),
+                    x.healthcheck.unwrap_or_default(),
+                    x.authorization
+                )
+                .unwrap_or(());
                 let mut hasher = Sha256::new();
+                // address: "127.0.0.3", port: 8000, is_ssl: false, is_http2: false, to_https: false, rate_limit: Some(200), healthcheck: None, authorization: None } }
+
                 hasher.update(id.clone().into_bytes());
                 let hash = hasher.finalize();
                 let hex_hash = base16ct::lower::encode_string(&hash);
@@ -182,7 +196,6 @@ pub fn clone_idmap_into(original: &UpstreamsDashMap, cloned: &UpstreamsIdMap) {
                     healthcheck: None,
                     authorization: None,
                 };
-
                 cloned.insert(id, Arc::from(to_add));
                 cloned.insert(hh, Arc::from(x.to_owned()));
                 // println!("CLONNED  :===========> {:?}", cloned);
@@ -190,6 +203,7 @@ pub fn clone_idmap_into(original: &UpstreamsDashMap, cloned: &UpstreamsIdMap) {
             new_inner_map.insert(path.clone(), new_vec);
         }
     }
+    info!("Upstreams are fully populated, ready to server requests");
 }
 
 pub fn listdir(dir: String) -> Vec<tls::CertificateConfig> {
