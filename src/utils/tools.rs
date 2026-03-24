@@ -194,6 +194,7 @@ pub fn clone_idmap_into(original: &UpstreamsDashMap, cloned: &UpstreamsIdMap) {
                     to_https: false,
                     rate_limit: None,
                     healthcheck: None,
+                    redirect_to: None,
                     authorization: None,
                 };
                 cloned.insert(id, Arc::from(to_add));
@@ -203,7 +204,7 @@ pub fn clone_idmap_into(original: &UpstreamsDashMap, cloned: &UpstreamsIdMap) {
             new_inner_map.insert(path.clone(), new_vec);
         }
     }
-    info!("Upstreams are fully populated, ready to server requests");
+    info!("Upstreams are fully populated. Ready to server requests");
 }
 
 pub fn listdir(dir: String) -> Vec<tls::CertificateConfig> {
@@ -381,4 +382,17 @@ pub fn upstreams_liveness_json(configured: &UpstreamsDashMap, current: &Upstream
         result.insert(hostname, Value::Object(paths_json));
     }
     Value::Object(result)
+}
+
+#[allow(dead_code)]
+pub fn prepend(prefix: &str, val: &Option<Arc<str>>, uri: &str, port: &str) -> Option<String> {
+    val.as_ref().map(|s| {
+        let mut buf = String::with_capacity(32);
+        buf.push_str(prefix);
+        buf.push_str(s);
+        buf.push_str(":");
+        buf.push_str(port);
+        buf.push_str(uri);
+        buf
+    })
 }

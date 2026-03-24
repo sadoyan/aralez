@@ -1,6 +1,7 @@
 use crate::utils::auth::authenticate;
 use crate::utils::metrics::*;
 use crate::utils::structs::{AppConfig, Extraparams, Headers, InnerMap, UpstreamsDashMap, UpstreamsIdMap};
+// use std::collections::BTreeMap;
 use crate::web::gethosts::{GetHost, GetHostsReturHeaders};
 use arc_swap::ArcSwap;
 use async_trait::async_trait;
@@ -20,7 +21,6 @@ use pingora_limits::rate::Rate;
 use pingora_proxy::{ProxyHttp, Session};
 use sha2::{Digest, Sha256};
 use std::cell::RefCell;
-// use std::collections::BTreeMap;
 use std::fmt::Write;
 use std::sync::Arc;
 use std::time::Duration;
@@ -43,7 +43,7 @@ pub struct LB {
 
 pub struct Context {
     backend_id: Option<String>,
-    to_https: bool,
+    // to_https: bool,
     sticky_sessions: bool,
     redirect_to: Option<String>,
     start_time: Instant,
@@ -59,7 +59,7 @@ impl ProxyHttp for LB {
     fn new_ctx(&self) -> Self::CTX {
         Context {
             backend_id: None,
-            to_https: false,
+            // to_https: false,
             sticky_sessions: false,
             redirect_to: None,
             start_time: Instant::now(),
@@ -70,7 +70,6 @@ impl ProxyHttp for LB {
         }
     }
     async fn request_filter(&self, session: &mut Session, _ctx: &mut Self::CTX) -> Result<bool> {
-        // let ep = _ctx.extraparams.as_ref();
         if let Some(auth) = &_ctx.extraparams.authentication {
             let authenticated = authenticate(&auth.auth_type, &auth.auth_cred, &session);
             if !authenticated {
@@ -150,29 +149,43 @@ impl ProxyHttp for LB {
                         peer.options.verify_cert = false;
                         peer.options.verify_hostname = false;
                     }
+                    /*
+                    Experimental optionsv
+                    The following TCP optimizations were tested but caused performance degrade under heavy load:
+                    peer.options.tcp_keepalive = Some(TcpKeepalive {
+                        idle: Duration::from_secs(60),
+                        interval: Duration::from_secs(10),
+                        count: 5,
+                        user_timeout: Duration::from_secs(30),
+                    });
 
-                    // Experimental optionsv
-                    // The following TCP optimizations were tested but caused performance degrade under heavy load:
-                    // peer.options.tcp_keepalive = Some(TcpKeepalive {
-                    //     idle: Duration::from_secs(60),
-                    //     interval: Duration::from_secs(10),
-                    //     count: 5,
-                    //     user_timeout: Duration::from_secs(30),
-                    // });
-                    //
-                    // peer.options.idle_timeout = Some(Duration::from_secs(300));
-                    // peer.options.tcp_recv_buf = Some(128 * 1024);
-                    // End of experimental options
+                    peer.options.idle_timeout = Some(Duration::from_secs(300));
+                    peer.options.tcp_recv_buf = Some(128 * 1024);
+                    End of experimental options
+                    */
+                    if let Some(redirect_to) = &innermap.redirect_to {
+                        let uri = session.req_header().uri.path();
+                        let capacity = redirect_to.len() + uri.len();
+                        let mut s = String::with_capacity(capacity);
+                        s.push_str(redirect_to);
+                        s.push_str(uri);
+                        // ctx.to_https = true;
+                        ctx.redirect_to = Some(s);
+                    }
 
                     if ctx.extraparams.to_https.unwrap_or(false) || innermap.to_https {
                         if let Some(stream) = session.stream() {
                             if stream.get_ssl().is_none() {
                                 if let Some(host) = ctx.hostname.as_ref() {
-                                    let uri = session.req_header().uri.path_and_query().map_or("/", |pq| pq.as_str());
-                                    let port = self.config.proxy_port_tls.unwrap_or(443);
-                                    ctx.to_https = true;
-                                    let mut s = String::with_capacity(64);
-                                    write!(&mut s, "https://{}:{}{}", host, port, uri).unwrap_or_default();
+                                    let port = self.config.proxy_port_tls.clone().unwrap_or_else(|| "443".to_string());
+                                    let uri = session.req_header().uri.path();
+                                    let capacity = host.len() + uri.len() + 8;
+                                    let mut s = String::with_capacity(capacity);
+                                    s.push_str("https://");
+                                    s.push_str(host);
+                                    s.push_str(port.as_str());
+                                    s.push_str(uri);
+                                    // ctx.to_https = true;
                                     ctx.redirect_to = Some(s);
                                 }
                             }
@@ -181,7 +194,6 @@ impl ProxyHttp for LB {
 
                     if ctx.extraparams.sticky_sessions {
                         let mut s = String::with_capacity(64);
-                        // write!(&mut s, "{}:{}:{}:{}", hostname, innermap.address, innermap.port, innermap.is_ssl).unwrap();
                         write!(
                             &mut s,
                             "{}:{}:{}:{}:{}:{}:{}:{:?}",
@@ -195,18 +207,6 @@ impl ProxyHttp for LB {
                             innermap.authorization
                         )
                         .unwrap_or(());
-                        // println!(
-                        //     "{}:{}:{}:{}:{}:{}:{}:{:?}",
-                        //     hostname,
-                        //     innermap.address,
-                        //     innermap.port,
-                        //     innermap.is_http2,
-                        //     innermap.to_https,
-                        //     innermap.rate_limit.unwrap_or_default(),
-                        //     innermap.healthcheck.unwrap_or_default(),
-                        //     innermap.authorization
-                        // );
-
                         ctx.backend_id = Some(s);
                         ctx.sticky_sessions = true;
                     }
@@ -241,18 +241,19 @@ impl ProxyHttp for LB {
     }
 
     async fn upstream_request_filter(&self, session: &mut Session, upstream_request: &mut RequestHeader, ctx: &mut Self::CTX) -> Result<()> {
-        if let Some(hostname) = ctx.hostname.as_deref() {
-            upstream_request.insert_header("Host", hostname)?;
-        }
+        // if let Some(hostname) = ctx.hostname.as_deref() {
+        //     upstream_request.insert_header("Host", hostname)?;
+        // }
 
         if let Some(client_ip) = session.client_addr() {
             IP_BUFFER.with(|buffer| {
                 let mut buf = buffer.borrow_mut();
                 buf.clear();
                 write!(buf, "{}", client_ip).unwrap_or(());
-                upstream_request.append_header("x-forward-for", buf.as_str()).unwrap_or(false);
+                upstream_request.append_header("X-Forward-For", buf.as_str()).unwrap_or(false);
             });
         }
+
         let hostname = ctx.hostname.as_deref().unwrap_or("localhost");
         let path = session.req_header().uri.path();
         let GetHostsReturHeaders { server_headers, client_headers } = match self.get_header(hostname, path) {
@@ -289,12 +290,19 @@ impl ProxyHttp for LB {
             }
         }
 
-        if ctx.to_https {
+        if let Some(_) = &ctx.redirect_to {
             let mut redirect_response = ResponseHeader::build(StatusCode::MOVED_PERMANENTLY, None)?;
             redirect_response.insert_header("Location", ctx.redirect_to.clone().unwrap_or(String::from("/")))?;
             redirect_response.insert_header("Content-Length", "0")?;
             session.write_response_header(Box::new(redirect_response), false).await?;
         }
+
+        // if ctx.to_https {
+        //     let mut redirect_response = ResponseHeader::build(StatusCode::MOVED_PERMANENTLY, None)?;
+        //     redirect_response.insert_header("Location", ctx.redirect_to.clone().unwrap_or(String::from("/")))?;
+        //     redirect_response.insert_header("Content-Length", "0")?;
+        //     session.write_response_header(Box::new(redirect_response), false).await?;
+        // }
 
         // ALLOCATIONS !
         if let Some(client_headers) = &ctx.client_headers {

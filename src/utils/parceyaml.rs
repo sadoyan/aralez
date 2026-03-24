@@ -135,7 +135,7 @@ async fn populate_file_upstreams(config: &mut Configuration, parsed: &Config) {
                         };
                         path_auth = Some(Arc::from(y));
                     }
-
+                    let redirect_link = path_config.redirect_to.as_ref().map(|www| Arc::from(www.as_str()));
                     if let Some((ip, port_str)) = server.split_once(':') {
                         if let Ok(port) = port_str.parse::<u16>() {
                             server_list.push(Arc::from(InnerMap {
@@ -146,6 +146,7 @@ async fn populate_file_upstreams(config: &mut Configuration, parsed: &Config) {
                                 to_https: path_config.to_https.unwrap_or(false),
                                 rate_limit: path_config.rate_limit,
                                 healthcheck: path_config.healthcheck,
+                                redirect_to: redirect_link,
                                 authorization: path_auth,
                             }));
                         }
@@ -185,13 +186,24 @@ pub fn parce_main_config(path: &str) -> AppConfig {
             cfo.local_server = Option::from((ip.to_string(), port));
         }
     }
+    // if let Some(tlsport_cfg) = cfo.proxy_address_tls.clone() {
+    //     if let Some((_, port_str)) = tlsport_cfg.split_once(':') {
+    //         if let Ok(port) = port_str.parse::<u16>() {
+    //             cfo.proxy_port_tls = Some(port);
+    //         }
+    //     }
+    // };
+
     if let Some(tlsport_cfg) = cfo.proxy_address_tls.clone() {
         if let Some((_, port_str)) = tlsport_cfg.split_once(':') {
-            if let Ok(port) = port_str.parse::<u16>() {
-                cfo.proxy_port_tls = Some(port);
-            }
+            cfo.proxy_port_tls = Some(port_str.to_string());
         }
     };
+
+    if let Some((_, port_str)) = cfo.proxy_address_http.split_once(':') {
+        cfo.proxy_port = Some(port_str.to_string());
+    }
+
     cfo.proxy_tls_grade = parce_tls_grades(cfo.proxy_tls_grade.clone());
     cfo
 }

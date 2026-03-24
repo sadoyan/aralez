@@ -70,6 +70,7 @@ async fn build_upstreams(fullist: &UpstreamsDashMap, method: &str, client: &Clie
                     to_https: upstream.to_https,
                     rate_limit: upstream.rate_limit,
                     healthcheck: upstream.healthcheck,
+                    redirect_to: upstream.redirect_to.clone(),
                     authorization: upstream.authorization.clone(),
                 };
 

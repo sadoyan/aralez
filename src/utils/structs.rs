@@ -25,6 +25,7 @@ pub struct ServiceMapping {
     pub to_https: Option<bool>,
     pub sticky_sessions: Option<bool>,
     pub rate_limit: Option<isize>,
+    pub redirect_to: Option<String>,
     pub client_headers: Option<Vec<String>>,
     pub server_headers: Option<Vec<String>>,
 }
@@ -86,6 +87,7 @@ pub struct PathConfig {
     pub server_headers: Option<Vec<String>>,
     pub rate_limit: Option<isize>,
     pub healthcheck: Option<bool>,
+    pub redirect_to: Option<String>,
     pub authorization: Option<Auth>,
 }
 #[derive(Debug, Default)]
@@ -113,7 +115,8 @@ pub struct AppConfig {
     pub config_tls_certificate: Option<String>,
     pub config_tls_key_file: Option<String>,
     pub proxy_address_tls: Option<String>,
-    pub proxy_port_tls: Option<u16>,
+    pub proxy_port_tls: Option<String>,
+    pub proxy_port: Option<String>,
     pub local_server: Option<(String, u16)>,
     pub proxy_certificates: Option<String>,
     pub proxy_tls_grade: Option<String>,
@@ -138,6 +141,7 @@ pub struct InnerMap {
     pub to_https: bool,
     pub rate_limit: Option<isize>,
     pub healthcheck: Option<bool>,
+    pub redirect_to: Option<Arc<str>>,
     pub authorization: Option<Arc<InnerAuth>>,
 }
 
@@ -152,6 +156,7 @@ impl InnerMap {
             to_https: Default::default(),
             rate_limit: Default::default(),
             healthcheck: Default::default(),
+            redirect_to: Default::default(),
             authorization: Default::default(),
         }
     }
