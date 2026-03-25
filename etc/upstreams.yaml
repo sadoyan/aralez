@@ -43,7 +43,7 @@ kubernetes:
       path: "/"
       upstream: "webapi-service"
     - hostname: "webapi-service"
-      upstream: "vt-console-service"
+      upstream: "console-service"
       path: "/one"
       client_headers:
         - "X-Some-Thing:Yaaaaaaaaaaaaaaa"
@@ -51,7 +51,7 @@ kubernetes:
       rate_limit: 100
       to_https: false
     - hostname: "webapi-service"
-      upstream: "vt-rambulik-service"
+      upstream: "rambul-service"
       path: "/two"
     - hostname: "websocket-service"
       upstream: "websocket-service"
@@ -72,6 +72,9 @@ upstreams:
           - "127.0.0.4:8000"
           - "127.0.0.5:8000"
       "/ping":
+        authorization: # Will be ignored if global authentication is enabled. 
+          type: "basic"
+          creds: "admin:admin"
         to_https: false
         server_headers:
           - "X-Forwarded-Proto:https"
@@ -107,9 +110,10 @@ upstreams:
         healthcheck: false
         servers:
           - "127.0.0.1:8001"
-  localpost:
+  rdr.mydomain.com:
     paths:
       "/":
-        to_https: false
+        redirect_to: "https://som.other.domain:6194"
+        healthcheck: false
         servers:
-          - "127.0.0.1:9000"
+          - "127.0.0.1:8080"
