@@ -18,14 +18,13 @@ pub struct Extraparams {
 }
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
-pub struct ServiceMapping {
+pub struct GlobalServiceMapping {
     pub upstream: String,
     pub hostname: String,
     pub path: Option<String>,
     pub to_https: Option<bool>,
     pub sticky_sessions: Option<bool>,
     pub rate_limit: Option<isize>,
-    pub redirect_to: Option<String>,
     pub client_headers: Option<Vec<String>>,
     pub server_headers: Option<Vec<String>>,
 }
@@ -33,14 +32,14 @@ pub struct ServiceMapping {
 #[derive(Clone, Default, Debug, Serialize, Deserialize)]
 pub struct Kubernetes {
     pub servers: Option<Vec<String>>,
-    pub services: Option<Vec<ServiceMapping>>,
+    pub services: Option<Vec<GlobalServiceMapping>>,
     pub tokenpath: Option<String>,
 }
 
 #[derive(Clone, Default, Debug, Serialize, Deserialize)]
 pub struct Consul {
     pub servers: Option<Vec<String>>,
-    pub services: Option<Vec<ServiceMapping>>,
+    pub services: Option<Vec<GlobalServiceMapping>>,
     pub token: Option<String>,
 }
 #[derive(Debug, Default, Serialize, Deserialize)]

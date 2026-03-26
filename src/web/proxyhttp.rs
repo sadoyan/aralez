@@ -43,7 +43,6 @@ pub struct LB {
 
 pub struct Context {
     backend_id: Option<String>,
-    // to_https: bool,
     sticky_sessions: bool,
     redirect_to: Option<String>,
     start_time: Instant,
@@ -59,7 +58,6 @@ impl ProxyHttp for LB {
     fn new_ctx(&self) -> Self::CTX {
         Context {
             backend_id: None,
-            // to_https: false,
             sticky_sessions: false,
             redirect_to: None,
             start_time: Instant::now(),
@@ -163,13 +161,13 @@ impl ProxyHttp for LB {
                     peer.options.tcp_recv_buf = Some(128 * 1024);
                     End of experimental options
                     */
+
                     if let Some(redirect_to) = &innermap.redirect_to {
                         let uri = session.req_header().uri.path();
                         let capacity = redirect_to.len() + uri.len();
                         let mut s = String::with_capacity(capacity);
                         s.push_str(redirect_to);
                         s.push_str(uri);
-                        // ctx.to_https = true;
                         ctx.redirect_to = Some(s);
                     }
 
@@ -185,7 +183,6 @@ impl ProxyHttp for LB {
                                     s.push_str(host);
                                     s.push_str(port.as_str());
                                     s.push_str(uri);
-                                    // ctx.to_https = true;
                                     ctx.redirect_to = Some(s);
                                 }
                             }
@@ -271,7 +268,7 @@ impl ProxyHttp for LB {
         }
         Ok(())
     }
-    async fn response_filter(&self, session: &mut Session, _upstream_response: &mut ResponseHeader, ctx: &mut Self::CTX) -> Result<()> {
+    async fn response_filter(&self, _session: &mut Session, _upstream_response: &mut ResponseHeader, ctx: &mut Self::CTX) -> Result<()> {
         if ctx.sticky_sessions {
             if let Some(bid) = &ctx.backend_id {
                 let tt = if let Some(existing) = REVERSE_STORE.get(bid) {
@@ -290,19 +287,12 @@ impl ProxyHttp for LB {
             }
         }
 
-        if let Some(_) = &ctx.redirect_to {
-            let mut redirect_response = ResponseHeader::build(StatusCode::MOVED_PERMANENTLY, None)?;
-            redirect_response.insert_header("Location", ctx.redirect_to.clone().unwrap_or(String::from("/")))?;
-            redirect_response.insert_header("Content-Length", "0")?;
-            session.write_response_header(Box::new(redirect_response), false).await?;
+        if let Some(redirect_to) = &ctx.redirect_to {
+            *_upstream_response = ResponseHeader::build(StatusCode::MOVED_PERMANENTLY, None)?;
+            _upstream_response.insert_header("Location", redirect_to)?;
+            _upstream_response.insert_header("Content-Length", "0")?;
+            return Ok(());
         }
-
-        // if ctx.to_https {
-        //     let mut redirect_response = ResponseHeader::build(StatusCode::MOVED_PERMANENTLY, None)?;
-        //     redirect_response.insert_header("Location", ctx.redirect_to.clone().unwrap_or(String::from("/")))?;
-        //     redirect_response.insert_header("Content-Length", "0")?;
-        //     session.write_response_header(Box::new(redirect_response), false).await?;
-        // }
 
         // ALLOCATIONS !
         if let Some(client_headers) = &ctx.client_headers {

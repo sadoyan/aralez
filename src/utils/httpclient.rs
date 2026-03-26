@@ -1,5 +1,5 @@
 use crate::utils::kuberconsul::{match_path, ConsulService, KubeEndpoints};
-use crate::utils::structs::{InnerMap, ServiceMapping};
+use crate::utils::structs::{GlobalServiceMapping, InnerMap};
 use axum::http::{HeaderMap, HeaderValue};
 use dashmap::DashMap;
 use reqwest::Client;
@@ -7,7 +7,7 @@ use std::sync::atomic::AtomicUsize;
 use std::sync::Arc;
 use std::time::Duration;
 
-pub async fn for_consul(url: String, token: Option<String>, conf: &ServiceMapping) -> Option<DashMap<Arc<str>, (Vec<Arc<InnerMap>>, AtomicUsize)>> {
+pub async fn for_consul(url: String, token: Option<String>, conf: &GlobalServiceMapping) -> Option<DashMap<Arc<str>, (Vec<Arc<InnerMap>>, AtomicUsize)>> {
     let client = Client::builder().timeout(Duration::from_secs(2)).danger_accept_invalid_certs(true).build().ok()?;
     let mut headers = HeaderMap::new();
     if let Some(token) = token {
@@ -27,7 +27,7 @@ pub async fn for_consul(url: String, token: Option<String>, conf: &ServiceMappin
         // let prt = subsets.tagged_addresses.get("lan_ipv4").unwrap().port.clone();
         let addr = subsets.tagged_addresses.get("lan_ipv4").unwrap().address.clone();
         let prt = subsets.tagged_addresses.get("lan_ipv4").unwrap().port.clone();
-        let redirect_link = conf.redirect_to.as_ref().map(|www| Arc::from(www.as_str()));
+        // let redirect_link = conf.redirect_to.as_ref().map(|www| Arc::from(www.as_str()));
         let to_add = Arc::from(InnerMap {
             address: Arc::from(&*addr),
             port: prt,
@@ -35,7 +35,7 @@ pub async fn for_consul(url: String, token: Option<String>, conf: &ServiceMappin
             is_http2: false,
             to_https: conf.to_https.unwrap_or(false),
             rate_limit: conf.rate_limit,
-            redirect_to: redirect_link,
+            redirect_to: None,
             healthcheck: None,
             authorization: None,
         });
@@ -45,7 +45,7 @@ pub async fn for_consul(url: String, token: Option<String>, conf: &ServiceMappin
     Some(upstreams)
 }
 
-pub async fn for_kuber(url: &str, token: &str, conf: &ServiceMapping) -> Option<DashMap<Arc<str>, (Vec<Arc<InnerMap>>, AtomicUsize)>> {
+pub async fn for_kuber(url: &str, token: &str, conf: &GlobalServiceMapping) -> Option<DashMap<Arc<str>, (Vec<Arc<InnerMap>>, AtomicUsize)>> {
     let to = Duration::from_secs(10);
     let client = Client::builder().timeout(Duration::from_secs(10)).danger_accept_invalid_certs(true).build().ok()?;
     let resp = client.get(url).timeout(to).bearer_auth(token).send().await.ok()?;
@@ -63,7 +63,7 @@ pub async fn for_kuber(url: &str, token: &str, conf: &ServiceMapping) -> Option<
                 let mut inner_vec = Vec::new();
                 for addr in addresses {
                     for port in &ports {
-                        let redirect_link = conf.redirect_to.as_ref().map(|www| Arc::from(www.as_str()));
+                        // let redirect_link = conf.redirect_to.as_ref().map(|www| Arc::from(www.as_str()));
                         let to_add = Arc::from(InnerMap {
                             address: Arc::from(addr.ip.clone()),
                             port: port.port.clone(),
@@ -72,7 +72,7 @@ pub async fn for_kuber(url: &str, token: &str, conf: &ServiceMapping) -> Option<
                             to_https: conf.to_https.unwrap_or(false),
                             rate_limit: conf.rate_limit,
                             healthcheck: None,
-                            redirect_to: redirect_link,
+                            redirect_to: None,
                             authorization: None,
                         });
                         inner_vec.push(to_add);

@@ -1,6 +1,6 @@
 use crate::utils::httpclient;
 use crate::utils::parceyaml::build_headers;
-use crate::utils::structs::{Configuration, InnerMap, ServiceMapping, UpstreamsDashMap};
+use crate::utils::structs::{Configuration, GlobalServiceMapping, InnerMap, UpstreamsDashMap};
 use crate::utils::tools::{clone_dashmap_into, compare_dashmaps, print_upstreams};
 use async_trait::async_trait;
 use dashmap::DashMap;
@@ -52,7 +52,7 @@ pub struct ConsulTaggedAddress {
     #[serde(rename = "Port")]
     pub port: u16,
 }
-pub fn list_to_upstreams(lt: Option<DashMap<Arc<str>, (Vec<Arc<InnerMap>>, AtomicUsize)>>, upstreams: &UpstreamsDashMap, i: &ServiceMapping) {
+pub fn list_to_upstreams(lt: Option<DashMap<Arc<str>, (Vec<Arc<InnerMap>>, AtomicUsize)>>, upstreams: &UpstreamsDashMap, i: &GlobalServiceMapping) {
     if let Some(list) = lt {
         match upstreams.get(&*i.hostname.clone()) {
             Some(upstr) => {
@@ -67,7 +67,7 @@ pub fn list_to_upstreams(lt: Option<DashMap<Arc<str>, (Vec<Arc<InnerMap>>, Atomi
     }
 }
 
-pub fn match_path(conf: &ServiceMapping, upstreams: &DashMap<Arc<str>, (Vec<Arc<InnerMap>>, AtomicUsize)>, values: Vec<Arc<InnerMap>>) {
+pub fn match_path(conf: &GlobalServiceMapping, upstreams: &DashMap<Arc<str>, (Vec<Arc<InnerMap>>, AtomicUsize)>, values: Vec<Arc<InnerMap>>) {
     match conf.path {
         Some(ref p) => {
             upstreams.insert(Arc::from(p.clone()), (values, AtomicUsize::new(0)));
