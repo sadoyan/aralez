@@ -44,7 +44,7 @@ pub struct LB {
 pub struct Context {
     backend_id: Option<String>,
     sticky_sessions: bool,
-    redirect_to: Option<String>,
+    // redirect_to: Option<String>,
     start_time: Instant,
     hostname: Option<Arc<str>>,
     upstream_peer: Option<Arc<InnerMap>>,
@@ -59,7 +59,7 @@ impl ProxyHttp for LB {
         Context {
             backend_id: None,
             sticky_sessions: false,
-            redirect_to: None,
+            // redirect_to: None,
             start_time: Instant::now(),
             hostname: None,
             upstream_peer: None,
@@ -68,14 +68,6 @@ impl ProxyHttp for LB {
         }
     }
     async fn request_filter(&self, session: &mut Session, _ctx: &mut Self::CTX) -> Result<bool> {
-        if let Some(auth) = &_ctx.extraparams.authentication {
-            let authenticated = authenticate(&auth.auth_type, &auth.auth_cred, &session);
-            if !authenticated {
-                let _ = session.respond_error(401).await;
-                warn!("Forbidden: {:?}, {}", session.client_addr(), session.req_header().uri.path());
-                return Ok(true);
-            }
-        }
         let hostname = return_header_host_from_upstream(session, &self.ump_upst);
         _ctx.hostname = hostname;
         let mut backend_id = None;
@@ -95,19 +87,14 @@ impl ProxyHttp for LB {
             None => return Ok(false),
             Some(host) => {
                 let optioninnermap = self.get_host(host, session.req_header().uri.path(), backend_id);
-
                 match optioninnermap {
                     None => return Ok(false),
                     Some(ref innermap) => {
-                        // Inner auth works only if global is disabled.
-                        if let Some(auth) = &innermap.authorization {
-                            if _ctx.extraparams.authentication.is_none() {
-                                let authenticated = authenticate(&auth.auth_type, &auth.auth_cred, &session);
-                                if !authenticated {
-                                    let _ = session.respond_error(401).await;
-                                    warn!("Forbidden: {:?}, {}", session.client_addr(), session.req_header().uri.path());
-                                    return Ok(true);
-                                }
+                        if let Some(auth) = _ctx.extraparams.authentication.as_ref().or(innermap.authorization.as_ref()) {
+                            if !authenticate(&auth.auth_type, &auth.auth_cred, &session) {
+                                let _ = session.respond_error(401).await;
+                                warn!("Forbidden: {:?}, {}", session.client_addr(), session.req_header().uri.path());
+                                return Ok(true);
                             }
                         }
 
@@ -125,6 +112,44 @@ impl ProxyHttp for LB {
                                 session.write_response_header(Box::new(header), true).await?;
                                 debug!("Rate limited: {:?}, {}", rate_key, rate);
                                 return Ok(true);
+                            }
+                        }
+
+                        if let Some(redirect_to) = &innermap.redirect_to {
+                            let uri = session.req_header().uri.path();
+                            let capacity = redirect_to.len() + uri.len();
+                            let mut s = String::with_capacity(capacity);
+                            s.push_str(redirect_to);
+                            s.push_str(uri);
+                            let mut resp = ResponseHeader::build(StatusCode::MOVED_PERMANENTLY, None)?;
+                            resp.insert_header("Location", s)?;
+                            resp.insert_header("Content-Length", "0")?;
+                            session.write_response_header(Box::new(resp), true).await?;
+                            return Ok(true);
+                        }
+
+                        if _ctx.extraparams.to_https.unwrap_or(false) || innermap.to_https {
+                            if let Some(stream) = session.stream() {
+                                if stream.get_ssl().is_none() {
+                                    if let Some(host) = _ctx.hostname.as_ref() {
+                                        let port = self.config.proxy_port_tls.clone().unwrap_or_else(|| "443".to_string());
+                                        let uri = session.req_header().uri.path();
+                                        let capacity = host.len() + uri.len() + 8;
+                                        let mut s = String::with_capacity(capacity);
+                                        s.push_str("https://");
+                                        s.push_str(host);
+                                        if port != "443" {
+                                            s.push_str(":");
+                                            s.push_str(&port);
+                                        }
+                                        s.push_str(uri);
+                                        let mut resp = ResponseHeader::build(StatusCode::MOVED_PERMANENTLY, None)?;
+                                        resp.insert_header("Location", s)?;
+                                        resp.insert_header("Content-Length", "0")?;
+                                        session.write_response_header(Box::new(resp), true).await?;
+                                        return Ok(true);
+                                    }
+                                }
                             }
                         }
                     }
@@ -161,33 +186,6 @@ impl ProxyHttp for LB {
                     peer.options.tcp_recv_buf = Some(128 * 1024);
                     End of experimental options
                     */
-
-                    if let Some(redirect_to) = &innermap.redirect_to {
-                        let uri = session.req_header().uri.path();
-                        let capacity = redirect_to.len() + uri.len();
-                        let mut s = String::with_capacity(capacity);
-                        s.push_str(redirect_to);
-                        s.push_str(uri);
-                        ctx.redirect_to = Some(s);
-                    }
-
-                    if ctx.extraparams.to_https.unwrap_or(false) || innermap.to_https {
-                        if let Some(stream) = session.stream() {
-                            if stream.get_ssl().is_none() {
-                                if let Some(host) = ctx.hostname.as_ref() {
-                                    let port = self.config.proxy_port_tls.clone().unwrap_or_else(|| "443".to_string());
-                                    let uri = session.req_header().uri.path();
-                                    let capacity = host.len() + uri.len() + 8;
-                                    let mut s = String::with_capacity(capacity);
-                                    s.push_str("https://");
-                                    s.push_str(host);
-                                    s.push_str(port.as_str());
-                                    s.push_str(uri);
-                                    ctx.redirect_to = Some(s);
-                                }
-                            }
-                        }
-                    }
 
                     if ctx.extraparams.sticky_sessions {
                         let mut s = String::with_capacity(64);
@@ -287,20 +285,11 @@ impl ProxyHttp for LB {
             }
         }
 
-        if let Some(redirect_to) = &ctx.redirect_to {
-            *_upstream_response = ResponseHeader::build(StatusCode::MOVED_PERMANENTLY, None)?;
-            _upstream_response.insert_header("Location", redirect_to)?;
-            _upstream_response.insert_header("Content-Length", "0")?;
-            return Ok(());
-        }
-
-        // ALLOCATIONS !
         if let Some(client_headers) = &ctx.client_headers {
             for (k, v) in client_headers.iter() {
                 _upstream_response.append_header(k.to_string(), v.as_ref())?;
             }
         }
-        // END ALLOCATIONS !
 
         // session.set_keepalive(Some(300));
         // println!("session.get_keepalive: {:?}", session.get_keepalive());

@@ -104,7 +104,7 @@ async fn populate_headers_and_auth(config: &mut Configuration, parsed: &Config) 
             auth_type: Arc::from(pa.auth_type.clone()),
             auth_cred: Arc::from(pa.auth_cred.clone()),
         };
-        config.extraparams.authentication = Some(y);
+        config.extraparams.authentication = Some(Arc::from(y));
     }
 }
 

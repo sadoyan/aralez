@@ -13,7 +13,7 @@ pub type Headers = DashMap<Arc<str>, DashMap<Arc<str>, Vec<(Arc<str>, Arc<str>)>
 pub struct Extraparams {
     pub to_https: Option<bool>,
     pub sticky_sessions: bool,
-    pub authentication: Option<InnerAuth>,
+    pub authentication: Option<Arc<InnerAuth>>,
     pub rate_limit: Option<isize>,
 }
 
