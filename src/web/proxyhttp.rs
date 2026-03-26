@@ -49,7 +49,7 @@ pub struct Context {
     hostname: Option<Arc<str>>,
     upstream_peer: Option<Arc<InnerMap>>,
     extraparams: arc_swap::Guard<Arc<Extraparams>>,
-    client_headers: Option<Vec<(Arc<str>, Arc<str>)>>,
+    client_headers: Option<Vec<(String, Arc<str>)>>,
 }
 
 #[async_trait]
@@ -132,7 +132,7 @@ impl ProxyHttp for LB {
                             if let Some(stream) = session.stream() {
                                 if stream.get_ssl().is_none() {
                                     if let Some(host) = _ctx.hostname.as_ref() {
-                                        let port = self.config.proxy_port_tls.clone().unwrap_or_else(|| "443".to_string());
+                                        let port = self.config.proxy_port_tls.as_deref().unwrap_or("443");
                                         let uri = session.req_header().uri.path();
                                         let capacity = host.len() + uri.len() + 8;
                                         let mut s = String::with_capacity(capacity);
@@ -258,7 +258,7 @@ impl ProxyHttp for LB {
 
         if let Some(sh) = server_headers {
             for (k, v) in sh {
-                upstream_request.insert_header(k.to_string(), v.as_ref())?;
+                upstream_request.insert_header(k, v.as_ref())?;
             }
         }
         if let Some(ch) = client_headers {
@@ -281,13 +281,18 @@ impl ProxyHttp for LB {
                     REVERSE_STORE.insert(hh.clone(), bid.clone());
                     hh
                 };
-                let _ = _upstream_response.insert_header("set-cookie", format!("backend_id={}; Path=/; Max-Age=600; HttpOnly; SameSite=Lax", tt));
+                // let _ = _upstream_response.insert_header("set-cookie", format!("backend_id={}; Path=/; Max-Age=600; HttpOnly; SameSite=Lax", tt));
+                let mut buf = String::with_capacity(80);
+                buf.push_str("backend_id=");
+                buf.push_str(&tt);
+                buf.push_str("; Path=/; Max-Age=600; HttpOnly; SameSite=Lax");
+                let _ = _upstream_response.insert_header("set-cookie", buf.as_str());
             }
         }
 
         if let Some(client_headers) = &ctx.client_headers {
             for (k, v) in client_headers.iter() {
-                _upstream_response.append_header(k.to_string(), v.as_ref())?;
+                _upstream_response.append_header(k.clone(), v.as_ref())?;
             }
         }
 
@@ -304,7 +309,8 @@ impl ProxyHttp for LB {
             code: session.response_written().map(|resp| resp.status),
             latency: ctx.start_time.elapsed(),
             version: session.req_header().version,
-            upstream: ctx.hostname.clone().unwrap_or(Arc::from("localhost")),
+            // upstream: ctx.hostname.clone().unwrap_or(Arc::from("localhost")),
+            upstream: ctx.hostname.take().unwrap_or_else(|| Arc::from("localhost")),
         };
         calc_metrics(m);
     }

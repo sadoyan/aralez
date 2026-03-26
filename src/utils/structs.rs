@@ -7,7 +7,7 @@ use std::sync::Arc;
 pub type UpstreamsDashMap = DashMap<Arc<str>, DashMap<Arc<str>, (Vec<Arc<InnerMap>>, AtomicUsize)>>;
 
 pub type UpstreamsIdMap = DashMap<String, Arc<InnerMap>>;
-pub type Headers = DashMap<Arc<str>, DashMap<Arc<str>, Vec<(Arc<str>, Arc<str>)>>>;
+pub type Headers = DashMap<Arc<str>, DashMap<Arc<str>, Vec<(String, Arc<str>)>>>;
 
 #[derive(Clone, Debug, Default)]
 pub struct Extraparams {

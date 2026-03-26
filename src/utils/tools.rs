@@ -146,7 +146,7 @@ pub fn compare_dashmaps(map1: &UpstreamsDashMap, map2: &UpstreamsDashMap) -> boo
     true
 }
 
-pub fn merge_headers(target: &DashMap<Arc<str>, Vec<(Arc<str>, Arc<str>)>>, source: &DashMap<Arc<str>, Vec<(Arc<str>, Arc<str>)>>) {
+pub fn merge_headers(target: &DashMap<Arc<str>, Vec<(String, Arc<str>)>>, source: &DashMap<Arc<str>, Vec<(String, Arc<str>)>>) {
     for entry in source.iter() {
         let global_key = entry.key().clone();
         let global_values = entry.value().clone();

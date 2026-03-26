@@ -115,7 +115,7 @@ impl ServiceDiscovery for KubernetesDiscovery {
                 if let Some(kuber) = config.kubernetes.clone() {
                     if let Some(svc) = kuber.services {
                         for service in svc {
-                            let header_list: DashMap<Arc<str>, Vec<(Arc<str>, Arc<str>)>> = DashMap::new();
+                            let header_list: DashMap<Arc<str>, Vec<(String, Arc<str>)>> = DashMap::new();
                             let mut hl = Vec::new();
                             build_headers(&service.client_headers, config.as_ref(), &mut hl);
                             if !hl.is_empty() {

@@ -68,27 +68,27 @@ pub async fn load_configuration(d: &str, kind: &str) -> (Option<Configuration>, 
 }
 
 async fn populate_headers_and_auth(config: &mut Configuration, parsed: &Config) {
-    let mut ch: Vec<(Arc<str>, Arc<str>)> = Vec::new();
+    let mut ch: Vec<(String, Arc<str>)> = Vec::new();
     if let Some(headers) = &parsed.client_headers {
         for header in headers {
             if let Some((key, val)) = header.split_once(':') {
-                ch.push((Arc::from(key), Arc::from(val)));
+                ch.push((key.to_string(), Arc::from(val)));
             }
         }
     }
-    let global_headers: DashMap<Arc<str>, Vec<(Arc<str>, Arc<str>)>> = DashMap::new();
+    let global_headers: DashMap<Arc<str>, Vec<(String, Arc<str>)>> = DashMap::new();
     global_headers.insert(Arc::from("/"), ch);
     config.client_headers.insert(Arc::from("GLOBAL_CLIENT_HEADERS"), global_headers);
 
-    let mut sh: Vec<(Arc<str>, Arc<str>)> = Vec::new();
+    let mut sh: Vec<(String, Arc<str>)> = Vec::new();
     if let Some(headers) = &parsed.server_headers {
         for header in headers {
             if let Some((key, val)) = header.split_once(':') {
-                sh.push((Arc::from(key.trim()), Arc::from(val.trim())));
+                sh.push((key.to_string(), Arc::from(val.trim())));
             }
         }
     }
-    let server_global_headers: DashMap<Arc<str>, Vec<(Arc<str>, Arc<str>)>> = DashMap::new();
+    let server_global_headers: DashMap<Arc<str>, Vec<(String, Arc<str>)>> = DashMap::new();
     server_global_headers.insert(Arc::from("/"), sh);
     config.server_headers.insert(Arc::from("GLOBAL_SERVER_HEADERS"), server_global_headers);
     config.extraparams.to_https = parsed.to_https;
@@ -119,8 +119,8 @@ async fn populate_file_upstreams(config: &mut Configuration, parsed: &Config) {
                 if let Some(rate) = &path_config.rate_limit {
                     info!("Applied Rate Limit for {} : {} request per second", hostname, rate);
                 }
-                let mut hl: Vec<(Arc<str>, Arc<str>)> = Vec::new();
-                let mut sl: Vec<(Arc<str>, Arc<str>)> = Vec::new();
+                let mut hl: Vec<(String, Arc<str>)> = Vec::new();
+                let mut sl: Vec<(String, Arc<str>)> = Vec::new();
                 build_headers(&path_config.client_headers, config, &mut hl);
                 build_headers(&path_config.server_headers, config, &mut sl);
                 client_header_list.insert(Arc::from(path.as_str()), hl);
@@ -254,11 +254,11 @@ fn log_builder(conf: &AppConfig) {
     env_logger::builder().init();
 }
 
-pub fn build_headers(path_config: &Option<Vec<String>>, _config: &Configuration, hl: &mut Vec<(Arc<str>, Arc<str>)>) {
+pub fn build_headers(path_config: &Option<Vec<String>>, _config: &Configuration, hl: &mut Vec<(String, Arc<str>)>) {
     if let Some(headers) = &path_config {
         for header in headers {
             if let Some((key, val)) = header.split_once(':') {
-                hl.push((Arc::from(key.trim()), Arc::from(val.trim())));
+                hl.push((key.trim().to_string(), Arc::from(val.trim())));
             }
         }
     }

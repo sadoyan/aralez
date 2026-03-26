@@ -6,8 +6,8 @@ use std::sync::Arc;
 
 #[derive(Debug, Clone)]
 pub struct GetHostsReturHeaders {
-    pub client_headers: Option<Vec<(Arc<str>, Arc<str>)>>,
-    pub server_headers: Option<Vec<(Arc<str>, Arc<str>)>>,
+    pub client_headers: Option<Vec<(String, Arc<str>)>>,
+    pub server_headers: Option<Vec<(String, Arc<str>)>>,
 }
 
 #[async_trait]
