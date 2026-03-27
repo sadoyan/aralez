@@ -8,6 +8,8 @@ pub type UpstreamsDashMap = DashMap<Arc<str>, DashMap<Arc<str>, (Vec<Arc<InnerMa
 
 pub type UpstreamsIdMap = DashMap<String, Arc<InnerMap>>;
 pub type Headers = DashMap<Arc<str>, DashMap<Arc<str>, Vec<(String, Arc<str>)>>>;
+// pub type UpstreamsSerDde = Option<HashMap<String, HostConfig>>;
+// pub type UpstreamsSerDe = HashMap<String, HostConfig>;
 
 #[derive(Clone, Debug, Default)]
 pub struct Extraparams {

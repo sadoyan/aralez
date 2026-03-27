@@ -5,14 +5,39 @@ use crate::utils::tools::{clone_dashmap, clone_dashmap_into, print_upstreams};
 use dashmap::DashMap;
 use log::{error, info, warn};
 use std::collections::HashMap;
+use std::path::Path;
 use std::sync::atomic::AtomicUsize;
 use std::sync::Arc;
 use std::{env, fs};
 
 pub async fn load_configuration(d: &str, kind: &str) -> (Option<Configuration>, String) {
+    let mut conf_files = Vec::new();
     let yaml_data = match kind {
         "filepath" => match fs::read_to_string(d) {
             Ok(data) => {
+                let mut confdir = Path::new(d).parent().unwrap().to_path_buf();
+                confdir.push("conf.d");
+                if let Ok(entries) = fs::read_dir(&confdir) {
+                    let mut paths: Vec<_> = entries
+                        .flatten()
+                        .map(|e| e.path())
+                        .filter(|p| p.extension().and_then(|e| e.to_str()) == Some("yaml"))
+                        .collect();
+                    paths.sort();
+
+                    for path in paths {
+                        let content = fs::read_to_string(&path);
+                        match content {
+                            Ok(content) => {
+                                conf_files.push(content);
+                            }
+                            Err(e) => {
+                                error!("Reading: {}: {:?}", path.display(), e)
+                            }
+                        };
+                    }
+                }
+
                 info!("Reading upstreams from {}", d);
                 data
             }
@@ -32,18 +57,28 @@ pub async fn load_configuration(d: &str, kind: &str) -> (Option<Configuration>, 
         }
     };
 
-    let parsed: Config = match serde_yaml::from_str(&yaml_data) {
-        Ok(cfg) => {
-            // println!("{:#?}", cfg);
-            cfg
-        }
+    let mut parsed: Config = match serde_yaml::from_str(&yaml_data) {
+        Ok(cfg) => cfg,
         Err(e) => {
             error!("Failed to parse upstreams file: {}", e);
             return (None, e.to_string());
         }
     };
-    let mut toreturn = Configuration::default();
 
+    if let Some(ref mut upstreams) = parsed.upstreams {
+        for uconf in conf_files {
+            let p: HashMap<String, HostConfig> = match serde_yaml::from_str(&uconf) {
+                Ok(ucfg) => ucfg,
+                Err(e) => {
+                    error!("Failed to parse upstreams file: {}", e);
+                    return (None, e.to_string());
+                }
+            };
+            upstreams.extend(p);
+        }
+    }
+
+    let mut toreturn = Configuration::default();
     populate_headers_and_auth(&mut toreturn, &parsed).await;
     toreturn.typecfg = parsed.provider.clone();
 
