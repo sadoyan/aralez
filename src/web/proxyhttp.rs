@@ -70,7 +70,6 @@ impl ProxyHttp for LB {
         let hostname = return_header_host_from_upstream(session, &self.ump_upst);
         _ctx.hostname = hostname;
         let mut backend_id = None;
-
         if _ctx.extraparams.sticky_sessions {
             if let Some(cookies) = session.req_header().headers.get("cookie") {
                 if let Ok(cookie_str) = cookies.to_str() {
@@ -239,7 +238,7 @@ impl ProxyHttp for LB {
                 let mut buf = buffer.borrow_mut();
                 buf.clear();
                 write!(buf, "{}", client_ip).unwrap_or(());
-                upstream_request.append_header("X-Forward-For", buf.as_str()).unwrap_or(false);
+                upstream_request.append_header("X-Forwarded-For", buf.as_str()).unwrap_or(false);
             });
         }
 

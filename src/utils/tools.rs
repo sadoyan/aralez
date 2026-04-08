@@ -227,13 +227,13 @@ pub fn listdir(dir: String) -> Vec<tls::CertificateConfig> {
             certificate_configs.push(y);
         }
     }
-    for (_, v) in f.iter() {
-        let y = CertificateConfig {
-            cert_path: v[0].clone(),
-            key_path: v[1].clone(),
-        };
-        certificate_configs.push(y);
-    }
+    // for (_, v) in f.iter() {
+    //     let y = CertificateConfig {
+    //         cert_path: v[0].clone(),
+    //         key_path: v[1].clone(),
+    //     };
+    //     certificate_configs.push(y);
+    // }
     certificate_configs
 }
 

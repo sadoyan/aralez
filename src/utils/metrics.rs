@@ -12,48 +12,6 @@ pub struct MetricTypes {
     pub latency: Duration,
     pub version: Version,
 }
-/*
-lazy_static::lazy_static! {
-    pub static ref REQUEST_COUNT: IntCounter = register_int_counter!(
-        "aralez_requests_total",
-        "Total number of requests handled by Aralez"
-    ).unwrap();
-      pub static ref RESPONSE_CODES: IntCounterVec = register_int_counter_vec!(
-        "aralez_responses_total",
-        "Responses grouped by status code",
-        &["status"]
-    ).unwrap();
-    pub static ref REQUEST_LATENCY:  Histogram = register_histogram!(
-        "aralez_request_latency_seconds",
-        "Request latency in seconds",
-        vec![0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0]
-    ).unwrap();
-    pub static ref RESPONSE_LATENCY: Histogram = register_histogram!(
-        "aralez_response_latency_seconds",
-        "Response latency in seconds",
-        vec![0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.0, 5.0]
-    ).unwrap();
-    pub static ref REQUESTS_BY_METHOD: IntCounterVec = register_int_counter_vec!(
-        "aralez_requests_by_method_total",
-        "Number of requests by HTTP method",
-        &["method"]
-    ).unwrap();
-    pub static ref REQUESTS_BY_UPSTREAM: IntCounterVec = register_int_counter_vec!(
-        "aralez_requests_by_upstream",
-        "Number of requests by UPSTREAM server",
-        &["upstream"]
-    ).unwrap();
-    pub static ref REQUESTS_BY_VERSION: IntCounterVec = register_int_counter_vec!(
-        "aralez_requests_by_version_total",
-        "Number of requests by HTTP versions",
-        &["version"]
-    ).unwrap();
-    pub static ref ERROR_COUNT: IntCounter = register_int_counter!(
-        "aralez_errors_total",
-        "Total number of errors"
-    ).unwrap();
-}
-*/
 
 use std::sync::LazyLock;
 
@@ -89,11 +47,8 @@ pub static REQUESTS_BY_UPSTREAM: LazyLock<IntCounterVec> =
 pub static REQUESTS_BY_VERSION: LazyLock<IntCounterVec> =
     LazyLock::new(|| register_int_counter_vec!("aralez_requests_by_version_total", "Number of requests by HTTP versions", &["version"]).unwrap());
 
-pub static ERROR_COUNT: LazyLock<IntCounter> = LazyLock::new(|| register_int_counter!("aralez_errors_total", "Total number of errors").unwrap());
-
 pub fn calc_metrics(metric_types: &MetricTypes) {
     REQUEST_COUNT.inc();
-    ERROR_COUNT.inc();
     let timer = REQUEST_LATENCY.start_timer();
     timer.observe_duration();
 

@@ -16,10 +16,14 @@ struct JwtAuth<'a>(&'a str);
 impl AuthValidator for BasicAuth<'_> {
     fn validate(&self, session: &Session) -> bool {
         if let Some(header) = session.get_header("authorization") {
-            if let Some((_, val)) = header.to_str().ok().unwrap().split_once(' ') {
-                let decoded = STANDARD.decode(val).ok().unwrap();
-                let decoded_str = String::from_utf8(decoded).ok().unwrap();
-                return decoded_str == self.0;
+            if let Some(h) = header.to_str().ok() {
+                if let Some((_, val)) = h.split_once(' ') {
+                    if let Some(decoded) = STANDARD.decode(val).ok() {
+                        if let Some(decoded_str) = String::from_utf8(decoded).ok() {
+                            return decoded_str == self.0;
+                        }
+                    }
+                }
             }
         }
         false
@@ -29,7 +33,10 @@ impl AuthValidator for BasicAuth<'_> {
 impl AuthValidator for ApiKeyAuth<'_> {
     fn validate(&self, session: &Session) -> bool {
         if let Some(header) = session.get_header("x-api-key") {
-            return header.to_str().ok().unwrap() == self.0;
+            if let Some(header) = header.to_str().ok() {
+                return header == self.0;
+            }
+            // return header.to_str().ok().unwrap() == self.0;
         }
         false
     }

@@ -176,7 +176,7 @@ async fn populate_file_upstreams(config: &mut Configuration, parsed: &Config) {
                             server_list.push(Arc::from(InnerMap {
                                 address: Arc::from(ip),
                                 port,
-                                is_ssl: true,
+                                is_ssl: false,
                                 is_http2: false,
                                 to_https: path_config.to_https.unwrap_or(false),
                                 rate_limit: path_config.rate_limit,
@@ -265,7 +265,7 @@ fn parce_tls_grades(what: Option<String>) -> Option<String> {
         },
         None => {
             warn!("TLS grade not set, defaulting to: medium");
-            Some("b".to_string())
+            Some("medium".to_string())
         }
     }
 }
