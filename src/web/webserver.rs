@@ -95,7 +95,7 @@ async fn conf(State(st): State<AppState>, Query(params): Query<HashMap<String, S
     if let Some(s) = params.get("key") {
         if s.to_owned() == st.master_key {
             let strcontent = content.as_str();
-            let parsed = serde_yaml::from_str::<Config>(strcontent);
+            let parsed = serde_yml::from_str::<Config>(strcontent);
             match parsed {
                 Ok(_) => {
                     if let Some(s) = params.get("key") {

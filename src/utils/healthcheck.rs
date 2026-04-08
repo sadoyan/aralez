@@ -119,18 +119,11 @@ async fn http_request(url: &str, method: &str, payload: &str, client: &Client) -
 }
 
 pub async fn ping_grpc(addr: &str) -> bool {
-    let endpoint_result = Endpoint::from_shared(addr.to_owned());
-
-    if let Ok(endpoint) = endpoint_result {
-        let endpoint = endpoint.timeout(Duration::from_secs(2));
-
-        match tokio::time::timeout(Duration::from_secs(3), endpoint.connect()).await {
-            Ok(Ok(_channel)) => true,
-            _ => false,
-        }
-    } else {
-        false
-    }
+    let endpoint = match Endpoint::from_shared(addr.to_owned()) {
+        Ok(e) => e.timeout(Duration::from_secs(2)),
+        Err(_) => return false,
+    };
+    tokio::time::timeout(Duration::from_secs(3), endpoint.connect()).await.ok().and_then(Result::ok).is_some()
 }
 
 async fn detect_tls(ip: &str, port: &u16, client: &Client) -> (bool, Option<Version>) {

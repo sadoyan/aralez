@@ -1,16 +1,12 @@
 use crate::utils::auth::authenticate;
 use crate::utils::metrics::*;
 use crate::utils::structs::{AppConfig, Extraparams, Headers, InnerMap, UpstreamsDashMap, UpstreamsIdMap};
-// use std::collections::BTreeMap;
 use crate::web::gethosts::{GetHost, GetHostsReturHeaders};
 use arc_swap::ArcSwap;
 use async_trait::async_trait;
 use axum::body::Bytes;
 use dashmap::DashMap;
-// use x509_parser::asn1_rs::ToDer;
-use itoa::Buffer;
 use log::{debug, error, warn};
-use once_cell::sync::Lazy;
 use pingora::http::{RequestHeader, ResponseHeader, StatusCode};
 use pingora::prelude::*;
 use pingora::ErrorSource::Upstream;
@@ -19,16 +15,19 @@ use pingora_core::prelude::HttpPeer;
 // use pingora_core::protocols::TcpKeepalive;
 use pingora_limits::rate::Rate;
 use pingora_proxy::{ProxyHttp, Session};
+// use prometheus::{register_int_counter, IntCounter};
 use sha2::{Digest, Sha256};
 use std::cell::RefCell;
 use std::fmt::Write;
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 use std::time::Duration;
 use tokio::time::Instant;
 
-static RATE_LIMITER: Lazy<Rate> = Lazy::new(|| Rate::new(Duration::from_secs(1)));
-static REVERSE_STORE: Lazy<DashMap<String, String>> = Lazy::new(|| DashMap::new());
+// static RATE_LIMITER: Lazy<Rate> = Lazy::new(|| Rate::new(Duration::from_secs(1)));
+// static REVERSE_STORE: Lazy<DashMap<String, String>> = Lazy::new(|| DashMap::new());
+static REVERSE_STORE: LazyLock<DashMap<String, String>> = LazyLock::new(|| DashMap::new());
 thread_local! {static IP_BUFFER: RefCell<String> = RefCell::new(String::with_capacity(50));}
+pub static RATE_LIMITER: LazyLock<Rate> = LazyLock::new(|| Rate::new(Duration::from_secs(1)));
 
 #[derive(Clone)]
 pub struct LB {
@@ -102,12 +101,7 @@ impl ProxyHttp for LB {
                             let rate_key = session.client_addr().and_then(|addr| addr.as_inet()).map(|inet| inet.ip());
                             let curr_window_requests = RATE_LIMITER.observe(&rate_key, 1);
                             if curr_window_requests > rate {
-                                let mut buf = Buffer::new();
-                                let rate_str = buf.format(rate);
-                                let mut header = ResponseHeader::build(429, None)?;
-                                header.insert_header("X-Rate-Limit-Limit", rate_str)?;
-                                header.insert_header("X-Rate-Limit-Remaining", "0")?;
-                                header.insert_header("X-Rate-Limit-Reset", "1")?;
+                                let header = ResponseHeader::build(429, None)?;
                                 session.set_keepalive(None);
                                 session.write_response_header(Box::new(header), true).await?;
                                 debug!("Rate limited: {:?}, {}", rate_key, rate);

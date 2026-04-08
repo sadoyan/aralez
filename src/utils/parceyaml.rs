@@ -57,7 +57,7 @@ pub async fn load_configuration(d: &str, kind: &str) -> (Option<Configuration>, 
         }
     };
 
-    let mut parsed: Config = match serde_yaml::from_str(&yaml_data) {
+    let mut parsed: Config = match serde_yml::from_str(&yaml_data) {
         Ok(cfg) => cfg,
         Err(e) => {
             error!("Failed to parse upstreams file: {}", e);
@@ -67,7 +67,7 @@ pub async fn load_configuration(d: &str, kind: &str) -> (Option<Configuration>, 
 
     if let Some(ref mut upstreams) = parsed.upstreams {
         for uconf in conf_files {
-            let p: HashMap<String, HostConfig> = match serde_yaml::from_str(&uconf) {
+            let p: HashMap<String, HostConfig> = match serde_yml::from_str(&uconf) {
                 Ok(ucfg) => ucfg,
                 Err(e) => {
                     error!("Failed to parse upstreams file: {}", e);
@@ -209,8 +209,8 @@ async fn populate_file_upstreams(config: &mut Configuration, parsed: &Config) {
 pub fn parce_main_config(path: &str) -> AppConfig {
     let data = fs::read_to_string(path).unwrap();
     let reply = DashMap::new();
-    let cfg: HashMap<String, String> = serde_yaml::from_str(&*data).expect("Failed to parse main config file");
-    let mut cfo: AppConfig = serde_yaml::from_str(&*data).expect("Failed to parse main config file");
+    let cfg: HashMap<String, String> = serde_yml::from_str(&*data).expect("Failed to parse main config file");
+    let mut cfo: AppConfig = serde_yml::from_str(&*data).expect("Failed to parse main config file");
     log_builder(&cfo);
     cfo.hc_method = cfo.hc_method.to_uppercase();
     for (k, v) in cfg {

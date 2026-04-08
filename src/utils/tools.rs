@@ -4,7 +4,6 @@ use crate::utils::tls::CertificateConfig;
 use dashmap::DashMap;
 use log::{error, info};
 use notify::{event::ModifyKind, Config, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
-use port_check::is_port_reachable;
 use privdrop::PrivDrop;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
@@ -12,6 +11,7 @@ use std::any::type_name;
 use std::collections::{HashMap, HashSet};
 use std::fmt::Write;
 use std::net::SocketAddr;
+use std::net::TcpListener;
 use std::os::unix::fs::MetadataExt;
 use std::str::FromStr;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -268,14 +268,14 @@ pub fn drop_priv(user: String, group: String, http_addr: String, tls_addr: Optio
     thread::sleep(time::Duration::from_millis(10));
     loop {
         thread::sleep(time::Duration::from_millis(10));
-        if is_port_reachable(http_addr.clone()) {
+        if port_is_available(http_addr.clone()) {
             break;
         }
     }
     if let Some(tls_addr) = tls_addr {
         loop {
             thread::sleep(time::Duration::from_millis(10));
-            if is_port_reachable(tls_addr.clone()) {
+            if port_is_available(tls_addr.clone()) {
                 break;
             }
         }
@@ -284,6 +284,13 @@ pub fn drop_priv(user: String, group: String, http_addr: String, tls_addr: Optio
     if let Err(e) = PrivDrop::default().user(user).group(group).apply() {
         error!("Failed to drop privileges: {}", e);
         process::exit(1)
+    }
+}
+
+fn port_is_available(addr: String) -> bool {
+    match TcpListener::bind(addr) {
+        Ok(_) => false,
+        Err(_) => true,
     }
 }
 

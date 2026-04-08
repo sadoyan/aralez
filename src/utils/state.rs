@@ -1,12 +1,11 @@
-use once_cell::sync::Lazy;
-use std::sync::RwLock;
+use std::sync::{LazyLock, RwLock};
 
 #[derive(Debug)]
 pub struct SharedState {
     pub first_run: bool,
 }
 
-pub static GLOBAL_STATE: Lazy<RwLock<SharedState>> = Lazy::new(|| RwLock::new(SharedState { first_run: true }));
+pub static GLOBAL_STATE: LazyLock<RwLock<SharedState>> = LazyLock::new(|| RwLock::new(SharedState { first_run: true }));
 
 pub fn mark_not_first_run() {
     let mut state = GLOBAL_STATE.write().unwrap();
