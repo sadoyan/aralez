@@ -147,6 +147,7 @@ dependencies = [
  "serde_json",
  "serde_yml",
  "sha2 0.11.0",
+ "subtle",
  "tokio",
  "tonic",
  "tower-http",

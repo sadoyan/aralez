@@ -4,6 +4,7 @@ use base64::Engine;
 use pingora_proxy::Session;
 use std::collections::HashMap;
 use std::sync::Arc;
+use subtle::ConstantTimeEq;
 use urlencoding::decode;
 
 trait AuthValidator {
@@ -19,8 +20,8 @@ impl AuthValidator for BasicAuth<'_> {
             if let Some(h) = header.to_str().ok() {
                 if let Some((_, val)) = h.split_once(' ') {
                     if let Some(decoded) = STANDARD.decode(val).ok() {
-                        if let Some(decoded_str) = String::from_utf8(decoded).ok() {
-                            return decoded_str == self.0;
+                        if decoded.as_slice().ct_eq(self.0.as_bytes()).into() {
+                            return true;
                         }
                     }
                 }
@@ -33,10 +34,9 @@ impl AuthValidator for BasicAuth<'_> {
 impl AuthValidator for ApiKeyAuth<'_> {
     fn validate(&self, session: &Session) -> bool {
         if let Some(header) = session.get_header("x-api-key") {
-            if let Some(header) = header.to_str().ok() {
-                return header == self.0;
+            if let Some(h) = header.to_str().ok() {
+                return h.as_bytes().ct_eq(self.0.as_bytes()).into();
             }
-            // return header.to_str().ok().unwrap() == self.0;
         }
         false
     }
@@ -60,27 +60,14 @@ impl AuthValidator for JwtAuth<'_> {
         false
     }
 }
-fn validate(auth: &dyn AuthValidator, session: &Session) -> bool {
-    auth.validate(session)
-}
 
-// pub fn authenticate(c: &[Arc<str>], session: &Session) -> bool {
 pub fn authenticate(auth_type: &Arc<str>, credentials: &Arc<str>, session: &Session) -> bool {
-    match &*auth_type.clone() {
-        "basic" => {
-            let auth = BasicAuth(&*credentials.clone());
-            validate(&auth, session)
-        }
-        "apikey" => {
-            let auth = ApiKeyAuth(&*credentials.clone());
-            validate(&auth, session)
-        }
-        "jwt" => {
-            let auth = JwtAuth(&*credentials.clone());
-            validate(&auth, session)
-        }
+    match &**auth_type {
+        "basic" => BasicAuth(credentials).validate(session),
+        "apikey" => ApiKeyAuth(credentials).validate(session),
+        "jwt" => JwtAuth(credentials).validate(session),
         _ => {
-            println!("Unsupported authentication mechanism : {}", auth_type);
+            log::warn!("Unsupported authentication mechanism : {}", auth_type);
             false
         }
     }
@@ -98,6 +85,5 @@ pub fn get_query_param(session: &Session, key: &str) -> Option<String> {
             Some((k, v))
         })
         .collect();
-
-    params.get(key).map(|v| decode(v).ok()).flatten().map(|s| s.to_string())
+    params.get(key).and_then(|v| decode(v).ok()).map(|s| s.to_string())
 }

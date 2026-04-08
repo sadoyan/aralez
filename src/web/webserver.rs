@@ -3,7 +3,7 @@ use crate::utils::structs::{Config, Configuration, UpstreamsDashMap};
 use crate::utils::tools::{upstreams_liveness_json, upstreams_to_json};
 use axum::body::Body;
 use axum::extract::{Query, State};
-use axum::http::{Response, StatusCode};
+use axum::http::{header::HeaderMap, Response, StatusCode};
 use axum::response::IntoResponse;
 use axum::routing::{get, post};
 use axum::{Json, Router};
@@ -18,6 +18,7 @@ use std::collections::HashMap;
 // use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use subtle::ConstantTimeEq;
 use tokio::net::TcpListener;
 use tower_http::services::ServeDir;
 
@@ -88,23 +89,18 @@ pub async fn run_server(config: &APIUpstreamProvider, mut to_return: Sender<Conf
     axum::serve(listener, app).await.unwrap();
 }
 
-async fn conf(State(st): State<AppState>, Query(params): Query<HashMap<String, String>>, content: String) -> impl IntoResponse {
+async fn conf(State(st): State<AppState>, Query(params): Query<HashMap<String, String>>, headers: HeaderMap, content: String) -> impl IntoResponse {
     if !st.config_api_enabled {
         return Response::builder().status(StatusCode::FORBIDDEN).body(Body::from("Config API is disabled !\n")).unwrap();
     }
-    if let Some(s) = params.get("key") {
-        if s.to_owned() == st.master_key {
+    if let Some(s) = headers.get("x-api-key").and_then(|v| v.to_str().ok()).or(params.get("key").map(|s| s.as_str())) {
+        if s.as_bytes().ct_eq(st.master_key.as_bytes()).into() {
             let strcontent = content.as_str();
             let parsed = serde_yml::from_str::<Config>(strcontent);
             match parsed {
                 Ok(_) => {
-                    if let Some(s) = params.get("key") {
-                        if s.to_owned() == st.master_key {
-                            let _ = tokio::spawn(async move { apply_config(content.as_str(), st).await });
-                            return Response::builder().status(StatusCode::OK).body(Body::from("Accepted! Applying in background\n")).unwrap();
-                        }
-                    }
-                    return Response::builder().status(StatusCode::FORBIDDEN).body(Body::from("Access Denied !\n")).unwrap();
+                    let _ = tokio::spawn(async move { apply_config(content.as_str(), st).await });
+                    return Response::builder().status(StatusCode::OK).body(Body::from("Accepted! Applying in background\n")).unwrap();
                 }
                 Err(err) => {
                     error!("Failed to parse upstreams file: {}", err);
