@@ -89,7 +89,7 @@ impl ProxyHttp for LB {
                     None => return Ok(false),
                     Some(ref innermap) => {
                         if let Some(auth) = _ctx.extraparams.authentication.as_ref().or(innermap.authorization.as_ref()) {
-                            if !authenticate(&auth.auth_type, &auth.auth_cred, &session).await {
+                            if !authenticate(&auth.auth_type, &auth.auth_cred, session).await {
                                 let _ = session.respond_error(401).await;
                                 warn!("Forbidden: {:?}, {}", session.client_addr(), session.req_header().uri.path());
                                 return Ok(true);
