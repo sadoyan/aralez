@@ -31,10 +31,10 @@ pub static AUTH_CONNECTOR: LazyLock<Connector> = LazyLock::new(|| Connector::new
 #[async_trait::async_trait]
 impl AuthValidator for ForwardAuth<'_> {
     async fn validate(&self, session: &mut Session) -> bool {
-        // let method = match session.req_header().method.as_str() {
-        //     "HEAD" => "HEAD",
-        //     _ => "GET",
-        // };
+        let method = match session.req_header().method.as_str() {
+            "HEAD" => "HEAD",
+            _ => "GET",
+        };
 
         let auth_url = self.0;
 
@@ -67,7 +67,7 @@ impl AuthValidator for ForwardAuth<'_> {
             }
         };
 
-        let mut auth_req = match RequestHeader::build("GET", uri.as_bytes(), None) {
+        let mut auth_req = match RequestHeader::build(method, uri.as_bytes(), None) {
             Ok(r) => r,
             Err(e) => {
                 log::warn!("ForwardAuth: failed to build request: {}", e);
@@ -75,7 +75,6 @@ impl AuthValidator for ForwardAuth<'_> {
             }
         };
 
-        // Filter headers ????
         // auth_req.headers = session.req_header().headers.clone();
         auth_req.insert_header("Host", addr).ok();
         auth_req.insert_header("X-Forwarded-Uri", uri).ok();
@@ -147,7 +146,6 @@ impl AuthValidator for ForwardAuth<'_> {
         } else {
             false
         }
-        // (200..300).contains(&status)
     }
 }
 

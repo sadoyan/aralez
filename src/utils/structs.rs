@@ -76,7 +76,7 @@ pub struct HostConfig {
 pub struct Auth {
     #[serde(rename = "type")]
     pub auth_type: String,
-    #[serde(rename = "creds")]
+    #[serde(rename = "data")]
     pub auth_cred: String,
 }
 #[derive(Debug, Default, Serialize, Deserialize)]
