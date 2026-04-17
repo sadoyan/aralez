@@ -1,4 +1,6 @@
 use crate::utils::discovery::APIUpstreamProvider;
+// use std::net::SocketAddr;
+use crate::utils::jwt::Claims;
 use crate::utils::structs::{Config, Configuration, UpstreamsDashMap};
 use crate::utils::tools::{upstreams_liveness_json, upstreams_to_json};
 use axum::body::Body;
@@ -13,21 +15,13 @@ use futures::SinkExt;
 use jsonwebtoken::{encode, EncodingKey, Header};
 use log::{error, info, warn};
 use prometheus::{gather, Encoder, TextEncoder};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::collections::HashMap;
-// use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use subtle::ConstantTimeEq;
 use tokio::net::TcpListener;
 use tower_http::services::ServeDir;
-
-#[derive(Deserialize)]
-struct InputKey {
-    master_key: String,
-    owner: String,
-    valid: u64,
-}
 
 #[derive(Serialize, Debug)]
 struct OutToken {
@@ -119,15 +113,21 @@ async fn apply_config(content: &str, mut st: AppState) {
     }
 }
 
-async fn jwt_gen(State(state): State<AppState>, Json(payload): Json<InputKey>) -> (StatusCode, Json<OutToken>) {
+async fn jwt_gen(State(state): State<AppState>, Json(payload): Json<Claims>) -> (StatusCode, Json<OutToken>) {
     if payload.master_key == state.master_key {
-        let now = SystemTime::now() + Duration::from_secs(payload.valid * 60);
-        let a = now.duration_since(UNIX_EPOCH).unwrap().as_secs();
-        let claim = crate::utils::jwt::Claims { user: payload.owner, exp: a };
+        let now = SystemTime::now() + Duration::from_secs(payload.exp * 60);
+        let expire = now.duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
+
+        let claim = Claims {
+            master_key: String::new(),
+            owner: payload.owner,
+            exp: expire,
+            random: payload.random,
+        };
         match encode(&Header::default(), &claim, &EncodingKey::from_secret(payload.master_key.as_ref())) {
             Ok(t) => {
                 let tok = OutToken { token: t };
-                info!("Generating token: {:?}", tok);
+                info!("Generating token: {:?}", tok.token);
                 (StatusCode::CREATED, Json(tok))
             }
             Err(e) => {
