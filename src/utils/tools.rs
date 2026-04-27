@@ -1,6 +1,6 @@
+use crate::tls::load;
+use crate::tls::load::CertificateConfig;
 use crate::utils::structs::{InnerMap, InnerMapForJson, UpstreamSnapshotForJson, UpstreamsDashMap, UpstreamsIdMap};
-use crate::utils::tls;
-use crate::utils::tls::CertificateConfig;
 use dashmap::DashMap;
 use log::{error, info};
 use notify::{event::ModifyKind, Config, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
@@ -207,9 +207,9 @@ pub fn clone_idmap_into(original: &UpstreamsDashMap, cloned: &UpstreamsIdMap) {
     info!("Upstreams are fully populated. Ready to server requests");
 }
 
-pub fn listdir(dir: String) -> Vec<tls::CertificateConfig> {
+pub fn listdir(dir: String) -> Vec<load::CertificateConfig> {
     let mut f = HashMap::new();
-    let mut certificate_configs: Vec<tls::CertificateConfig> = vec![];
+    let mut certificate_configs: Vec<load::CertificateConfig> = vec![];
     let paths = fs::read_dir(dir).unwrap();
     for path in paths {
         let path_str = path.unwrap().path().to_str().unwrap().to_owned();

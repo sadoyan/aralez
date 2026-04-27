@@ -1,7 +1,7 @@
 // use rustls::crypto::ring::default_provider;
+use crate::tls::load;
+use crate::tls::load::CertificateConfig;
 use crate::utils::structs::Extraparams;
-use crate::utils::tls;
-use crate::utils::tls::CertificateConfig;
 use crate::utils::tools::*;
 use crate::web::proxyhttp::LB;
 use arc_swap::ArcSwap;
@@ -68,27 +68,27 @@ pub fn run() {
                 watch_folder(certs_path, tx).unwrap();
             });
             let certificate_configs = rx.recv().unwrap();
-            let first_set = tls::Certificates::new(&certificate_configs, grade.as_str()).unwrap_or_else(|| panic!("Unable to load initial certificate info"));
+            let first_set = load::Certificates::new(&certificate_configs, grade.as_str()).unwrap_or_else(|| panic!("Unable to load initial certificate info"));
             let certificates = Arc::new(ArcSwap::from_pointee(first_set));
             let certs_for_callback = certificates.clone();
 
             let certs_for_watcher = certificates.clone();
-            let new_certs = tls::Certificates::new(&certificate_configs, grade.as_str());
+            let new_certs = load::Certificates::new(&certificate_configs, grade.as_str());
             certs_for_watcher.store(Arc::new(new_certs.unwrap()));
 
             let mut tls_settings =
                 TlsSettings::intermediate(&certs_for_callback.load().default_cert_path, &certs_for_callback.load().default_key_path).expect("unable to load or parse cert/key");
 
-            tls::set_tsl_grade(&mut tls_settings, grade.as_str());
+            load::set_tsl_grade(&mut tls_settings, grade.as_str());
             tls_settings.set_servername_callback(move |ssl_ref: &mut SslRef, ssl_alert: &mut SslAlert| certs_for_callback.load().server_name_callback(ssl_ref, ssl_alert));
-            tls_settings.set_alpn_select_callback(tls::prefer_h2);
+            tls_settings.set_alpn_select_callback(load::prefer_h2);
 
             proxy.add_tls_with_settings(&bind_address_tls, None, tls_settings);
 
             let certs_for_watcher = certificates.clone();
             thread::spawn(move || {
                 while let Ok(new_configs) = rx.recv() {
-                    let new_certs = tls::Certificates::new(&new_configs, grade.as_str());
+                    let new_certs = load::Certificates::new(&new_configs, grade.as_str());
                     match new_certs {
                         Some(new_certs) => {
                             certs_for_watcher.store(Arc::new(new_certs));
