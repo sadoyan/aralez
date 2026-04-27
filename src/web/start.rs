@@ -1,4 +1,5 @@
 // use rustls::crypto::ring::default_provider;
+use crate::tls::grades;
 use crate::tls::load;
 use crate::tls::load::CertificateConfig;
 use crate::utils::structs::Extraparams;
@@ -79,9 +80,9 @@ pub fn run() {
             let mut tls_settings =
                 TlsSettings::intermediate(&certs_for_callback.load().default_cert_path, &certs_for_callback.load().default_key_path).expect("unable to load or parse cert/key");
 
-            load::set_tsl_grade(&mut tls_settings, grade.as_str());
+            grades::set_tsl_grade(&mut tls_settings, grade.as_str());
             tls_settings.set_servername_callback(move |ssl_ref: &mut SslRef, ssl_alert: &mut SslAlert| certs_for_callback.load().server_name_callback(ssl_ref, ssl_alert));
-            tls_settings.set_alpn_select_callback(load::prefer_h2);
+            tls_settings.set_alpn_select_callback(grades::prefer_h2);
 
             proxy.add_tls_with_settings(&bind_address_tls, None, tls_settings);
 
