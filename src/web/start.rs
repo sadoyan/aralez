@@ -15,7 +15,7 @@ use pingora_core::prelude::{background_service, Opt};
 use pingora_core::server::Server;
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::Arc;
-use std::thread;
+use std::{fs, thread};
 pub fn run() {
     // default_provider().install_default().expect("Failed to install rustls crypto provider");
     let parameters = Some(Opt::parse_args()).unwrap();
@@ -64,8 +64,11 @@ pub fn run() {
         Some(bind_address_tls) => {
             check_priv(bind_address_tls.as_str());
             let (tx, rx): (Sender<Vec<CertificateConfig>>, Receiver<Vec<CertificateConfig>>) = channel();
-            // let certs_path = cfg.proxy_certificates.clone().unwrap();
             let certs_path = cfg.proxy_configs.clone().unwrap() + "/certificates";
+
+            if !fs::metadata(certs_path.clone()).is_ok() {
+                fs::create_dir_all(certs_path.clone()).unwrap();
+            }
             thread::spawn(move || {
                 watch_folder(certs_path, tx).unwrap();
             });
