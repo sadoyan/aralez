@@ -15,7 +15,7 @@ use axum::{Json, Router};
 use futures::channel::mpsc::Sender;
 use futures::SinkExt;
 use jsonwebtoken::{encode, EncodingKey, Header};
-use log::{error, info, warn};
+use log::{debug, error, info, warn};
 use prometheus::{gather, Encoder, TextEncoder};
 use serde::Serialize;
 use std::collections::HashMap;
@@ -49,7 +49,7 @@ pub async fn run_server(config: &APIUpstreamProvider, mut to_return: Sender<Conf
         cert_creds: credsfile,
         certs_dir: config.certs_dir.clone(),
         config_sender: to_return.clone(),
-        config_api_enabled: config.config_api_enabled.clone(),
+        config_api_enabled: config.config_api_enabled),
         current_upstreams: upstreams_curr,
         full_upstreams: upstreams_full,
     };
@@ -136,7 +136,7 @@ async fn jwt_gen(State(state): State<AppState>, Json(payload): Json<Claims>) -> 
         match encode(&Header::default(), &claim, &EncodingKey::from_secret(payload.master_key.as_ref())) {
             Ok(t) => {
                 let tok = OutToken { token: t };
-                info!("Generating token: {:?}", tok.token);
+                debug!("Generating token: {:?}", tok.token);
                 (StatusCode::CREATED, Json(tok))
             }
             Err(e) => {
@@ -283,3 +283,5 @@ fn key_authorization(headers: &HeaderMap, params: &HashMap<String, String>, mast
     }
     false
 }
+
+// -- ⚝ by Dave -- in NeoVim ⚝ --
