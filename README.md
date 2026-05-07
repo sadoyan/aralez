@@ -19,71 +19,36 @@ Built on Rust, on top of **Cloudflare’s Pingora engine**, **Aralez** delivers 
 
 ---
 
-## 🔧 Key Features
+## Key Features
 
 - **Dynamic Config Reloads** — Upstreams can be updated live via API, no restart required.
-- **TLS Termination** — Built-in OpenSSL support.
-    - **Automatic loading of certificates** — Automatically reads and loads certificates from a folder, without a restart.
+- **Automatic loading of certificates** — Auto load certificates from a folder, without a restart.
 - **Let’s Encrypt Certificates** — Automatic ordering and renewal of SSL/TLS certificates via the HTTP-01 challenge
 - **Upstreams TLS detection** — Aralez will automatically detect if upstreams uses secure connection.
-- **Built in rate limiter** — Limit requests to server, by setting up upper limit for requests per seconds, per virtualhost.
-    - **Global rate limiter** — Set rate limit for all virtualhosts.
-    - **Per path rate limiter** — Set rate limit for specific paths. Path limits will override global limits.
+- **Built in rate limiter** — Globar or route limit requests to upstreams.
 - **Authentication** — Supports Basic Auth, API tokens, and JWT verification.
     - **Basic Auth**
     - **API Key** via `x-api-key` header
     - **JWT Auth**, with tokens issued by Aralez itself via `/jwt` API
-        - ⬇️ See below for examples and implementation details.
-- **Load Balancing Strategies**
-    - Round-robin
-    - Failover with health checks
-    - Sticky sessions via cookies
-- **Unified Port** — Serve HTTP and WebSocket traffic over the same connection.
+    - **Forward Auth**, Sends requests to an authentication server.
+- **Load Balancing** Round-robin, health checks, optional sticky sessions.
 - **Built in file server** — Build in minimalistic file server for serving static files, should be added as upstreams for public access.
-- **Memory Safe** — Created purely on Rust.
-- **High Performance** — Built with [Pingora](https://github.com/cloudflare/pingora) and tokio for async I/O.
-
-## 🌍 Highlights
-
-- ⚙️ **Upstream Providers:**
+- **Upstream Providers:**
     - `file` Upstreams are declared in config file.
     - `consul` Upstreams are dynamically updated from Hashicorp Consul.
-- 🔁 **Hot Reloading:** Modify upstreams on the fly via `upstreams.yaml` — no restart needed.
-- 🔮 **Automatic WebSocket Support:** Zero config — connection upgrades are handled seamlessly.
-- 🔮 **Automatic GRPC Support:** Zero config, Requires `ssl` to proxy, gRPC handled seamlessly.
-- 🔮 **Upstreams Session Stickiness:** Enable/Disable Sticky sessions globally.
-- 🔐 **TLS Termination:** Fully supports TLS for upstreams and downstreams.
-- 🛡️ **Built-in Authentication** Basic Auth, JWT, API key, Forward Auth.
-- 🧠 **Header Injection:** Global and per-route header configuration.
-- 🧪 **Health Checks:** Pluggable health check methods for upstreams.
-- 🛰️ **Remote Config Push:** Lightweight HTTP API to update configs from CI/CD or other systems.
+    - `kubernetes` Upstreams are dynamically updated from kubernetes api server.
+- **Automatic WebSocket Support:** WS connection upgrades are handled automatically.
+- **Automatic gRPC Support:** gRPC detected and handled automatically.
+- **Header Injection:** Global and per-route server/client headers injection.
+- **Remote Config Push:** Lightweight HTTP API to update configs from CI/CD or other systems.
+- **Memory Safe** — 100% Rust.
+- **High Performance** — Built with [Pingora](https://github.com/cloudflare/pingora) and tokio for async I/O.
 
 ---
 
-## 📁 File Structure
+## Configuration Overview
 
-```
-
-├── autoconfigs                 # Automatically create directory fo non human managed files 
-│    ├── acme_credentials.json  # Credentials for loggind in to Let's Encrypt server. Automatically generated 
-│    └── domains.json           # Auto generated file, contains list of domains for certificates
-├── certificates
-│    ├── yourdomain.com.crt
-│    ├── yourdomain.com.key
-│    ├── otherdomain.com.crt
-│    └── otherdomain.com.key
-├── conf.d
-│    ├── yourdomain.yaml        # Split configuration file for yourdomain.com
-│    └── otherdomain.yaml       # Split configuration file for otherdomain.com
-├── main.yaml                   # Main configuration loaded at startup
-└── upstreams.yaml              # Watched config with upstream mappings
-```
-
----
-
-## 🛠 Configuration Overview
-
-### 🔧 `main.yaml`
+### `main.yaml`
 
 | Key                              | Example Value                        | Description                                                                                        |
 |----------------------------------|--------------------------------------|----------------------------------------------------------------------------------------------------|
@@ -112,19 +77,9 @@ Built on Rust, on top of **Cloudflare’s Pingora engine**, **Aralez** delivers 
 | **file_server_address**          | 127.0.0.1:3002                       | Optional, Local address for file server. Can set as upstream for public access                     |
 | **config_api_enabled**           | true                                 | Boolean to enable/disable remote config push capability                                            |
 
-### 🌐 `upstreams.yaml`
-
-- `provider`: `file`, `consul` or `kubernetes`
-- File-based upstreams define:
-    - Hostnames and routing paths
-    - Backend servers (load-balanced)
-    - Optional request headers, specific to this upstream
-- Global headers (e.g., CORS) apply to all proxied responses
-- Optional authentication (Basic, API Key, JWT, Forward)
-
 ---
 
-## 🛠 Installation
+## Installation
 
 Download the prebuilt binary for your architecture from releases section of [GitHub](https://github.com/sadoyan/aralez/releases) repo
 Make the binary executable `chmod 755 ./aralez-VERSION` and run.
@@ -151,25 +106,19 @@ docker run -d \
   sadoyan/aralez
 ```
 
-## 💡 Note
+## About binaries
 
-In general **glibc** builds are working faster, but have few, basic, system dependencies for example :
+**glibc** builds are in general faster, but have few, basic, Glibc dependencies:
 
-```
-	linux-vdso.so.1 (0x00007ffeea33b000)
-	libgcc_s.so.1 => /lib/x86_64-linux-gnu/libgcc_s.so.1 (0x00007f09e7377000)
-	libm.so.6 => /lib/x86_64-linux-gnu/libm.so.6 (0x00007f09e6320000)
-	libc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x00007f09e613f000)
-	/lib64/ld-linux-x86-64.so.2 (0x00007f09e73b1000)
-```
-
-These are common to any Linux systems, so the binary should work on almost any Linux system.
-
-**musl** builds are 100% portable, static compiled binaries and have zero system depencecies.
+**musl** builds are 100% portable, static compiled binaries and have zero system dependencies.
 In general musl builds have a little less performance.
+
 The most intensive tests shows 107k-110k requests per second on **Glibc** binaries against 97k-100k **Musl** ones.
 
-## 🔌 Running the Proxy
+For running **Aralez** on very old hardware, CPUs prior Haswell, (launched before 2013) use `aralez-x86_64-compat-*.gz`
+For getting the best performance on newer hardware use `aralez-x86_64-*.gz`.
+
+## Running the Proxy
 
 ```bash
 ./aralez -c path/to/main.yaml
@@ -193,9 +142,7 @@ systemctl enable aralez.service.
 systemctl restart aralez.service.
 ```
 
-## 💡 Example
-
-A sample `upstreams.yaml` entry:
+## Example upstreams config
 
 ```yaml
 provider: "file"
@@ -266,7 +213,7 @@ myhost.mydomain.com:
 
 ---
 
-## 🔄 Hot Reload
+## Hot Reload
 
 - Changes to `upstreams.yaml` are applied immediately.
 - No need to restart the proxy — just save the file.
@@ -274,16 +221,16 @@ myhost.mydomain.com:
 
 ---
 
-## 🔐 TLS Support
+## TLS Support
 
-To enable TLS for A proxy server: Currently only OpenSSL is supported, working on Boringssl and Rustls
+To enable TLS for the proxy server: Currently only OpenSSL is supported.
 
 1. Set `proxy_address_tls` in `main.yaml`
 2. Provide `tls_certificate` and `tls_key_file`
 
 ---
 
-## 📡 Remote Config API
+## Remote Config API
 
 Push new `upstreams.yaml` over HTTP to `config_address` (`:3000` by default). Useful for CI/CD automation or remote config updates.
 URL parameter. `key=MASTERKEY` is required. `MASTERKEY` is the value of `master_key` in the `main.yaml`
@@ -294,7 +241,7 @@ curl -XPOST --data-binary @./etc/upstreams.txt 127.0.0.1:3000/conf?key=${MASTERK
 
 ---
 
-## 🔐 Authentication (Optional)
+## Authentication (Optional)
 
 - Adds authentication to all requests.
 - Only one method can be active at a time.
@@ -348,13 +295,13 @@ curl  -u username:password -H 'Host: myip.mydomain.com' http://127.0.0.1:6193/
 
 ```
 
-## 📃 License
+## License
 
 [Apache License Version 2.0](https://www.apache.org/licenses/LICENSE-2.0)
 
 ---
 
-## 🧠 Notes
+## Notes
 
 - Uses Pingora under the hood for efficiency and flexibility.
 - Designed for edge proxying, internal routing, or hybrid cloud scenarios.
@@ -363,7 +310,7 @@ curl  -u username:password -H 'Host: myip.mydomain.com' http://127.0.0.1:6193/
 - Sticky session support.
 - HTTP2 ready.
 
-### 🧩 Summary Table: Feature Comparison
+### Summary Table: Feature Comparison
 
 | Feature / Proxy                  |    **Aralez**     |          **Nginx**          |    **HAProxy**    |           **Traefik**            |    **Caddy**    |    **Envoy**    |
 |----------------------------------|:-----------------:|:---------------------------:|:-----------------:|:--------------------------------:|:---------------:|:---------------:|
@@ -391,9 +338,9 @@ curl  -u username:password -H 'Host: myip.mydomain.com' http://127.0.0.1:6193/
 ⚙️ **Manual / Config-based** – Requires explicit configuration or modules  
 ❌ **No** – Not supported
 
-## 💡 Simple benchmark by [Oha](https://github.com/hatoo/oha)
+## Simple benchmark by [Oha](https://github.com/hatoo/oha)
 
-⚠️ These benchmarks use :
+**These benchmarks use :**
 
 - 3 async Rust echo servers on a local network with 1Gbit as upstreams.
 - A dedicated server for running **Aralez**
@@ -536,7 +483,7 @@ Error distribution:
 
 ![Aralez](https://netangels.net/utils/musl10.png)
 
-## 🚀 Aralez, Nginx, Traefik performance benchmark
+## Aralez, Nginx, Traefik performance benchmark
 
 This benchmark is done on 4 servers. With CPU Intel(R) Xeon(R) E-2174G CPU @ 3.80GHz, 64 GB RAM.
 
