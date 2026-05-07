@@ -49,7 +49,7 @@ pub async fn run_server(config: &APIUpstreamProvider, mut to_return: Sender<Conf
         cert_creds: credsfile,
         certs_dir: config.certs_dir.clone(),
         config_sender: to_return.clone(),
-        config_api_enabled: config.config_api_enabled),
+        config_api_enabled: config.config_api_enabled,
         current_upstreams: upstreams_curr,
         full_upstreams: upstreams_full,
     };
