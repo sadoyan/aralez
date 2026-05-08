@@ -27,16 +27,16 @@ Built on Rust, on top of **Cloudflare’s Pingora engine**, **Aralez** delivers 
 - **Upstreams TLS detection** — Aralez will automatically detect if upstreams uses secure connection.
 - **Built in rate limiter** — Globar or route limit requests to upstreams.
 - **Authentication** — Supports Basic Auth, API tokens, and JWT verification.
-  - **Basic Auth**
-  - **API Key** via `x-api-key` header
-  - **JWT Auth**, with tokens issued by Aralez itself via `/jwt` API
-  - **Forward Auth**, Sends requests to an authentication server.
+    - **Basic Auth**
+    - **API Key** via `x-api-key` header
+    - **JWT Auth**, with tokens issued by Aralez itself via `/jwt` API
+    - **Forward Auth**, Sends requests to an authentication server.
 - **Load Balancing** Round-robin, health checks, optional sticky sessions.
 - **Built in file server** — Build in minimalistic file server for serving static files, should be added as upstreams for public access.
 - **Upstream Providers:**
-  - `file` Upstreams are declared in config file.
-  - `consul` Upstreams are dynamically updated from Hashicorp Consul.
-  - `kubernetes` Upstreams are dynamically updated from kubernetes api server.
+    - `file` Upstreams are declared in config file.
+    - `consul` Upstreams are dynamically updated from Hashicorp Consul.
+    - `kubernetes` Upstreams are dynamically updated from kubernetes api server.
 - **Automatic WebSocket Support:** WS connection upgrades are handled automatically.
 - **Automatic gRPC Support:** gRPC detected and handled automatically.
 - **Header Injection:** Global and per-route server/client headers injection.
@@ -84,25 +84,15 @@ Make the binary executable `chmod 755 ./aralez-VERSION` and run.
 
 File names:
 
-| File Name                       | Description                                                              |
-|---------------------------------|--------------------------------------------------------------------------|
-| `aralez-x86_64-musl.gz`         | Static Linux x86_64 binary, without any system dependency                |
-| `aralez-x86_64-glibc.gz`        | Dynamic Linux x86_64 binary, with minimal system dependencies            |
-| `aralez-x86_64-compat-musl.gz`  | Static Linux x86_64 binary, compatible with old pre Haswell CPUs         |
-| `aralez-x86_64-compat-glibc.gz` | Dynamic Linux x86_64 binary, compatible with old pre Haswell CPUs        |
-| `aralez-aarch64-musl.gz`        | Static Linux ARM64 binary, without any system dependency                 |
-| `aralez-aarch64-glibc.gz`       | Dynamic Linux ARM64 binary, with minimal system dependencies             |
+| File Name                       | Description                                                                |
+|---------------------------------|----------------------------------------------------------------------------|
+| `aralez-x86_64-musl.gz`         | Static Linux x86_64 binary, without any system dependency                  |
+| `aralez-x86_64-glibc.gz`        | Dynamic Linux x86_64 binary, with minimal system dependencies              |
+| `aralez-x86_64-compat-musl.gz`  | Static Linux x86_64 binary, compatible with old pre Haswell CPUs           |
+| `aralez-x86_64-compat-glibc.gz` | Dynamic Linux x86_64 binary, compatible with old pre Haswell CPUs          |
+| `aralez-aarch64-musl.gz`        | Static Linux ARM64 binary, without any system dependency                   |
+| `aralez-aarch64-glibc.gz`       | Dynamic Linux ARM64 binary, with minimal system dependencies               |
 | `sadoyan/aralez`                | Docker image on Debian 13 slim (<https://hub.docker.com/r/sadoyan/aralez>) |
-
-**Via docker**
-
-```shell
-docker run -d \
-  -v /local/path/to/config:/etc/aralez:ro \
-  -p 80:80 \
-  -p 443:443 \
-  sadoyan/aralez
-```
 
 ## About binaries
 
@@ -115,6 +105,16 @@ The most intensive tests shows 107k-110k requests per second on **Glibc** binari
 
 For running **Aralez** on very old hardware, CPUs prior Haswell, (launched before 2013) use `aralez-x86_64-compat-*.gz`
 For getting the best performance on newer hardware use `aralez-x86_64-*.gz`.
+
+**Via docker**
+
+```shell
+docker run -d \
+  -v /local/path/to/config:/etc/aralez:ro \
+  -p 80:80 \
+  -p 443:443 \
+  sadoyan/aralez
+```
 
 ## Running the Proxy
 
@@ -210,9 +210,9 @@ myhost.mydomain.com:
 - All upstreams will receive custom headers : `X-Forwarded-Proto:https` and `X-Forwarded-Port:443`
 - Additionally, myhost.mydomain.com with path `/` will receive custom headers : `X-Another-Header:Hohohohoho` and `X-Something-Else:Foobar`
 - Requests to each hosted domains will be limited to 10 requests per second per virtualhost.
-  - Requests limits are calculated per requester ip plus requested virtualhost.
-  - If the requester exceeds the limit it will receive `429 Too Many Requests` error.
-  - Optional. Rate limiter will be disabled if the parameter is entirely removed from config.
+    - Requests limits are calculated per requester ip plus requested virtualhost.
+    - If the requester exceeds the limit it will receive `429 Too Many Requests` error.
+    - Optional. Rate limiter will be disabled if the parameter is entirely removed from config.
 - Requests to `myhost.mydomain.com/` will be limited to 20 requests per second.
 - Requests to `myhost.mydomain.com/` will be proxied to `127.0.0.1` and `127.0.0.2`.
 - Plain HTTP to `myhost.mydomain.com/foo` will get 301 redirect to configured TLS port of Aralez.
@@ -220,14 +220,14 @@ myhost.mydomain.com:
 - Requests to `myhost.mydomain.com/foo` will be proxied to `127.0.0.4` and `127.0.0.5`.
 - Requests to `myhost.mydomain.com/.well-known/acme-challenge` will be proxied to `127.0.0.1:8001`, but healthcheks are disabled.
 - SSL/TLS for upstreams is detected automatically, no need to set any config parameter.
-  - Assuming the `127.0.0.5:8443` is SSL protected. The inner traffic will use TLS.
-  - Self-signed certificates are silently accepted.
+    - Assuming the `127.0.0.5:8443` is SSL protected. The inner traffic will use TLS.
+    - Self-signed certificates are silently accepted.
 - Global headers (CORS for this case) will be injected to all upstreams.
 - Additional headers will be injected into the request for `myhost.mydomain.com`.
 - You can choose any path, deep nested paths are supported, the best match chosen.
 - All requests to servers will require JWT token authentication (You can comment out the authorization to disable it),
-  - Firs parameter specifies the mechanism of authorisation `jwt`
-  - Second is the secret key for validating `jwt` tokens
+    - Firs parameter specifies the mechanism of authorisation `jwt`
+    - Second is the secret key for validating `jwt` tokens
 
 ---
 
@@ -244,7 +244,7 @@ To enable TLS for the proxy server.
 
 - Set `proxy_address_tls` in `main.yaml`
 - Provide at least on  `tls_certificate/tls_key_file` pair.
-    - First pair is required tp create the TLS listener.
+    - First pair is required to create the TLS listener.
     - This pair can be anything, even self-signed with dummy domain.
     - After getting normal certificate it can be deleted
 
@@ -269,10 +269,10 @@ curl -XPOST --data-binary @./etc/upstreams.txt 127.0.0.1:3000/conf?key=${MASTERK
 - `apikey` : Authentication via `x-api-key` header, which should match the value in config.
 - `jwt`: JWT authentication implemented via `araleztoken=` url parameter. `/some/url?araleztoken=TOKEN`
 - `jwt`: JWT authentication implemented via `Authorization: Bearer <token>` header.
-  - To obtain JWT a token, you should send **generate** request to built in api server's `/jwt` endpoint.
-  - `master_key`: should match configured `masterkey` in `main.yaml` and `upstreams.yaml`.
-  - `owner` : Just a placeholder, can be anything.
-  - `valid` : Time in minutes during which the generated token will be valid.
+    - To obtain JWT a token, you should send **generate** request to built in api server's `/jwt` endpoint.
+    - `master_key`: should match configured `masterkey` in `main.yaml` and `upstreams.yaml`.
+    - `owner` : Just a placeholder, can be anything.
+    - `valid` : Time in minutes during which the generated token will be valid.
 
 **Example JWT token generation request**
 

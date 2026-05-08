@@ -52,12 +52,13 @@ pub struct ConsulTaggedAddress {
     #[serde(rename = "Port")]
     pub port: u16,
 }
+#[allow(clippy::type_complexity)]
 pub fn list_to_upstreams(lt: Option<DashMap<Arc<str>, (Vec<Arc<InnerMap>>, AtomicUsize)>>, upstreams: &UpstreamsDashMap, i: &GlobalServiceMapping) {
     if let Some(list) = lt {
         match upstreams.get(&*i.hostname.clone()) {
             Some(upstr) => {
                 for (k, v) in list {
-                    upstr.value().insert(Arc::from(k.to_owned()), v);
+                    upstr.value().insert(k.to_owned(), v);
                 }
             }
             None => {
@@ -134,7 +135,7 @@ impl ServiceDiscovery for KubernetesDiscovery {
                             }
                             let url = format!("https://{}/api/v1/namespaces/{}/endpoints/{}", server, namespace, service.hostname);
                             // let url = format!("https://{}/api/v1/namespaces/{}/endpoints?labelSelector=app", server, namespace);
-                            let list = httpclient::for_kuber(&*url, &*token, &service).await;
+                            let list = httpclient::for_kuber(&url, &token, &service).await;
                             // println!("{:?}", list);
                             list_to_upstreams(list, &upstreams, &service);
                         }
@@ -209,7 +210,7 @@ impl ServiceDiscovery for ConsulDiscovery {
     }
 }
 async fn clone_compare(upstreams: &UpstreamsDashMap, prev_upstreams: &UpstreamsDashMap, config: &Arc<Configuration>) -> Option<Configuration> {
-    if !compare_dashmaps(&upstreams, &prev_upstreams) {
+    if !compare_dashmaps(upstreams, prev_upstreams) {
         let tosend: Configuration = Configuration {
             upstreams: Default::default(),
             client_headers: config.client_headers.clone(),
@@ -219,8 +220,8 @@ async fn clone_compare(upstreams: &UpstreamsDashMap, prev_upstreams: &UpstreamsD
             typecfg: config.typecfg.clone(),
             extraparams: config.extraparams.clone(),
         };
-        clone_dashmap_into(&upstreams, &prev_upstreams);
-        clone_dashmap_into(&upstreams, &tosend.upstreams);
+        clone_dashmap_into(upstreams, prev_upstreams);
+        clone_dashmap_into(upstreams, &tosend.upstreams);
         print_upstreams(&tosend.upstreams);
         return Some(tosend);
     };

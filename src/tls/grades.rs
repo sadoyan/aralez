@@ -16,17 +16,17 @@ const CIPHERS: CipherSuite = CipherSuite {
 
 #[derive(Debug)]
 pub enum TlsGrade {
-    HIGH,
-    MEDIUM,
-    LEGACY,
+    High,
+    Medium,
+    Legacy,
 }
 
 impl TlsGrade {
     pub fn from_str(s: &str) -> Option<Self> {
         match s.to_ascii_lowercase().as_str() {
-            "high" => Some(TlsGrade::HIGH),
-            "medium" => Some(TlsGrade::MEDIUM),
-            "unsafe" => Some(TlsGrade::LEGACY),
+            "high" => Some(TlsGrade::High),
+            "medium" => Some(TlsGrade::Medium),
+            "unsafe" => Some(TlsGrade::Legacy),
             _ => None,
         }
     }
@@ -41,22 +41,22 @@ pub fn prefer_h2<'a>(_ssl: &mut SslRef, alpn_in: &'a [u8]) -> Result<&'a [u8], A
 pub fn set_tsl_grade(tls_settings: &mut TlsSettings, grade: &str) {
     let config_grade = TlsGrade::from_str(grade);
     match config_grade {
-        Some(TlsGrade::HIGH) => {
+        Some(TlsGrade::High) => {
             let _ = tls_settings.set_min_proto_version(Some(SslVersion::TLS1_2));
             // let _ = tls_settings.set_max_proto_version(Some(SslVersion::TLS1_3));
             let _ = tls_settings.set_cipher_list(CIPHERS.high);
             // let _ = tls_settings.set_ciphersuites(CIPHERS.high);
             let _ = tls_settings.set_cipher_list(CIPHERS.high);
-            info!("TLS grade: {:?}, => HIGH", tls_settings.options());
+            info!("TLS grade: {:?}, => High", tls_settings.options());
         }
-        Some(TlsGrade::MEDIUM) => {
+        Some(TlsGrade::Medium) => {
             let _ = tls_settings.set_min_proto_version(Some(SslVersion::TLS1));
             let _ = tls_settings.set_cipher_list(CIPHERS.medium);
             // let _ = tls_settings.set_ciphersuites(CIPHERS.medium);
             let _ = tls_settings.set_cipher_list(CIPHERS.medium);
-            info!("TLS grade: {:?}, => MEDIUM", tls_settings.options());
+            info!("TLS grade: {:?}, => Medium", tls_settings.options());
         }
-        Some(TlsGrade::LEGACY) => {
+        Some(TlsGrade::Legacy) => {
             let _ = tls_settings.set_min_proto_version(Some(SslVersion::SSL3));
             let _ = tls_settings.set_cipher_list(CIPHERS.legacy);
             // let _ = tls_settings.set_ciphersuites(CIPHERS.legacy);
@@ -64,12 +64,12 @@ pub fn set_tsl_grade(tls_settings: &mut TlsSettings, grade: &str) {
             warn!("TLS grade: {:?}, => UNSAFE", tls_settings.options());
         }
         None => {
-            // Defaults to MEDIUM
+            // Defaults to Medium
             let _ = tls_settings.set_min_proto_version(Some(SslVersion::TLS1));
             let _ = tls_settings.set_cipher_list(CIPHERS.medium);
             // let _ = tls_settings.set_ciphersuites(CIPHERS.medium);
             let _ = tls_settings.set_cipher_list(CIPHERS.medium);
-            warn!("TLS grade is not detected defaulting top MEDIUM");
+            warn!("TLS grade is not detected defaulting top Medium");
         }
     }
 }

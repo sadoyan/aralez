@@ -85,7 +85,7 @@ pub async fn run_server(config: &APIUpstreamProvider, mut to_return: Sender<Conf
         let static_files = ServeDir::new(folder);
         let static_serve: Router = Router::new().fallback_service(static_files);
         let static_listen = TcpListener::bind(address).await.unwrap();
-        let _ = tokio::spawn(async move { axum::serve(static_listen, static_serve).await.unwrap() });
+        drop(tokio::spawn(async move { axum::serve(static_listen, static_serve).await.unwrap() }));
     }
 
     let listener = TcpListener::bind(config.address.clone()).await.unwrap();
@@ -103,7 +103,7 @@ async fn conf(State(st): State<AppState>, Query(params): Query<HashMap<String, S
         let parsed = serde_yml::from_str::<Config>(strcontent);
         match parsed {
             Ok(_) => {
-                let _ = tokio::spawn(async move { apply_config(content.as_str(), st).await });
+                drop(tokio::spawn(async move { apply_config(content.as_str(), st).await }));
                 return Response::builder().status(StatusCode::OK).body(Body::from("Accepted! Applying in background\n")).unwrap();
             }
             Err(err) => {
@@ -172,8 +172,9 @@ async fn metrics() -> impl IntoResponse {
         .unwrap()
 }
 
+#[allow(clippy::needless_return)]
 async fn status(State(st): State<AppState>, Query(params): Query<HashMap<String, String>>) -> impl IntoResponse {
-    if let Some(_) = params.get("live") {
+    if params.contains_key("live") {
         let r = upstreams_liveness_json(&st.full_upstreams, &st.current_upstreams);
         return Response::builder()
             .status(StatusCode::OK)
@@ -181,7 +182,7 @@ async fn status(State(st): State<AppState>, Query(params): Query<HashMap<String,
             .body(Body::from(format!("{}", r)))
             .unwrap();
     }
-    if let Some(_) = params.get("all") {
+    if params.contains_key("all") {
         let resp = upstreams_to_json(&st.current_upstreams);
         match resp {
             Ok(j) => {
@@ -201,16 +202,17 @@ async fn status(State(st): State<AppState>, Query(params): Query<HashMap<String,
     }
     Response::builder()
         .status(StatusCode::INTERNAL_SERVER_ERROR)
-        .body(Body::from(format!("{}", "Parameter mismatch")))
+        .body(Body::from("Parameter mismatch"))
         .unwrap()
 }
 
+#[allow(clippy::needless_return)]
 async fn acme_create(State(state): State<AppState>, Query(params): Query<HashMap<String, String>>, headers: HeaderMap) -> impl IntoResponse {
     if !key_authorization(&headers, &params, &state.master_key) {
         return Response::builder().status(StatusCode::FORBIDDEN).body(Body::from("Access Denied !\n")).unwrap();
     }
 
-    let _ = match account::load_or_create(state.cert_creds.as_str()).await {
+    match account::load_or_create(state.cert_creds.as_str()).await {
         Ok(txt) => {
             return Response::builder()
                 .status(StatusCode::OK)
@@ -226,6 +228,7 @@ async fn acme_create(State(state): State<AppState>, Query(params): Query<HashMap
         }
     };
 }
+#[allow(clippy::needless_return)]
 async fn acme_order(
     State(state): State<AppState>,
     axum::extract::Path(domain): axum::extract::Path<String>,
@@ -237,7 +240,7 @@ async fn acme_order(
     }
 
     let domain_clean = domain.trim_matches('/');
-    let _ = match order::order(domain_clean, state.cert_creds.as_str(), state.certs_dir).await {
+    match order::order(domain_clean, state.cert_creds.as_str(), state.certs_dir).await {
         Ok(txt) => {
             return Response::builder()
                 .status(StatusCode::OK)

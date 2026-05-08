@@ -25,7 +25,7 @@ pub async fn order(domain: &str, credsfile: &str, certs_dir: String) -> Result<S
     let crt = certs_dir.clone() + "/" + domain + ".crt";
     let key = certs_dir.clone() + "/" + domain + ".key";
 
-    if let None = DOMAINS.get(domain) {
+    if DOMAINS.get(domain).is_none() {
         DOMAINS.insert(domain.to_string(), true);
         let mut newlist: Vec<String> = Vec::new();
         for item in DOMAINS.iter() {
@@ -40,15 +40,12 @@ pub async fn order(domain: &str, credsfile: &str, certs_dir: String) -> Result<S
         }
     }
 
-    let _ = match cert_expiry(crt.as_str()) {
-        Ok(expiry) => {
-            let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?.as_secs();
-            if expiry > now + 30 * 24 * 3600 {
-                // println!("Fresh certificate exists. Not renewing !");
-                return Ok("Fresh certificate exists. Not renewing ! \n".to_string());
-            }
+    if let Ok(expiry) = cert_expiry(crt.as_str()) {
+        let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?.as_secs();
+        if expiry > now + 30 * 24 * 3600 {
+            // println!("Fresh certificate exists. Not renewing !");
+            return Ok("Fresh certificate exists. Not renewing ! \n".to_string());
         }
-        Err(_) => {}
     };
 
     let account = get_account(credsfile).await?;
@@ -73,7 +70,7 @@ pub async fn order(domain: &str, credsfile: &str, certs_dir: String) -> Result<S
     let private_key = KeyPair::generate()?;
     let signing_request = params.serialize_request(&private_key)?;
     let csr_der = signing_request.der();
-    order.finalize_csr(&csr_der).await?;
+    order.finalize_csr(csr_der).await?;
 
     // poll for certificate
     let cert_chain_pem = order.poll_certificate(&RetryPolicy::default()).await?;

@@ -60,7 +60,7 @@ impl Certificates {
             }
         }
         Some(Self {
-            name_map: name_map,
+            name_map,
             configs: cert_infos,
             default_cert_path: default_cert.cert_path.clone(),
             default_key_path: default_cert.key_path.clone(),
@@ -93,7 +93,7 @@ impl Certificates {
         if let Some(name) = server_name {
             match self.find_ssl_context(name) {
                 Some(ctx) => {
-                    ssl_ref.set_ssl_context(&*ctx).map_err(|_| SniError::ALERT_FATAL)?;
+                    ssl_ref.set_ssl_context(&ctx).map_err(|_| SniError::ALERT_FATAL)?;
                 }
                 None => {
                     log::debug!("No matching server name found");

@@ -23,11 +23,8 @@ pub async fn for_consul(url: String, token: Option<String>, conf: &GlobalService
     let upstreams: DashMap<Arc<str>, (Vec<Arc<InnerMap>>, AtomicUsize)> = DashMap::new();
     let endpoints: Vec<ConsulService> = resp.json().await.ok()?;
     for subsets in endpoints {
-        // let addr = subsets.tagged_addresses.get("lan_ipv4").unwrap().address.clone();
-        // let prt = subsets.tagged_addresses.get("lan_ipv4").unwrap().port.clone();
         let addr = subsets.tagged_addresses.get("lan_ipv4").unwrap().address.clone();
-        let prt = subsets.tagged_addresses.get("lan_ipv4").unwrap().port.clone();
-        // let redirect_link = conf.redirect_to.as_ref().map(|www| Arc::from(www.as_str()));
+        let prt = subsets.tagged_addresses.get("lan_ipv4").unwrap().port;
         let to_add = Arc::from(InnerMap {
             address: Arc::from(&*addr),
             port: prt,
@@ -41,7 +38,7 @@ pub async fn for_consul(url: String, token: Option<String>, conf: &GlobalService
         });
         inner_vec.push(to_add);
     }
-    match_path(&conf, &upstreams, inner_vec.clone());
+    match_path(conf, &upstreams, inner_vec);
     Some(upstreams)
 }
 
@@ -66,7 +63,7 @@ pub async fn for_kuber(url: &str, token: &str, conf: &GlobalServiceMapping) -> O
                         // let redirect_link = conf.redirect_to.as_ref().map(|www| Arc::from(www.as_str()));
                         let to_add = Arc::from(InnerMap {
                             address: Arc::from(addr.ip.clone()),
-                            port: port.port.clone(),
+                            port: port.port,
                             is_ssl: false,
                             is_http2: false,
                             to_https: conf.to_https.unwrap_or(false),
@@ -78,7 +75,7 @@ pub async fn for_kuber(url: &str, token: &str, conf: &GlobalServiceMapping) -> O
                         inner_vec.push(to_add);
                     }
                 }
-                match_path(&conf, &upstreams, inner_vec.clone());
+                match_path(conf, &upstreams, inner_vec.clone());
             }
         }
     }

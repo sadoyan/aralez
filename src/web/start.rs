@@ -18,7 +18,7 @@ use std::sync::Arc;
 use std::{fs, thread};
 pub fn run() {
     // default_provider().install_default().expect("Failed to install rustls crypto provider");
-    let parameters = Some(Opt::parse_args()).unwrap();
+    let parameters = Opt::parse_args();
     let file = parameters.conf.clone().unwrap();
     let maincfg = crate::utils::parceyaml::parce_main_config(file.as_str());
 
@@ -60,50 +60,44 @@ pub fn run() {
 
     check_priv(bind_address_http.as_str());
 
-    match bind_address_tls {
-        Some(bind_address_tls) => {
-            check_priv(bind_address_tls.as_str());
-            let (tx, rx): (Sender<Vec<CertificateConfig>>, Receiver<Vec<CertificateConfig>>) = channel();
-            let certs_path = cfg.proxy_configs.clone().unwrap() + "/certificates";
+    if let Some(bind_address_tls) = bind_address_tls {
+        check_priv(bind_address_tls.as_str());
+        let (tx, rx): (Sender<Vec<CertificateConfig>>, Receiver<Vec<CertificateConfig>>) = channel();
+        let certs_path = cfg.proxy_configs.clone().unwrap() + "/certificates";
 
-            if !fs::metadata(certs_path.clone()).is_ok() {
-                fs::create_dir_all(certs_path.clone()).unwrap();
-            }
-            thread::spawn(move || {
-                watch_folder(certs_path, tx).unwrap();
-            });
-            let certificate_configs = rx.recv().unwrap();
-            let first_set = load::Certificates::new(&certificate_configs, grade.as_str()).unwrap_or_else(|| panic!("Unable to load initial certificate info"));
-            let certificates = Arc::new(ArcSwap::from_pointee(first_set));
-            let certs_for_callback = certificates.clone();
-
-            let certs_for_watcher = certificates.clone();
-            let new_certs = load::Certificates::new(&certificate_configs, grade.as_str());
-            certs_for_watcher.store(Arc::new(new_certs.unwrap()));
-
-            let mut tls_settings =
-                TlsSettings::intermediate(&certs_for_callback.load().default_cert_path, &certs_for_callback.load().default_key_path).expect("unable to load or parse cert/key");
-
-            grades::set_tsl_grade(&mut tls_settings, grade.as_str());
-            tls_settings.set_servername_callback(move |ssl_ref: &mut SslRef, ssl_alert: &mut SslAlert| certs_for_callback.load().server_name_callback(ssl_ref, ssl_alert));
-            tls_settings.set_alpn_select_callback(grades::prefer_h2);
-
-            proxy.add_tls_with_settings(&bind_address_tls, None, tls_settings);
-
-            let certs_for_watcher = certificates.clone();
-            thread::spawn(move || {
-                while let Ok(new_configs) = rx.recv() {
-                    let new_certs = load::Certificates::new(&new_configs, grade.as_str());
-                    match new_certs {
-                        Some(new_certs) => {
-                            certs_for_watcher.store(Arc::new(new_certs));
-                        }
-                        None => {}
-                    };
-                }
-            });
+        if fs::metadata(certs_path.clone()).is_err() {
+            fs::create_dir_all(certs_path.clone()).unwrap();
         }
-        None => {}
+        thread::spawn(move || {
+            watch_folder(certs_path, tx).unwrap();
+        });
+        let certificate_configs = rx.recv().unwrap();
+        let first_set = load::Certificates::new(&certificate_configs, grade.as_str()).unwrap_or_else(|| panic!("Unable to load initial certificate info"));
+        let certificates = Arc::new(ArcSwap::from_pointee(first_set));
+        let certs_for_callback = certificates.clone();
+
+        let certs_for_watcher = certificates.clone();
+        let new_certs = load::Certificates::new(&certificate_configs, grade.as_str());
+        certs_for_watcher.store(Arc::new(new_certs.unwrap()));
+
+        let mut tls_settings =
+            TlsSettings::intermediate(&certs_for_callback.load().default_cert_path, &certs_for_callback.load().default_key_path).expect("unable to load or parse cert/key");
+
+        grades::set_tsl_grade(&mut tls_settings, grade.as_str());
+        tls_settings.set_servername_callback(move |ssl_ref: &mut SslRef, ssl_alert: &mut SslAlert| certs_for_callback.load().server_name_callback(ssl_ref, ssl_alert));
+        tls_settings.set_alpn_select_callback(grades::prefer_h2);
+
+        proxy.add_tls_with_settings(&bind_address_tls, None, tls_settings);
+
+        let certs_for_watcher = certificates.clone();
+        thread::spawn(move || {
+            while let Ok(new_configs) = rx.recv() {
+                let new_certs = load::Certificates::new(&new_configs, grade.as_str());
+                if let Some(new_certs) = new_certs {
+                    certs_for_watcher.store(Arc::new(new_certs));
+                };
+            }
+        });
     }
     info!("Running HTTP listener on :{}", bind_address_http.as_str());
     proxy.add_tcp(bind_address_http.as_str());

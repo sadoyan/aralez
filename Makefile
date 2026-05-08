@@ -7,9 +7,6 @@ features:
 checkup:
 	cargo clippy --workspace --all-targets --all-features -- -D warnings
 	cargo check --workspace --all-targets --all-features
-	# cargo shear
-	# cargo machete
-	cargo audit
 
 fix:
 	cargo fix

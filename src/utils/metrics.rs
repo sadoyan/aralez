@@ -52,11 +52,11 @@ pub fn calc_metrics(metric_types: &MetricTypes) {
     let timer = REQUEST_LATENCY.start_timer();
     timer.observe_duration();
 
-    let version_str = match &metric_types.version {
-        &Version::HTTP_11 => "HTTP/1.1",
-        &Version::HTTP_2 => "HTTP/2.0",
-        &Version::HTTP_3 => "HTTP/3.0",
-        &Version::HTTP_10 => "HTTP/1.0",
+    let version_str = match metric_types.version {
+        Version::HTTP_11 => "HTTP/1.1",
+        Version::HTTP_2 => "HTTP/2.0",
+        Version::HTTP_3 => "HTTP/3.0",
+        Version::HTTP_10 => "HTTP/1.0",
         _ => "Unknown",
     };
     REQUESTS_BY_VERSION.with_label_values(&[&version_str]).inc();

@@ -150,7 +150,7 @@ pub fn merge_headers(target: &DashMap<Arc<str>, Vec<(String, Arc<str>)>>, source
     for entry in source.iter() {
         let global_key = entry.key().clone();
         let global_values = entry.value().clone();
-        let mut target_entry = target.entry(global_key).or_insert_with(Vec::new);
+        let mut target_entry = target.entry(global_key).or_default();
         target_entry.extend(global_values);
     }
 }
@@ -198,7 +198,7 @@ pub fn clone_idmap_into(original: &UpstreamsDashMap, cloned: &UpstreamsIdMap) {
                     authorization: None,
                 };
                 cloned.insert(id, Arc::from(to_add));
-                cloned.insert(hh, Arc::from(x.to_owned()));
+                cloned.insert(hh, x.to_owned());
                 // println!("CLONNED  :===========> {:?}", cloned);
             }
             new_inner_map.insert(path.clone(), new_vec);
@@ -268,14 +268,14 @@ pub fn drop_priv(user: String, group: String, http_addr: String, tls_addr: Optio
     thread::sleep(time::Duration::from_millis(10));
     loop {
         thread::sleep(time::Duration::from_millis(10));
-        if port_is_available(http_addr.clone()) {
+        if TcpListener::bind(&http_addr).is_err() {
             break;
         }
     }
     if let Some(tls_addr) = tls_addr {
         loop {
             thread::sleep(time::Duration::from_millis(10));
-            if port_is_available(tls_addr.clone()) {
+            if TcpListener::bind(&tls_addr).is_err() {
                 break;
             }
         }
@@ -287,24 +287,14 @@ pub fn drop_priv(user: String, group: String, http_addr: String, tls_addr: Optio
     }
 }
 
-fn port_is_available(addr: String) -> bool {
-    match TcpListener::bind(addr) {
-        Ok(_) => false,
-        Err(_) => true,
-    }
-}
-
 pub fn check_priv(addr: &str) {
     let port = SocketAddr::from_str(addr).map(|sa| sa.port()).unwrap();
-    match port < 1024 {
-        true => {
-            let meta = std::fs::metadata("/proc/self").map(|m| m.uid()).unwrap();
-            if meta != 0 {
-                error!("Running on privileged port requires to start as ROOT");
-                process::exit(1)
-            }
+    if port < 1024 {
+        let meta = std::fs::metadata("/proc/self").map(|m| m.uid()).unwrap();
+        if meta != 0 {
+            error!("Running on privileged port requires to start as ROOT");
+            process::exit(1)
         }
-        false => {}
     }
 }
 
@@ -397,7 +387,7 @@ pub fn prepend(prefix: &str, val: &Option<Arc<str>>, uri: &str, port: &str) -> O
         let mut buf = String::with_capacity(32);
         buf.push_str(prefix);
         buf.push_str(s);
-        buf.push_str(":");
+        buf.push(':');
         buf.push_str(port);
         buf.push_str(uri);
         buf

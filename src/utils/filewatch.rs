@@ -37,17 +37,12 @@ pub async fn start(fp: String, mut toreturn: Sender<Configuration>) {
         match event {
             Ok(e) => match e.kind {
                 EventKind::Modify(ModifyKind::Data(_)) | EventKind::Create(..) | EventKind::Remove(..) => {
-                    if e.paths[0].to_str().unwrap().ends_with("yaml") {
-                        if start.elapsed() > Duration::from_secs(2) {
-                            start = Instant::now();
-                            // info!("Config File changed :=> {:?}", e);
-                            let snd = load_configuration(file_path, "filepath").await.0;
-                            match snd {
-                                Some(snd) => {
-                                    toreturn.send(snd).await.unwrap();
-                                }
-                                None => {}
-                            }
+                    if e.paths[0].to_str().unwrap().ends_with("yaml") && start.elapsed() > Duration::from_secs(2) {
+                        start = Instant::now();
+                        // info!("Config File changed :=> {:?}", e);
+                        let snd = load_configuration(file_path, "filepath").await.0;
+                        if let Some(snd) = snd {
+                            toreturn.send(snd).await.unwrap();
                         }
                     }
                 }

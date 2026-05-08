@@ -153,9 +153,9 @@ impl AuthValidator for ForwardAuth<'_> {
 impl AuthValidator for BasicAuth<'_> {
     async fn validate(&self, session: &mut Session) -> bool {
         if let Some(header) = session.get_header("authorization") {
-            if let Some(h) = header.to_str().ok() {
+            if let Ok(h) = header.to_str() {
                 if let Some((_, val)) = h.split_once(' ') {
-                    if let Some(decoded) = STANDARD.decode(val).ok() {
+                    if let Ok(decoded) = STANDARD.decode(val) {
                         if decoded.as_slice().ct_eq(self.0.as_bytes()).into() {
                             return true;
                         }
@@ -171,7 +171,7 @@ impl AuthValidator for BasicAuth<'_> {
 impl AuthValidator for ApiKeyAuth<'_> {
     async fn validate(&self, session: &mut Session) -> bool {
         if let Some(header) = session.get_header("x-api-key") {
-            if let Some(h) = header.to_str().ok() {
+            if let Ok(h) = header.to_str() {
                 return h.as_bytes().ct_eq(self.0.as_bytes()).into();
             }
         }
@@ -227,6 +227,7 @@ pub fn get_query_param(session: &mut Session, key: &str) -> Option<String> {
     params.get(key).and_then(|v| decode(v).ok()).map(|s| s.to_string())
 }
 
+#[allow(clippy::needless_return)]
 fn split_host_port(addr: &str, tls: bool) -> Option<(&str, u16, bool, &str)> {
     match addr.split_once(':') {
         Some((h, p)) => match p.parse::<u16>() {

@@ -10,7 +10,7 @@ use std::sync::atomic::AtomicUsize;
 use std::sync::{Arc, LazyLock};
 use std::{env, fs};
 
-pub static DOMAINS: LazyLock<DashMap<String, bool>> = LazyLock::new(|| DashMap::new());
+pub static DOMAINS: LazyLock<DashMap<String, bool>> = LazyLock::new(DashMap::new);
 
 pub async fn load_configuration(d: &str, kind: &str) -> (Option<Configuration>, String) {
     let mut conf_files = Vec::new();
@@ -21,7 +21,7 @@ pub async fn load_configuration(d: &str, kind: &str) -> (Option<Configuration>, 
                 let mut autocfg = Path::new(d).parent().unwrap().to_path_buf();
 
                 autocfg.push("autoconfigs");
-                if !fs::metadata(autocfg.clone()).is_ok() {
+                if fs::metadata(autocfg.clone()).is_err() {
                     fs::create_dir_all(autocfg.clone()).ok();
                 }
                 autocfg.push("domains.json");
@@ -228,8 +228,8 @@ async fn populate_file_upstreams(config: &mut Configuration, parsed: &Config) {
 pub fn parce_main_config(path: &str) -> AppConfig {
     let data = fs::read_to_string(path).unwrap();
     let reply = DashMap::new();
-    let cfg: HashMap<String, String> = serde_yml::from_str(&*data).expect("Failed to parse main config file");
-    let mut cfo: AppConfig = serde_yml::from_str(&*data).expect("Failed to parse main config file");
+    let cfg: HashMap<String, String> = serde_yml::from_str(&data).expect("Failed to parse main config file");
+    let mut cfo: AppConfig = serde_yml::from_str(&data).expect("Failed to parse main config file");
     log_builder(&cfo);
     cfo.hc_method = cfo.hc_method.to_uppercase();
     for (k, v) in cfg {

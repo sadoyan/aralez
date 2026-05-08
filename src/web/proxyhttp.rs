@@ -25,7 +25,7 @@ use tokio::time::Instant;
 
 // static RATE_LIMITER: Lazy<Rate> = Lazy::new(|| Rate::new(Duration::from_secs(1)));
 // static REVERSE_STORE: Lazy<DashMap<String, String>> = Lazy::new(|| DashMap::new());
-static REVERSE_STORE: LazyLock<DashMap<String, String>> = LazyLock::new(|| DashMap::new());
+static REVERSE_STORE: LazyLock<DashMap<String, String>> = LazyLock::new(DashMap::new);
 thread_local! {static IP_BUFFER: RefCell<String> = RefCell::new(String::with_capacity(50));}
 pub static RATE_LIMITER: LazyLock<Rate> = LazyLock::new(|| Rate::new(Duration::from_secs(1)));
 
@@ -132,8 +132,8 @@ impl ProxyHttp for LB {
                                         s.push_str("https://");
                                         s.push_str(host);
                                         if port != "443" {
-                                            s.push_str(":");
-                                            s.push_str(&port);
+                                            s.push(':');
+                                            s.push_str(port);
                                         }
                                         s.push_str(uri);
                                         let mut resp = ResponseHeader::build(StatusCode::MOVED_PERMANENTLY, None)?;
