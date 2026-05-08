@@ -50,32 +50,30 @@ Built on Rust, on top of **Cloudflare’s Pingora engine**, **Aralez** delivers 
 
 ### `main.yaml`
 
-| Key                              | Example Value                        | Description                                                                                        |
-|----------------------------------|--------------------------------------|----------------------------------------------------------------------------------------------------|
-| **threads**                      | 12                                   | Number of running daemon threads. Optional, defaults to 1                                          |
-| **runuser**                      | aralez                               | Optional, Username for running aralez after dropping root privileges, requires to launch as root   |
-| **rungroup**                     | aralez                               | Optional,Group for running aralez after dropping root privileges, requires to launch as root       |
-| **daemon**                       | false                                | Run in background (boolean)                                                                        |
-| **upstream_keepalive_pool_size** | 500                                  | Pool size for upstream keepalive connections                                                       |
-| **pid_file**                     | /tmp/aralez.pid                      | Path to PID file                                                                                   |
-| **error_log**                    | /tmp/aralez_err.log                  | Path to error log file                                                                             |
-| **upgrade_sock**                 | /tmp/aralez.sock                     | Path to live upgrade socket file                                                                   |
-| **config_address**               | 0.0.0.0:3000                         | HTTP API address for pushing upstreams.yaml from remote location                                   |
-| **config_tls_address**           | 0.0.0.0:3001                         | HTTPS API address for pushing upstreams.yaml from remote location                                  |
-| **config_tls_certificate**       | etc/server.crt                       | Certificate file path for API. Mandatory if proxy_address_tls is set, else optional                |
-| **proxy_tls_grade**              | (high, medium, unsafe)               | Grade of TLS ciphers, for easy configuration. High matches Qualys SSL Labs A+ (defaults to medium) |
-| **config_tls_key_file**          | etc/key.pem                          | Private Key file path. Mandatory if proxy_address_tls is set, else optional                        |
-| **proxy_address_http**           | 0.0.0.0:6193                         | Aralez HTTP bind address                                                                           |
-| **proxy_address_tls**            | 0.0.0.0:6194                         | Aralez HTTPS bind address (Optional)                                                               |
-| **proxy_configs**                | etc/                                 | The top directory of config files                                                                  |
-| **upstreams_conf**               | etc/upstreams.yaml                   | The location of upstreams file                                                                     |
-| **log_level**                    | info                                 | Log level , possible values : info, warn, error, debug, trace, off                                 |
-| **hc_method**                    | HEAD                                 | Healthcheck method (HEAD, GET, POST are supported) UPPERCASE                                       |
-| **hc_interval**                  | 2                                    | Interval for health checks in seconds                                                              |
-| **master_key**                   | 5aeff7f9-7b94-447c-af60-e8c488544a3e | Master key for working with API server and JWT Secret generation                                   |
-| **file_server_folder**           | /some/local/folder                   | Optional, local folder to serve                                                                    |
-| **file_server_address**          | 127.0.0.1:3002                       | Optional, Local address for file server. Can set as upstream for public access                     |
-| **config_api_enabled**           | true                                 | Boolean to enable/disable remote config push capability                                            |
+| Key                              | Example Value          | Description                                                                                        |
+|----------------------------------|------------------------|----------------------------------------------------------------------------------------------------|
+| **threads**                      | 12                     | Number of running daemon threads. Optional, defaults to 1                                          |
+| **runuser**                      | aralez                 | Optional, Username for running aralez after dropping root privileges, requires to launch as root   |
+| **rungroup**                     | aralez                 | Optional,Group for running aralez after dropping root privileges, requires to launch as root       |
+| **daemon**                       | false                  | Run in background (boolean)                                                                        |
+| **upstream_keepalive_pool_size** | 500                    | Pool size for upstream keepalive connections                                                       |
+| **pid_file**                     | /tmp/aralez.pid        | Path to PID file                                                                                   |
+| **error_log**                    | /tmp/aralez_err.log    | Path to error log file                                                                             |
+| **upgrade_sock**                 | /tmp/aralez.sock       | Path to live upgrade socket file                                                                   |
+| **config_address**               | 0.0.0.0:3000           | HTTP API address for pushing upstreams.yaml from remote location                                   |
+| **proxy_tls_grade**              | (high, medium, unsafe) | Grade of TLS ciphers, for easy configuration. High matches Qualys SSL Labs A+ (defaults to medium) |
+| **config_tls_key_file**          | etc/key.pem            | Private Key file path. Mandatory if proxy_address_tls is set, else optional                        |
+| **proxy_address_http**           | 0.0.0.0:6193           | Aralez HTTP bind address                                                                           |
+| **proxy_address_tls**            | 0.0.0.0:6194           | Aralez HTTPS bind address (Optional)                                                               |
+| **proxy_configs**                | etc/                   | The top directory of config files                                                                  |
+| **upstreams_conf**               | etc/upstreams.yaml     | The location of upstreams file                                                                     |
+| **log_level**                    | info                   | Log level , possible values : info, warn, error, debug, trace, off                                 |
+| **hc_method**                    | HEAD                   | Healthcheck method (HEAD, GET, POST are supported) UPPERCASE                                       |
+| **hc_interval**                  | 2                      | Interval for health checks in seconds                                                              |
+| **master_key**                   | Random long string     | Master key for working with API server and JWT Secret generation                                   |
+| **file_server_folder**           | /some/local/folder     | Optional, local folder to serve                                                                    |
+| **file_server_address**          | 127.0.0.1:3002         | Optional, Local address for file server. Can set as upstream for public access                     |
+| **config_api_enabled**           | true                   | Boolean to enable/disable remote config push capability                                            |
 
 ---
 
@@ -126,18 +124,37 @@ For getting the best performance on newer hardware use `aralez-x86_64-*.gz`.
 
 ## Systemd integration
 
+Assuming Arales in installed in `/opt/aralez` folder
+
 ```bash
 cat > /etc/systemd/system/aralez.service <<EOF
+[Unit]
+Description=meilisearch
+Documentation=https://github.com/sadoyan/aralez
+Wants=network-online.target
+After=network-online.target
+
 [Service]
-Type=forking
-PIDFile=/run/aralez.pid
-ExecStart=/bin/aralez -d -c /etc/aralez.conf
-ExecReload=kill -QUIT $MAINPID
-ExecReload=/bin/aralez -u -d -c /etc/aralez.conf
+WorkingDirectory = /opt/aralez/
+ExecReload=/bin/kill -HUP 
+ExecStart=/opt/aralez/aralez -c /opt/aralez/proxyconfigs/main.yaml
+KillMode=process
+KillSignal=SIGINT
+LimitNOFILE=infinity
+LimitNPROC=infinity
+Restart=on-failure
+RestartSec=2
+StartLimitBurst=3
+StartLimitIntervalSec=10
+TasksMax=infinity
+
+[Install]
+WantedBy=multi-user.target
 EOF
 ```
 
 ```bash
+systemctl daemon-reload
 systemctl enable aralez.service.
 systemctl restart aralez.service.
 ```
@@ -156,9 +173,6 @@ client_headers:
   - "Access-Control-Allow-Origin:*"
   - "Access-Control-Allow-Methods:POST, GET, OPTIONS"
   - "Access-Control-Max-Age:86400"
-authorization:
-  type: "jwt"
-  creds: "910517d9-f9a1-48de-8826-dbadacbd84af-cb6f830e-ab16-47ec-9d8f-0090de732774"
 myhost.mydomain.com:
   paths:
     "/":
@@ -175,6 +189,9 @@ myhost.mydomain.com:
         - "127.0.0.2:8000"
     "/foo":
       to_https: true
+      authorization:
+        type: "jwt"
+        data: "266463d1-210a-4787-9a81-4aacb37a8723"
       client_headers:
         - "X-Another-Header:Hohohohoho"
       servers:
@@ -199,6 +216,7 @@ myhost.mydomain.com:
 - Requests to `myhost.mydomain.com/` will be limited to 20 requests per second.
 - Requests to `myhost.mydomain.com/` will be proxied to `127.0.0.1` and `127.0.0.2`.
 - Plain HTTP to `myhost.mydomain.com/foo` will get 301 redirect to configured TLS port of Aralez.
+- `myhost.mydomain.com/foo` will require authentication with JWT token, signed by `266463d1-210a-4787-9a81-4aacb37a8723`.
 - Requests to `myhost.mydomain.com/foo` will be proxied to `127.0.0.4` and `127.0.0.5`.
 - Requests to `myhost.mydomain.com/.well-known/acme-challenge` will be proxied to `127.0.0.1:8001`, but healthcheks are disabled.
 - SSL/TLS for upstreams is detected automatically, no need to set any config parameter.
@@ -215,18 +233,20 @@ myhost.mydomain.com:
 
 ## Hot Reload
 
-- Changes to `upstreams.yaml` are applied immediately.
-- No need to restart the proxy — just save the file.
-- If `consul` provider is chosen, upstreams will be periodically update from Consul's API.
+- Changes to `upstreams.yaml` are applied immediately on save without restart .
+- If `consul` or `kubernetes` provider is chosen, upstreams will be periodically update from API.
 
 ---
 
 ## TLS Support
 
-To enable TLS for the proxy server: Currently only OpenSSL is supported.
+To enable TLS for the proxy server.
 
-1. Set `proxy_address_tls` in `main.yaml`
-2. Provide `tls_certificate` and `tls_key_file`
+- Set `proxy_address_tls` in `main.yaml`
+- Provide at least on  `tls_certificate/tls_key_file` pair.
+    - First pair is required tp create the TLS listener.
+    - This pair can be anything, even self-signed with dummy domain.
+    - After getting normal certificate it can be deleted
 
 ---
 
@@ -369,7 +389,7 @@ curl  -u username:password -H 'Host: myip.mydomain.com' http://127.0.0.1:6193/
           - "192.168.211.212:8000"
 ```
 
-## 💡 Results reflect synthetic performance under optimal conditions
+## Results reflect synthetic performance under optimal conditions.
 
 - CPU : Intel(R) Xeon(R) CPU E3-1270 v6 @ 3.80GHz
 - 300 : simultaneous connections
