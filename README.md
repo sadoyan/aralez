@@ -2,7 +2,7 @@
 
 ---
 
-# Aralez (Արալեզ),
+# Aralez (Արալեզ)
 
 ### **Reverse proxy built on top of Cloudflare's Pingora**
 
@@ -27,16 +27,16 @@ Built on Rust, on top of **Cloudflare’s Pingora engine**, **Aralez** delivers 
 - **Upstreams TLS detection** — Aralez will automatically detect if upstreams uses secure connection.
 - **Built in rate limiter** — Globar or route limit requests to upstreams.
 - **Authentication** — Supports Basic Auth, API tokens, and JWT verification.
-    - **Basic Auth**
-    - **API Key** via `x-api-key` header
-    - **JWT Auth**, with tokens issued by Aralez itself via `/jwt` API
-    - **Forward Auth**, Sends requests to an authentication server.
+  - **Basic Auth**
+  - **API Key** via `x-api-key` header
+  - **JWT Auth**, with tokens issued by Aralez itself via `/jwt` API
+  - **Forward Auth**, Sends requests to an authentication server.
 - **Load Balancing** Round-robin, health checks, optional sticky sessions.
 - **Built in file server** — Build in minimalistic file server for serving static files, should be added as upstreams for public access.
 - **Upstream Providers:**
-    - `file` Upstreams are declared in config file.
-    - `consul` Upstreams are dynamically updated from Hashicorp Consul.
-    - `kubernetes` Upstreams are dynamically updated from kubernetes api server.
+  - `file` Upstreams are declared in config file.
+  - `consul` Upstreams are dynamically updated from Hashicorp Consul.
+  - `kubernetes` Upstreams are dynamically updated from kubernetes api server.
 - **Automatic WebSocket Support:** WS connection upgrades are handled automatically.
 - **Automatic gRPC Support:** gRPC detected and handled automatically.
 - **Header Injection:** Global and per-route server/client headers injection.
@@ -92,7 +92,7 @@ File names:
 | `aralez-x86_64-compat-glibc.gz` | Dynamic Linux x86_64 binary, compatible with old pre Haswell CPUs        |
 | `aralez-aarch64-musl.gz`        | Static Linux ARM64 binary, without any system dependency                 |
 | `aralez-aarch64-glibc.gz`       | Dynamic Linux ARM64 binary, with minimal system dependencies             |
-| `sadoyan/aralez`                | Docker image on Debian 13 slim (https://hub.docker.com/r/sadoyan/aralez) |
+| `sadoyan/aralez`                | Docker image on Debian 13 slim (<https://hub.docker.com/r/sadoyan/aralez>) |
 
 **Via docker**
 
@@ -210,9 +210,9 @@ myhost.mydomain.com:
 - All upstreams will receive custom headers : `X-Forwarded-Proto:https` and `X-Forwarded-Port:443`
 - Additionally, myhost.mydomain.com with path `/` will receive custom headers : `X-Another-Header:Hohohohoho` and `X-Something-Else:Foobar`
 - Requests to each hosted domains will be limited to 10 requests per second per virtualhost.
-    - Requests limits are calculated per requester ip plus requested virtualhost.
-    - If the requester exceeds the limit it will receive `429 Too Many Requests` error.
-    - Optional. Rate limiter will be disabled if the parameter is entirely removed from config.
+  - Requests limits are calculated per requester ip plus requested virtualhost.
+  - If the requester exceeds the limit it will receive `429 Too Many Requests` error.
+  - Optional. Rate limiter will be disabled if the parameter is entirely removed from config.
 - Requests to `myhost.mydomain.com/` will be limited to 20 requests per second.
 - Requests to `myhost.mydomain.com/` will be proxied to `127.0.0.1` and `127.0.0.2`.
 - Plain HTTP to `myhost.mydomain.com/foo` will get 301 redirect to configured TLS port of Aralez.
@@ -220,11 +220,14 @@ myhost.mydomain.com:
 - Requests to `myhost.mydomain.com/foo` will be proxied to `127.0.0.4` and `127.0.0.5`.
 - Requests to `myhost.mydomain.com/.well-known/acme-challenge` will be proxied to `127.0.0.1:8001`, but healthcheks are disabled.
 - SSL/TLS for upstreams is detected automatically, no need to set any config parameter.
-    - Assuming the `127.0.0.5:8443` is SSL protected. The inner traffic will use TLS.
-    - Self-signed certificates are silently accepted.
+  - Assuming the `127.0.0.5:8443` is SSL protected. The inner traffic will use TLS.
+  - Self-signed certificates are silently accepted.
 - Global headers (CORS for this case) will be injected to all upstreams.
 - Additional headers will be injected into the request for `myhost.mydomain.com`.
 - You can choose any path, deep nested paths are supported, the best match chosen.
+- All requests to servers will require JWT token authentication (You can comment out the authorization to disable it),
+  - Firs parameter specifies the mechanism of authorisation `jwt`
+  - Second is the secret key for validating `jwt` tokens
 
 ---
 
@@ -266,10 +269,10 @@ curl -XPOST --data-binary @./etc/upstreams.txt 127.0.0.1:3000/conf?key=${MASTERK
 - `apikey` : Authentication via `x-api-key` header, which should match the value in config.
 - `jwt`: JWT authentication implemented via `araleztoken=` url parameter. `/some/url?araleztoken=TOKEN`
 - `jwt`: JWT authentication implemented via `Authorization: Bearer <token>` header.
-    - To obtain JWT a token, you should send **generate** request to built in api server's `/jwt` endpoint.
-    - `master_key`: should match configured `masterkey` in `main.yaml` and `upstreams.yaml`.
-    - `owner` : Just a placeholder, can be anything.
-    - `valid` : Time in minutes during which the generated token will be valid.
+  - To obtain JWT a token, you should send **generate** request to built in api server's `/jwt` endpoint.
+  - `master_key`: should match configured `masterkey` in `main.yaml` and `upstreams.yaml`.
+  - `owner` : Just a placeholder, can be anything.
+  - `valid` : Time in minutes during which the generated token will be valid.
 
 **Example JWT token generation request**
 
@@ -395,16 +398,16 @@ curl  -u username:password -H 'Host: myip.mydomain.com' http://127.0.0.1:6193/
 
 ```
 Summary:
-  Success rate:	100.00%
-  Total:	600.0027 secs
-  Slowest:	0.2138 secs
-  Fastest:	0.0002 secs
-  Average:	0.0023 secs
-  Requests/sec:	129777.3838
+  Success rate: 100.00%
+  Total: 600.0027 secs
+  Slowest: 0.2138 secs
+  Fastest: 0.0002 secs
+  Average: 0.0023 secs
+  Requests/sec: 129777.3838
 
-  Total data:	0 B
-  Size/request:	0 B
-  Size/sec:	0 B
+  Total data: 0 B
+  Size/request: 0 B
+  Size/sec: 0 B
 
 Response time histogram:
   0.000 [1]        |
@@ -432,8 +435,8 @@ Response time distribution:
 
 
 Details (average, fastest, slowest):
-  DNS+dialup:	0.0161 secs, 0.0002 secs, 0.0316 secs
-  DNS-lookup:	0.0000 secs, 0.0000 secs, 0.0000 secs
+  DNS+dialup: 0.0161 secs, 0.0002 secs, 0.0316 secs
+  DNS-lookup: 0.0000 secs, 0.0000 secs, 0.0000 secs
 
 Status code distribution:
   [200] 77866624 responses
@@ -451,16 +454,16 @@ Error distribution:
 
 ```
 Summary:
-  Success rate:	100.00%
-  Total:	600.0021 secs
-  Slowest:	0.2182 secs
-  Fastest:	0.0002 secs
-  Average:	0.0024 secs
-  Requests/sec:	123870.5820
+  Success rate: 100.00%
+  Total: 600.0021 secs
+  Slowest: 0.2182 secs
+  Fastest: 0.0002 secs
+  Average: 0.0024 secs
+  Requests/sec: 123870.5820
 
-  Total data:	0 B
-  Size/request:	0 B
-  Size/sec:	0 B
+  Total data: 0 B
+  Size/request: 0 B
+  Size/sec: 0 B
 
 Response time histogram:
   0.000 [1]        |
@@ -488,8 +491,8 @@ Response time distribution:
 
 
 Details (average, fastest, slowest):
-  DNS+dialup:	0.0066 secs, 0.0002 secs, 0.0210 secs
-  DNS-lookup:	0.0000 secs, 0.0000 secs, 0.0000 secs
+  DNS+dialup: 0.0066 secs, 0.0002 secs, 0.0210 secs
+  DNS-lookup: 0.0000 secs, 0.0000 secs, 0.0000 secs
 
 Status code distribution:
   [200] 74322377 responses
