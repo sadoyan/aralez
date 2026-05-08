@@ -21,6 +21,6 @@ fix-all:
 test:
 	cargo test --workspace --all-targets --all-features
 
-.PHONY: update features checkup fix fix-all test run pg-migrate
+.PHONY: update features checkup fix fix-all test
 
 # -- ⚝ by Dave -- in NeoVim ⚝ --
