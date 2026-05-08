@@ -237,7 +237,7 @@ myhost.mydomain.com:
 
 ## TLS Support
 
-To enable TLS for the proxy server: Currently only OpenSSL is supported.
+To enable TLS for the proxy server.
 
 - Set `proxy_address_tls` in `main.yaml`
 - Provide at least on  `tls_certificate/tls_key_file` pair.
