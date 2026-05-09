@@ -519,11 +519,9 @@ The results show requests per second performed by Load balancer. You can see 3 b
 2. Requests to via http2 to SSL endpoint.
 3. Mixed workload with plain http1.1 and htt2 SSL.
 
----
-
 ## Links
 
-- [**Documentation**](https://sadoyan.github.io/aralez-docs) : The manual you should read
+- [**Documentation**](https://aralez.rs) : The manual you should read
 - [**Downloads**](https://github.com/sadoyan/aralez/releases) : Binary downloads
 - [**Issues**](https://github.com/sadoyan/aralez/issues) : Issues and requests 
 
