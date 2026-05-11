@@ -278,7 +278,7 @@ impl ProxyHttp for LB {
                 let mut buf = String::with_capacity(80);
                 buf.push_str("backend_id=");
                 buf.push_str(&tt);
-                buf.push_str("; Path=/; Max-Age=600; HttpOnly; SameSite=Lax");
+                buf.push_str("; Path=/; Max-Age=86400; HttpOnly; SameSite=Lax");
                 let _ = _upstream_response.insert_header("set-cookie", buf.as_str());
             }
         }

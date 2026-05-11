@@ -12,6 +12,7 @@ pub struct APIUpstreamProvider {
     pub masterkey: String,
     pub certs_dir: String,
     pub config_dir: String,
+    pub upstreams_file: String,
     // pub tls_address: Option<String>,
     // pub tls_certificate: Option<String>,
     // pub tls_key_file: Option<String>,

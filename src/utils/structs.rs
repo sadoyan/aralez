@@ -127,13 +127,13 @@ pub struct AppConfig {
     pub rungroup: Option<String>,
 }
 
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
 pub struct InnerAuth {
     pub auth_type: Arc<str>,
     pub auth_cred: Arc<str>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct InnerMap {
     pub address: Arc<str>,
     pub port: u16,

@@ -59,6 +59,7 @@ impl BackgroundService for LB {
             address: self.config.config_address.clone(),
             masterkey: self.config.master_key.clone(),
             config_api_enabled: self.config.config_api_enabled,
+            upstreams_file: self.config.upstreams_conf.clone(),
             // certs_dir: self.config.proxy_certificates.clone().unwrap_or_else(|| "/tmp".to_string()),
             config_dir: confdir.clone(),
             certs_dir: certdir.clone(),

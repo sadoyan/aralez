@@ -35,6 +35,7 @@ struct AppState {
     master_key: String,
     cert_creds: String,
     certs_dir: String,
+    upstreams_file: String,
     config_sender: Sender<Configuration>,
     config_api_enabled: bool,
     current_upstreams: Arc<UpstreamsDashMap>,
@@ -48,6 +49,7 @@ pub async fn run_server(config: &APIUpstreamProvider, mut to_return: Sender<Conf
         master_key: config.masterkey.clone(),
         cert_creds: credsfile,
         certs_dir: config.certs_dir.clone(),
+        upstreams_file: config.upstreams_file.clone(),
         config_sender: to_return.clone(),
         config_api_enabled: config.config_api_enabled,
         current_upstreams: upstreams_curr,
@@ -98,12 +100,18 @@ async fn conf(State(st): State<AppState>, Query(params): Query<HashMap<String, S
         return Response::builder().status(StatusCode::FORBIDDEN).body(Body::from("Config API is disabled !\n")).unwrap();
     }
     // if let Some(s) = headers.get("x-api-key").and_then(|v| v.to_str().ok()).or(params.get("key").map(|s| s.as_str())) {
+
     if key_authorization(&headers, &params, &st.master_key) {
         let strcontent = content.as_str();
         let parsed = serde_yml::from_str::<Config>(strcontent);
         match parsed {
             Ok(_) => {
-                drop(tokio::spawn(async move { apply_config(content.as_str(), st).await }));
+                if let Some(_) = params.get("save") {
+                    drop(tokio::spawn(async move { apply_config(content.as_str(), st, true).await }));
+                } else {
+                    drop(tokio::spawn(async move { apply_config(content.as_str(), st, false).await }));
+                }
+                // apply_config(content.as_str(), st).await;
                 return Response::builder().status(StatusCode::OK).body(Body::from("Accepted! Applying in background\n")).unwrap();
             }
             Err(err) => {
@@ -115,9 +123,15 @@ async fn conf(State(st): State<AppState>, Query(params): Query<HashMap<String, S
     Response::builder().status(StatusCode::FORBIDDEN).body(Body::from("Access Denied !\n")).unwrap()
 }
 
-async fn apply_config(content: &str, mut st: AppState) {
+async fn apply_config(content: &str, mut st: AppState, save: bool) {
     let sl = crate::utils::parceyaml::load_configuration(content, "content").await;
     if let Some(serverlist) = sl.0 {
+        if save {
+            info!("Saving new upstreams to: {}", st.upstreams_file);
+            if let Err(err) = std::fs::write(&st.upstreams_file, content) {
+                error!("Error saving to: {} : {}", st.upstreams_file, err);
+            }
+        }
         let _ = st.config_sender.send(serverlist).await;
     }
 }

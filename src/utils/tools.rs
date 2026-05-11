@@ -101,46 +101,31 @@ pub fn clone_dashmap_into(original: &UpstreamsDashMap, cloned: &UpstreamsDashMap
 }
 
 pub fn compare_dashmaps(map1: &UpstreamsDashMap, map2: &UpstreamsDashMap) -> bool {
-    let keys1: HashSet<_> = map1.iter().map(|entry| entry.key().clone()).collect();
-    let keys2: HashSet<_> = map2.iter().map(|entry| entry.key().clone()).collect();
-    if keys1 != keys2 {
+    if map1.len() != map2.len() {
         return false;
     }
     for entry1 in map1.iter() {
-        let hostname = entry1.key();
-        let inner_map1 = entry1.value();
-        let Some(inner_map2) = map2.get(hostname) else {
+        let Some(inner_map2) = map2.get(entry1.key()) else {
             return false;
         };
-        let inner_keys1: HashSet<_> = inner_map1.iter().map(|e| e.key().clone()).collect();
-        let inner_keys2: HashSet<_> = inner_map2.iter().map(|e| e.key().clone()).collect();
-        if inner_keys1 != inner_keys2 {
+        let inner_map1 = entry1.value();
+        if inner_map1.len() != inner_map2.len() {
             return false;
         }
         for path_entry in inner_map1.iter() {
-            let path = path_entry.key();
-            let (vec1, _counter1) = path_entry.value();
-            let Some(entry2) = inner_map2.get(path) else {
-                return false; // Path exists in map1 but not in map2
+            let Some(entry2) = inner_map2.get(path_entry.key()) else {
+                return false;
             };
-            let (vec2, _counter2) = entry2.value();
-
+            let (vec1, _) = path_entry.value();
+            let (vec2, _) = entry2.value();
             if vec1.len() != vec2.len() {
                 return false;
             }
-            for item in vec1.iter() {
-                let count1 = vec1.iter().filter(|&x| x == item).count();
-                let count2 = vec2.iter().filter(|&x| x == item).count();
-                if count1 != count2 {
-                    return false;
-                }
+            let set1: HashSet<_> = vec1.iter().collect();
+            let set2: HashSet<_> = vec2.iter().collect();
+            if set1 != set2 {
+                return false;
             }
-
-            // let set1: HashSet<_> = vec1.iter().collect();
-            // let set2: HashSet<_> = vec2.iter().collect();
-            // if set1 != set2 {
-            //     return false;
-            // }
         }
     }
     true
