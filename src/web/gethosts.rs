@@ -19,9 +19,6 @@ pub trait GetHost {
 }
 #[async_trait]
 impl GetHost for LB {
-    // fn get_upstreams(&self) -> Arc<UpstreamsDashMap> {
-    //     self.ump_full.clone()
-    // }
     fn get_host(&self, peer: &str, path: &str, backend_id: Option<&str>) -> Option<Arc<InnerMap>> {
         if let Some(b) = backend_id {
             if let Some(bb) = self.ump_byid.get(b) {

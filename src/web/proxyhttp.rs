@@ -12,10 +12,8 @@ use pingora::prelude::*;
 use pingora::ErrorSource::Upstream;
 use pingora_core::listeners::ALPN;
 use pingora_core::prelude::HttpPeer;
-// use pingora_core::protocols::TcpKeepalive;
 use pingora_limits::rate::Rate;
 use pingora_proxy::{ProxyHttp, Session};
-// use prometheus::{register_int_counter, IntCounter};
 use sha2::{Digest, Sha256};
 use std::cell::RefCell;
 use std::fmt::Write;
@@ -23,11 +21,10 @@ use std::sync::{Arc, LazyLock};
 use std::time::Duration;
 use tokio::time::Instant;
 
-// static RATE_LIMITER: Lazy<Rate> = Lazy::new(|| Rate::new(Duration::from_secs(1)));
-// static REVERSE_STORE: Lazy<DashMap<String, String>> = Lazy::new(|| DashMap::new());
 static REVERSE_STORE: LazyLock<DashMap<String, String>> = LazyLock::new(DashMap::new);
 thread_local! {static IP_BUFFER: RefCell<String> = RefCell::new(String::with_capacity(50));}
 pub static RATE_LIMITER: LazyLock<Rate> = LazyLock::new(|| Rate::new(Duration::from_secs(1)));
+pub static LOCALHOST: LazyLock<Arc<str>> = LazyLock::new(|| Arc::from("localhost"));
 
 #[derive(Clone)]
 pub struct LB {
@@ -43,7 +40,6 @@ pub struct LB {
 pub struct Context {
     backend_id: Option<String>,
     sticky_sessions: bool,
-    // redirect_to: Option<String>,
     start_time: Instant,
     hostname: Option<Arc<str>>,
     upstream_peer: Option<Arc<InnerMap>>,
@@ -58,7 +54,6 @@ impl ProxyHttp for LB {
         Context {
             backend_id: None,
             sticky_sessions: false,
-            // redirect_to: None,
             start_time: Instant::now(),
             hostname: None,
             upstream_peer: None,
@@ -67,6 +62,7 @@ impl ProxyHttp for LB {
         }
     }
     async fn request_filter(&self, session: &mut Session, _ctx: &mut Self::CTX) -> Result<bool> {
+        ACTIVE_SESSIONS.inc();
         let hostname = return_header_host_from_upstream(session, &self.ump_upst);
         _ctx.hostname = hostname;
         let mut backend_id = None;
@@ -165,21 +161,6 @@ impl ProxyHttp for LB {
                         peer.options.verify_cert = false;
                         peer.options.verify_hostname = false;
                     }
-                    /*
-                    Experimental optionsv
-                    The following TCP optimizations were tested but caused performance degrade under heavy load:
-                    peer.options.tcp_keepalive = Some(TcpKeepalive {
-                        idle: Duration::from_secs(60),
-                        interval: Duration::from_secs(10),
-                        count: 5,
-                        user_timeout: Duration::from_secs(30),
-                    });
-
-                    peer.options.idle_timeout = Some(Duration::from_secs(300));
-                    peer.options.tcp_recv_buf = Some(128 * 1024);
-                    End of experimental options
-                    */
-
                     if ctx.extraparams.sticky_sessions {
                         let mut s = String::with_capacity(64);
                         write!(
@@ -229,10 +210,6 @@ impl ProxyHttp for LB {
     }
 
     async fn upstream_request_filter(&self, session: &mut Session, upstream_request: &mut RequestHeader, ctx: &mut Self::CTX) -> Result<()> {
-        // if let Some(hostname) = ctx.hostname.as_deref() {
-        //     upstream_request.insert_header("Host", hostname)?;
-        // }
-
         if let Some(client_ip) = session.client_addr() {
             IP_BUFFER.with(|buffer| {
                 let mut buf = buffer.borrow_mut();
@@ -288,9 +265,6 @@ impl ProxyHttp for LB {
                 _upstream_response.append_header(k.clone(), v.as_ref())?;
             }
         }
-
-        // session.set_keepalive(Some(300));
-        // println!("session.get_keepalive: {:?}", session.get_keepalive());
         Ok(())
     }
 
@@ -302,10 +276,10 @@ impl ProxyHttp for LB {
             code: session.response_written().map(|resp| resp.status),
             latency: ctx.start_time.elapsed(),
             version: session.req_header().version,
-            // upstream: ctx.hostname.clone().unwrap_or(Arc::from("localhost")),
-            upstream: ctx.hostname.take().unwrap_or_else(|| Arc::from("localhost")),
+            upstream: ctx.hostname.take().unwrap_or_else(|| LOCALHOST.clone()),
         };
         calc_metrics(m);
+        ACTIVE_SESSIONS.dec();
     }
 }
 
