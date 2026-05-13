@@ -290,5 +290,6 @@ fn return_header_host_from_upstream(session: &Session, ump_upst: &UpstreamsDashM
         let h = session.req_header().headers.get("host")?.to_str().ok()?;
         h.split_once(':').map_or(h, |(host, _)| host)
     };
-    ump_upst.get(host_str).map(|entry| entry.key().clone())
+
+    ump_upst.get(host_str).or_else(|| ump_upst.get("DEFAULT")).map(|entry| entry.key().clone())
 }

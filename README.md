@@ -201,6 +201,11 @@ myhost.mydomain.com:
       healthcheck: false
       servers:
         - "127.0.0.1:8001"
+DEFAULT:
+  paths:
+    "/":
+      servers:
+        - "127.0.0.1:3000"
 ```
 
 **This means:**
@@ -228,6 +233,7 @@ myhost.mydomain.com:
 - All requests to servers will require JWT token authentication (You can comment out the authorization to disable it),
     - Firs parameter specifies the mechanism of authorisation `jwt`
     - Second is the secret key for validating `jwt` tokens
+- `DEFAULT` catch up everything else and proxy to `127.0.0.1:3000`
 
 ---
 
