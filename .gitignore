@@ -21,3 +21,4 @@ crashlytics.properties
 crashlytics-build.properties
 /target
 /z_shpo
+Makefile
