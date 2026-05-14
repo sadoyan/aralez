@@ -22,8 +22,8 @@ Built on Rust, on top of **Cloudflare’s Pingora engine**, **Aralez** delivers 
 ## Key Features
 
 - **Dynamic Config Reloads** — Upstreams can be updated live via API, no restart required.
-- **Yes loading of certificates** — Auto load certificates from a folder, without a restart.
-- **Let’s Encrypt Certificates** — Yes ordering and renewal of SSL/TLS certificates via the HTTP-01 challenge
+- **Autoload of certificates** — Automatically loads new/changed certificates from a folder, without a restart.
+- **Let’s Encrypt Certificates** — Ordering and renewal of SSL/TLS certificates via the HTTP-01 challenge.
 - **Upstreams TLS detection** — Aralez will automatically detect if upstreams uses secure connection.
 - **Built in rate limiter** — Globar or route limit requests to upstreams.
 - **Authentication** — Supports Basic Auth, API tokens, and JWT verification.
@@ -37,8 +37,8 @@ Built on Rust, on top of **Cloudflare’s Pingora engine**, **Aralez** delivers 
     - `file` Upstreams are declared in config file.
     - `consul` Upstreams are dynamically updated from Hashicorp Consul.
     - `kubernetes` Upstreams are dynamically updated from kubernetes api server.
-- **Yes WebSocket Support:** WS connection upgrades are handled automatically.
-- **Yes gRPC Support:** gRPC detected and handled automatically.
+- **Auto WebSocket Support:** WS connection upgrades are handled automatically.
+- **Auto gRPC Support:** gRPC detected and handled automatically.
 - **Header Injection:** Global and per-route server/client headers injection.
 - **Remote Config Push:** Lightweight HTTP API to update configs from CI/CD or other systems.
 - **Memory Safe** — 100% Rust.
