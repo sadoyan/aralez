@@ -3,12 +3,18 @@ use crate::utils::state::{is_first_run, mark_not_first_run};
 use crate::utils::structs::*;
 use crate::utils::tools::{clone_dashmap, clone_dashmap_into, print_upstreams};
 use dashmap::DashMap;
+use log::LevelFilter;
 use log::{error, info, warn};
+use log4rs::{
+    append::{console::ConsoleAppender, file::FileAppender},
+    config::{Appender, Config as Log4rsConfig, Root},
+    encode::pattern::PatternEncoder,
+};
 use std::collections::HashMap;
+use std::fs;
 use std::path::Path;
 use std::sync::atomic::AtomicUsize;
 use std::sync::{Arc, LazyLock};
-use std::{env, fs};
 
 pub static DOMAINS: LazyLock<DashMap<String, bool>> = LazyLock::new(DashMap::new);
 
@@ -230,7 +236,7 @@ pub fn parce_main_config(path: &str) -> AppConfig {
     let reply = DashMap::new();
     let cfg: HashMap<String, String> = serde_yml::from_str(&data).expect("Failed to parse main config file");
     let mut cfo: AppConfig = serde_yml::from_str(&data).expect("Failed to parse main config file");
-    log_builder(&cfo);
+    log_builder(&cfo, &cfo.log_file);
     cfo.hc_method = cfo.hc_method.to_uppercase();
     for (k, v) in cfg {
         reply.insert(k.to_string(), v.to_string());
@@ -240,14 +246,6 @@ pub fn parce_main_config(path: &str) -> AppConfig {
             cfo.local_server = Option::from((ip.to_string(), port));
         }
     }
-    // if let Some(tlsport_cfg) = cfo.proxy_address_tls.clone() {
-    //     if let Some((_, port_str)) = tlsport_cfg.split_once(':') {
-    //         if let Ok(port) = port_str.parse::<u16>() {
-    //             cfo.proxy_port_tls = Some(port);
-    //         }
-    //     }
-    // };
-
     if let Some(tlsport_cfg) = cfo.proxy_address_tls.clone() {
         if let Some((_, port_str)) = tlsport_cfg.split_once(':') {
             cfo.proxy_port_tls = Some(port_str.to_string());
@@ -289,7 +287,8 @@ fn parce_tls_grades(what: Option<String>) -> Option<String> {
     }
 }
 
-fn log_builder(conf: &AppConfig) {
+/*
+fn log_builder1(conf: &AppConfig) {
     let log_level = conf.log_level.clone();
     unsafe {
         match log_level.as_str() {
@@ -307,6 +306,7 @@ fn log_builder(conf: &AppConfig) {
     }
     env_logger::builder().init();
 }
+*/
 
 pub fn build_headers(path_config: &Option<Vec<String>>, _config: &Configuration, hl: &mut Vec<(String, Arc<str>)>) {
     if let Some(headers) = &path_config {
@@ -315,5 +315,36 @@ pub fn build_headers(path_config: &Option<Vec<String>>, _config: &Configuration,
                 hl.push((key.trim().to_string(), Arc::from(val.trim())));
             }
         }
+    }
+}
+
+fn log_builder(conf: &AppConfig, location: &Option<String>) {
+    let log_level = match conf.log_level.as_str() {
+        "info" => LevelFilter::Info,
+        "error" => LevelFilter::Error,
+        "warn" => LevelFilter::Warn,
+        "debug" => LevelFilter::Debug,
+        "trace" => LevelFilter::Trace,
+        "off" => LevelFilter::Off,
+        _ => {
+            println!("Error reading log level, defaulting to: INFO");
+            LevelFilter::Info
+        }
+    };
+    let pattern = "{d(%Y-%m-%d %H:%M:%S)} {l} {t} - {m}{n}";
+    if let Some(location) = location {
+        let file = FileAppender::builder().encoder(Box::new(PatternEncoder::new(pattern))).build(location).unwrap();
+        let config = Log4rsConfig::builder()
+            .appender(Appender::builder().build("file", Box::new(file)))
+            .build(Root::builder().appender("file").build(log_level))
+            .unwrap();
+        log4rs::init_config(config).unwrap();
+    } else {
+        let stdout = ConsoleAppender::builder().encoder(Box::new(PatternEncoder::new(pattern))).build();
+        let config = Log4rsConfig::builder()
+            .appender(Appender::builder().build("stdout", Box::new(stdout)))
+            .build(Root::builder().appender("stdout").build(log_level))
+            .unwrap();
+        log4rs::init_config(config).unwrap();
     }
 }

@@ -20,17 +20,15 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use std::{fs, process, thread, time};
 
-#[allow(dead_code)]
 pub fn print_upstreams(upstreams: &UpstreamsDashMap) {
+    let mut out = String::new();
     for host_entry in upstreams.iter() {
-        let hostname = host_entry.key();
-        println!("Hostname: {}", hostname);
-
+        writeln!(out, "Hostname: {}", host_entry.key()).unwrap();
         for path_entry in host_entry.value().iter() {
-            let path = path_entry.key();
-            println!("    Path: {}", path);
+            writeln!(out, "    Path: {}", path_entry.key()).unwrap();
             for f in path_entry.value().0.clone() {
-                println!(
+                writeln!(
+                    out,
                     "        IP: {}, Port: {}, SSL: {}, H2: {}, To HTTPS: {}, Rate Limit: {}",
                     f.address,
                     f.port,
@@ -38,12 +36,13 @@ pub fn print_upstreams(upstreams: &UpstreamsDashMap) {
                     f.is_http2,
                     f.to_https,
                     f.rate_limit.unwrap_or(0)
-                );
+                )
+                .unwrap();
             }
         }
     }
+    info!("\n{}", out.trim_end());
 }
-
 #[allow(dead_code)]
 pub fn typeoff<T>(_: T) {
     let to = type_name::<T>();
@@ -184,7 +183,6 @@ pub fn clone_idmap_into(original: &UpstreamsDashMap, cloned: &UpstreamsIdMap) {
                 };
                 cloned.insert(id, Arc::from(to_add));
                 cloned.insert(hh, x.to_owned());
-                // println!("CLONNED  :===========> {:?}", cloned);
             }
             new_inner_map.insert(path.clone(), new_vec);
         }

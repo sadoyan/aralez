@@ -125,6 +125,7 @@ pub struct AppConfig {
     pub file_server_folder: Option<String>,
     pub runuser: Option<String>,
     pub rungroup: Option<String>,
+    pub log_file: Option<String>,
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
