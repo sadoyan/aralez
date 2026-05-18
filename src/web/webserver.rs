@@ -8,7 +8,7 @@ use crate::utils::structs::{Config, Configuration, UpstreamsDashMap};
 use crate::utils::tools::{upstreams_liveness_json, upstreams_to_json};
 use axum::body::Body;
 use axum::extract::{Query, State};
-use axum::http::{header::HeaderMap, Response, StatusCode};
+use axum::http::{Response, StatusCode};
 use axum::response::IntoResponse;
 use axum::routing::{any, get, post};
 use axum::{Json, Router};
@@ -21,7 +21,6 @@ use serde::Serialize;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use subtle::ConstantTimeEq;
 use tokio::net::TcpListener;
 use tower_http::services::ServeDir;
 
@@ -32,7 +31,7 @@ struct OutToken {
 
 #[derive(Clone)]
 struct AppState {
-    master_key: String,
+    master_key: Option<String>,
     cert_creds: String,
     certs_dir: String,
     upstreams_file: String,
@@ -95,32 +94,27 @@ pub async fn run_server(config: &APIUpstreamProvider, mut to_return: Sender<Conf
     axum::serve(listener, app).await.unwrap();
 }
 
-async fn conf(State(st): State<AppState>, Query(params): Query<HashMap<String, String>>, headers: HeaderMap, content: String) -> impl IntoResponse {
+async fn conf(State(st): State<AppState>, Query(params): Query<HashMap<String, String>>, content: String) -> impl IntoResponse {
     if !st.config_api_enabled {
         return Response::builder().status(StatusCode::FORBIDDEN).body(Body::from("Config API is disabled !\n")).unwrap();
     }
-    // if let Some(s) = headers.get("x-api-key").and_then(|v| v.to_str().ok()).or(params.get("key").map(|s| s.as_str())) {
 
-    if key_authorization(&headers, &params, &st.master_key) {
-        let strcontent = content.as_str();
-        let parsed = serde_yml::from_str::<Config>(strcontent);
-        match parsed {
-            Ok(_) => {
-                if let Some(_) = params.get("save") {
-                    drop(tokio::spawn(async move { apply_config(content.as_str(), st, true).await }));
-                } else {
-                    drop(tokio::spawn(async move { apply_config(content.as_str(), st, false).await }));
-                }
-                // apply_config(content.as_str(), st).await;
-                return Response::builder().status(StatusCode::OK).body(Body::from("Accepted! Applying in background\n")).unwrap();
+    let strcontent = content.as_str();
+    let parsed = serde_yml::from_str::<Config>(strcontent);
+    match parsed {
+        Ok(_) => {
+            if let Some(_) = params.get("save") {
+                drop(tokio::spawn(async move { apply_config(content.as_str(), st, true).await }));
+            } else {
+                drop(tokio::spawn(async move { apply_config(content.as_str(), st, false).await }));
             }
-            Err(err) => {
-                error!("Failed to parse upstreams file: {}", err);
-                return Response::builder().status(StatusCode::BAD_GATEWAY).body(Body::from(format!("Failed: {}\n", err))).unwrap();
-            }
+            Response::builder().status(StatusCode::OK).body(Body::from("Accepted! Applying in background\n")).unwrap()
+        }
+        Err(err) => {
+            error!("Failed to parse upstreams file: {}", err);
+            Response::builder().status(StatusCode::BAD_GATEWAY).body(Body::from(format!("Failed: {}\n", err))).unwrap()
         }
     }
-    Response::builder().status(StatusCode::FORBIDDEN).body(Body::from("Access Denied !\n")).unwrap()
 }
 
 async fn apply_config(content: &str, mut st: AppState, save: bool) {
@@ -137,34 +131,42 @@ async fn apply_config(content: &str, mut st: AppState, save: bool) {
 }
 
 async fn jwt_gen(State(state): State<AppState>, Json(payload): Json<Claims>) -> (StatusCode, Json<OutToken>) {
-    if payload.master_key == state.master_key {
-        let now = SystemTime::now() + Duration::from_secs(payload.exp * 60);
-        let expire = now.duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
+    if let Some(master_key) = &state.master_key {
+        if &payload.master_key == master_key {
+            let now = SystemTime::now() + Duration::from_secs(payload.exp * 60);
+            let expire = now.duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
 
-        let claim = Claims {
-            master_key: String::new(),
-            owner: payload.owner,
-            exp: expire,
-            random: payload.random,
-        };
-        match encode(&Header::default(), &claim, &EncodingKey::from_secret(payload.master_key.as_ref())) {
-            Ok(t) => {
-                let tok = OutToken { token: t };
-                debug!("Generating token: {:?}", tok.token);
-                (StatusCode::CREATED, Json(tok))
+            let claim = Claims {
+                master_key: String::new(),
+                owner: payload.owner,
+                exp: expire,
+                random: payload.random,
+            };
+            match encode(&Header::default(), &claim, &EncodingKey::from_secret(payload.master_key.as_ref())) {
+                Ok(t) => {
+                    let tok = OutToken { token: t };
+                    debug!("Generating token: {:?}", tok.token);
+                    (StatusCode::CREATED, Json(tok))
+                }
+                Err(e) => {
+                    let tok = OutToken { token: "ERROR".to_string() };
+                    error!("Failed to generate token: {:?}", e);
+                    (StatusCode::INTERNAL_SERVER_ERROR, Json(tok))
+                }
             }
-            Err(e) => {
-                let tok = OutToken { token: "ERROR".to_string() };
-                error!("Failed to generate token: {:?}", e);
-                (StatusCode::INTERNAL_SERVER_ERROR, Json(tok))
-            }
+        } else {
+            let tok = OutToken {
+                token: "Unauthorised".to_string(),
+            };
+            warn!("Unauthorised JWT generate request: {:?}", tok);
+            (StatusCode::FORBIDDEN, Json(tok))
         }
     } else {
         let tok = OutToken {
-            token: "Unauthorised".to_string(),
+            token: "ERROR Getting JWT_KEY environment variable".to_string(),
         };
-        warn!("Unauthorised JWT generate request: {:?}", tok);
-        (StatusCode::FORBIDDEN, Json(tok))
+        error!("ERROR Getting JWT_KEY environment variable");
+        (StatusCode::INTERNAL_SERVER_ERROR, Json(tok))
     }
 }
 
@@ -221,11 +223,7 @@ async fn status(State(st): State<AppState>, Query(params): Query<HashMap<String,
 }
 
 #[allow(clippy::needless_return)]
-async fn acme_create(State(state): State<AppState>, Query(params): Query<HashMap<String, String>>, headers: HeaderMap) -> impl IntoResponse {
-    if !key_authorization(&headers, &params, &state.master_key) {
-        return Response::builder().status(StatusCode::FORBIDDEN).body(Body::from("Access Denied !\n")).unwrap();
-    }
-
+async fn acme_create(State(state): State<AppState>) -> impl IntoResponse {
     match account::load_or_create(state.cert_creds.as_str()).await {
         Ok(txt) => {
             return Response::builder()
@@ -243,16 +241,7 @@ async fn acme_create(State(state): State<AppState>, Query(params): Query<HashMap
     };
 }
 #[allow(clippy::needless_return)]
-async fn acme_order(
-    State(state): State<AppState>,
-    axum::extract::Path(domain): axum::extract::Path<String>,
-    Query(params): Query<HashMap<String, String>>,
-    headers: HeaderMap,
-) -> impl IntoResponse {
-    if !key_authorization(&headers, &params, &state.master_key) {
-        return Response::builder().status(StatusCode::FORBIDDEN).body(Body::from("Access Denied !\n")).unwrap();
-    }
-
+async fn acme_order(State(state): State<AppState>, axum::extract::Path(domain): axum::extract::Path<String>) -> impl IntoResponse {
     let domain_clean = domain.trim_matches('/');
     match order::order(domain_clean, state.cert_creds.as_str(), state.certs_dir).await {
         Ok(txt) => {
@@ -292,13 +281,13 @@ pub async fn http01_challenge(axum::extract::Path(token): axum::extract::Path<St
         .unwrap()
 }
 
-fn key_authorization(headers: &HeaderMap, params: &HashMap<String, String>, masterkey: &str) -> bool {
-    if let Some(s) = headers.get("x-api-key").and_then(|v| v.to_str().ok()).or(params.get("key").map(|s| s.as_str())) {
-        if s.as_bytes().ct_eq(masterkey.as_bytes()).into() {
-            return true;
-        }
-    }
-    false
-}
+// fn key_authorization(headers: &HeaderMap, params: &HashMap<String, String>, masterkey: &str) -> bool {
+//     if let Some(s) = headers.get("x-api-key").and_then(|v| v.to_str().ok()).or(params.get("key").map(|s| s.as_str())) {
+//         if s.as_bytes().ct_eq(masterkey.as_bytes()).into() {
+//             return true;
+//         }
+//     }
+//     false
+// }
 
 // -- ⚝ by Dave -- in NeoVim ⚝ --

@@ -1,21 +1,16 @@
 use crate::utils::jwt::check_jwt;
-// use reqwest::Client;
 use axum::http::StatusCode;
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine;
+use pingora::http::RequestHeader;
+use pingora_core::connectors::http::Connector;
+use pingora_core::upstreams::peer::HttpPeer;
+use pingora_http::ResponseHeader;
 use pingora_proxy::Session;
 use std::collections::HashMap;
 use std::sync::{Arc, LazyLock};
 use subtle::ConstantTimeEq;
 use urlencoding::decode;
-
-// use pingora::http::{RequestHeader, ResponseHeader, StatusCode};
-use pingora::http::RequestHeader;
-// --------------------------------- //
-use pingora_core::connectors::http::Connector;
-use pingora_core::upstreams::peer::HttpPeer;
-use pingora_http::ResponseHeader;
-// --------------------------------- //
 
 #[async_trait::async_trait]
 trait AuthValidator {
@@ -182,6 +177,7 @@ impl AuthValidator for ApiKeyAuth<'_> {
 #[async_trait::async_trait]
 impl AuthValidator for JwtAuth<'_> {
     async fn validate(&self, session: &mut Session) -> bool {
+        println!("{:?}", self.0);
         let jwtsecret = self.0;
         if let Some(tok) = get_query_param(session, "araleztoken") {
             return check_jwt(tok.as_str(), jwtsecret);

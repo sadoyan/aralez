@@ -11,10 +11,10 @@ use log4rs::{
     encode::pattern::PatternEncoder,
 };
 use std::collections::HashMap;
-use std::fs;
 use std::path::Path;
 use std::sync::atomic::AtomicUsize;
 use std::sync::{Arc, LazyLock};
+use std::{env, fs};
 
 pub static DOMAINS: LazyLock<DashMap<String, bool>> = LazyLock::new(DashMap::new);
 
@@ -236,6 +236,11 @@ pub fn parce_main_config(path: &str) -> AppConfig {
     let reply = DashMap::new();
     let cfg: HashMap<String, String> = serde_yml::from_str(&data).expect("Failed to parse main config file");
     let mut cfo: AppConfig = serde_yml::from_str(&data).expect("Failed to parse main config file");
+
+    if let Ok(jwt_key) = env::var("JWT_KEY") {
+        cfo.master_key = Some(jwt_key);
+    };
+
     log_builder(&cfo, &cfo.log_file);
     cfo.hc_method = cfo.hc_method.to_uppercase();
     for (k, v) in cfg {
