@@ -111,7 +111,7 @@ For getting the best performance on newer hardware use `aralez-x86_64-*.gz`.
 
 ```shell
 docker run -d \
-  -v /local/path/to/config:/etc/aralez:ro \
+  -v /local/path/to/config:/etc/aralez:rw \
   -p 80:80 \
   -p 443:443 \
   sadoyan/aralez
