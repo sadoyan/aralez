@@ -77,7 +77,7 @@ pub struct Auth {
     #[serde(rename = "type")]
     pub auth_type: String,
     #[serde(rename = "data")]
-    pub auth_cred: String,
+    pub auth_cred: Option<String>,
 }
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct PathConfig {

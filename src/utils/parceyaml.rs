@@ -85,6 +85,7 @@ pub async fn load_configuration(d: &str, kind: &str) -> (Option<Configuration>, 
     let mut parsed: Config = match serde_yml::from_str(&yaml_data) {
         Ok(cfg) => cfg,
         Err(e) => {
+            println!("================================================");
             error!("Failed to parse upstreams file: {}", e);
             return (None, e.to_string());
         }
@@ -136,6 +137,7 @@ async fn populate_headers_and_auth(config: &mut Configuration, parsed: &Config) 
             }
         }
     }
+
     let global_headers: DashMap<Arc<str>, Vec<(String, Arc<str>)>> = DashMap::new();
     global_headers.insert(Arc::from("/"), ch);
     config.client_headers.insert(Arc::from("GLOBAL_CLIENT_HEADERS"), global_headers);
@@ -162,7 +164,7 @@ async fn populate_headers_and_auth(config: &mut Configuration, parsed: &Config) 
     if let Some(pa) = &parsed.authorization {
         let y: InnerAuth = InnerAuth {
             auth_type: Arc::from(pa.auth_type.clone()),
-            auth_cred: Arc::from(pa.auth_cred.clone()),
+            auth_cred: Arc::from(pa.auth_cred.clone().unwrap_or_default()),
         };
         config.extraparams.authentication = Some(Arc::from(y));
     }
@@ -191,7 +193,7 @@ async fn populate_file_upstreams(config: &mut Configuration, parsed: &Config) {
                     if let Some(pa) = &path_config.authorization {
                         let y: InnerAuth = InnerAuth {
                             auth_type: Arc::from(pa.auth_type.clone()),
-                            auth_cred: Arc::from(pa.auth_cred.clone()),
+                            auth_cred: Arc::from(pa.auth_cred.clone().unwrap_or_default()),
                         };
                         path_auth = Some(Arc::from(y));
                     }

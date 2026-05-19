@@ -4,8 +4,9 @@ use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
 use moka::sync::Cache;
 use moka::Expiry;
 use serde::{Deserialize, Serialize};
+use std::env;
 use std::hash::{Hash, Hasher};
-use std::sync::LazyLock;
+use std::sync::{Arc, LazyLock};
 use std::time::{Duration, Instant, SystemTime};
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -22,6 +23,11 @@ struct Expired {
 }
 
 static JWT_VALIDATION: LazyLock<Validation> = LazyLock::new(|| Validation::new(Algorithm::HS256));
+
+pub static JWT_TOKEN: LazyLock<Option<Arc<str>>> = LazyLock::new(|| match env::var("JWT_KEY") {
+    Ok(key) if !key.is_empty() => Some(Arc::from(key.as_str())),
+    _ => None,
+});
 
 static JWT_CACHE: LazyLock<Cache<u64, u64>> = LazyLock::new(|| Cache::builder().max_capacity(100_000).expire_after(JwtExpiry).build());
 struct JwtExpiry;
