@@ -39,7 +39,7 @@ pub struct LB {
 
 pub struct Context {
     backend_id: Option<String>,
-    sticky_sessions: bool,
+    sticky_sessions: Option<u64>,
     start_time: Instant,
     hostname: Option<Arc<str>>,
     upstream_peer: Option<Arc<InnerMap>>,
@@ -53,7 +53,7 @@ impl ProxyHttp for LB {
     fn new_ctx(&self) -> Self::CTX {
         Context {
             backend_id: None,
-            sticky_sessions: false,
+            sticky_sessions: None,
             start_time: Instant::now(),
             hostname: None,
             upstream_peer: None,
@@ -66,7 +66,7 @@ impl ProxyHttp for LB {
         let hostname = return_header_host_from_upstream(session, &self.ump_upst);
         _ctx.hostname = hostname;
         let mut backend_id = None;
-        if _ctx.extraparams.sticky_sessions {
+        if let Some(_) = _ctx.extraparams.sticky_sessions {
             if let Some(cookies) = session.req_header().headers.get("cookie") {
                 if let Ok(cookie_str) = cookies.to_str() {
                     if let Some(pos) = cookie_str.find("backend_id=") {
@@ -91,7 +91,6 @@ impl ProxyHttp for LB {
                                 return Ok(true);
                             }
                         }
-
                         if let Some(rate) = innermap.rate_limit.or(_ctx.extraparams.rate_limit) {
                             let rate_key = session.client_addr().and_then(|addr| addr.as_inet()).map(|inet| inet.ip());
                             let curr_window_requests = RATE_LIMITER.observe(&rate_key, 1);
@@ -161,7 +160,7 @@ impl ProxyHttp for LB {
                         peer.options.verify_cert = false;
                         peer.options.verify_hostname = false;
                     }
-                    if ctx.extraparams.sticky_sessions {
+                    if let Some(_) = ctx.extraparams.sticky_sessions {
                         let mut s = String::with_capacity(64);
                         write!(
                             &mut s,
@@ -177,7 +176,7 @@ impl ProxyHttp for LB {
                         )
                         .unwrap_or(());
                         ctx.backend_id = Some(s);
-                        ctx.sticky_sessions = true;
+                        ctx.sticky_sessions = ctx.extraparams.sticky_sessions;
                     }
                     Ok(peer)
                 }
@@ -237,7 +236,7 @@ impl ProxyHttp for LB {
         Ok(())
     }
     async fn response_filter(&self, _session: &mut Session, _upstream_response: &mut ResponseHeader, ctx: &mut Self::CTX) -> Result<()> {
-        if ctx.sticky_sessions {
+        if let Some(val) = ctx.sticky_sessions {
             if let Some(bid) = &ctx.backend_id {
                 let tt = if let Some(existing) = REVERSE_STORE.get(bid) {
                     existing.value().clone()
@@ -255,7 +254,11 @@ impl ProxyHttp for LB {
                 let mut buf = String::with_capacity(80);
                 buf.push_str("backend_id=");
                 buf.push_str(&tt);
-                buf.push_str("; Path=/; Max-Age=86400; HttpOnly; SameSite=Lax");
+                buf.push_str("; Path=/; Max-Age=");
+                buf.push_str(&val.to_string());
+                buf.push_str("; HttpOnly; SameSite=Lax");
+                // buf.push_str("; Path=/; Max-Age=86400; HttpOnly; SameSite=Lax");
+                // println!("{}", buf);
                 let _ = _upstream_response.insert_header("set-cookie", buf.as_str());
             }
         }

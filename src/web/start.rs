@@ -33,7 +33,7 @@ pub fn run() {
 
     let ec_config = Arc::new(ArcSwap::from_pointee(Extraparams {
         to_https: None,
-        sticky_sessions: false,
+        sticky_sessions: None,
         authentication: None,
         rate_limit: None,
     }));

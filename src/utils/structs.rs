@@ -14,7 +14,7 @@ pub type Headers = DashMap<Arc<str>, DashMap<Arc<str>, Vec<(String, Arc<str>)>>>
 #[derive(Clone, Debug, Default)]
 pub struct Extraparams {
     pub to_https: Option<bool>,
-    pub sticky_sessions: bool,
+    pub sticky_sessions: Option<u64>,
     pub authentication: Option<Arc<InnerAuth>>,
     pub rate_limit: Option<isize>,
 }
@@ -25,7 +25,7 @@ pub struct GlobalServiceMapping {
     pub hostname: String,
     pub path: Option<String>,
     pub to_https: Option<bool>,
-    pub sticky_sessions: Option<bool>,
+    pub sticky_sessions: Option<u64>,
     pub rate_limit: Option<isize>,
     pub client_headers: Option<Vec<String>>,
     pub server_headers: Option<Vec<String>>,
@@ -48,7 +48,7 @@ pub struct Consul {
 pub struct Config {
     pub provider: String,
     pub to_https: Option<bool>,
-    pub sticky_sessions: bool,
+    pub sticky_sessions: Option<u64>,
     #[serde(default)]
     pub upstreams: Option<HashMap<String, HostConfig>>,
     #[serde(default)]

@@ -110,11 +110,7 @@ For getting the best performance on newer hardware use `aralez-x86_64-*.gz`.
 **Via docker**
 
 ```shell
-docker run -d \
-  -v /local/path/to/config:/etc/aralez:rw \
-  -p 80:80 \
-  -p 443:443 \
-  sadoyan/aralez
+docker run -d -v /path/to/config:/etc/aralez:rw -p 80:80 -p 443:443 sadoyan/aralez
 ```
 
 ## Running the Proxy

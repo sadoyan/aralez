@@ -197,6 +197,7 @@ async fn populate_file_upstreams(config: &mut Configuration, parsed: &Config) {
                         };
                         path_auth = Some(Arc::from(y));
                     }
+
                     let redirect_link = path_config.redirect_to.as_ref().map(|www| Arc::from(www.as_str()));
                     if let Some((ip, port_str)) = server.split_once(':') {
                         if let Ok(port) = port_str.parse::<u16>() {

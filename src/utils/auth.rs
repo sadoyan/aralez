@@ -179,7 +179,6 @@ impl AuthValidator for ApiKeyAuth<'_> {
 impl AuthValidator for JwtAuth {
     async fn validate(&self, session: &mut Session) -> bool {
         if let Some(jwtsecret) = JWT_TOKEN.clone() {
-            // println!("   ===> {:?}", jwtsecret);
             if let Some(tok) = get_query_param(session, "araleztoken") {
                 return check_jwt(tok.as_str(), jwtsecret.as_ref());
             }
