@@ -294,27 +294,6 @@ fn parce_tls_grades(what: Option<String>) -> Option<String> {
     }
 }
 
-/*
-fn log_builder1(conf: &AppConfig) {
-    let log_level = conf.log_level.clone();
-    unsafe {
-        match log_level.as_str() {
-            "info" => env::set_var("RUST_LOG", "info"),
-            "error" => env::set_var("RUST_LOG", "error"),
-            "warn" => env::set_var("RUST_LOG", "warn"),
-            "debug" => env::set_var("RUST_LOG", "debug"),
-            "trace" => env::set_var("RUST_LOG", "trace"),
-            "off" => env::set_var("RUST_LOG", "off"),
-            _ => {
-                println!("Error reading log level, defaulting to: INFO");
-                env::set_var("RUST_LOG", "info")
-            }
-        }
-    }
-    env_logger::builder().init();
-}
-*/
-
 pub fn build_headers(path_config: &Option<Vec<String>>, _config: &Configuration, hl: &mut Vec<(String, Arc<str>)>) {
     if let Some(headers) = &path_config {
         for header in headers {
