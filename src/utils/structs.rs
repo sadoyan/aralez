@@ -83,7 +83,6 @@ pub struct Auth {
 pub struct PathConfig {
     pub servers: Vec<String>,
     pub to_https: Option<bool>,
-    pub sticky_sessions: Option<bool>,
     pub client_headers: Option<Vec<String>>,
     pub server_headers: Option<Vec<String>>,
     pub rate_limit: Option<isize>,

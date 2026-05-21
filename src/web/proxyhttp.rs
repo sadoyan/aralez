@@ -39,7 +39,6 @@ pub struct LB {
 
 pub struct Context {
     backend_id: Option<String>,
-    sticky_sessions: Option<u64>,
     start_time: Instant,
     hostname: Option<Arc<str>>,
     upstream_peer: Option<Arc<InnerMap>>,
@@ -53,7 +52,6 @@ impl ProxyHttp for LB {
     fn new_ctx(&self) -> Self::CTX {
         Context {
             backend_id: None,
-            sticky_sessions: None,
             start_time: Instant::now(),
             hostname: None,
             upstream_peer: None,
@@ -98,7 +96,9 @@ impl ProxyHttp for LB {
                                 let header = ResponseHeader::build(429, None)?;
                                 session.set_keepalive(None);
                                 session.write_response_header(Box::new(header), true).await?;
-                                debug!("Rate limited: {:?}, {}", rate_key, rate);
+                                if let (Some(oi), Some(oa)) = (&_ctx.hostname, rate_key) {
+                                    warn!("Limit: {}-rps exceed on {} from {}", rate, oi, oa);
+                                }
                                 return Ok(true);
                             }
                         }
@@ -176,7 +176,6 @@ impl ProxyHttp for LB {
                         )
                         .unwrap_or(());
                         ctx.backend_id = Some(s);
-                        ctx.sticky_sessions = ctx.extraparams.sticky_sessions;
                     }
                     Ok(peer)
                 }
@@ -236,7 +235,7 @@ impl ProxyHttp for LB {
         Ok(())
     }
     async fn response_filter(&self, _session: &mut Session, _upstream_response: &mut ResponseHeader, ctx: &mut Self::CTX) -> Result<()> {
-        if let Some(val) = ctx.sticky_sessions {
+        if let Some(val) = ctx.extraparams.sticky_sessions {
             if let Some(bid) = &ctx.backend_id {
                 let tt = if let Some(existing) = REVERSE_STORE.get(bid) {
                     existing.value().clone()
