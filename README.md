@@ -160,9 +160,10 @@ systemctl restart aralez.service.
 
 ```yaml
 provider: "file"
-sticky_sessions: false
+sticky_sessions: 8600
 to_https: false
-rate_limit: 10
+rate_limit: 20
+x4xx_limit: 20
 server_headers:
   - "X-Forwarded-Proto:https"
   - "X-Forwarded-Port:443"
@@ -173,7 +174,8 @@ client_headers:
 myhost.mydomain.com:
   paths:
     "/":
-      rate_limit: 20
+      rate_limit: 10
+      x4xx_limit: 10
       to_https: false
       server_headers:
         - "X-Something-Else:Foobar"
@@ -207,15 +209,20 @@ DEFAULT:
 
 **This means:**
 
-- Sticky sessions are disabled globally. This setting applies to all upstreams. If enabled all requests will be 301 redirected to HTTPS.
+- Sticky sessions are enabled globally. This setting applies to all upstreams. If enabled the value withh be set for `Max-Age=` cookie.
 - HTTP to HTTPS redirect disabled globally, but can be overridden by `to_https` setting per upstream.
 - All upstreams will receive custom headers : `X-Forwarded-Proto:https` and `X-Forwarded-Port:443`
 - Additionally, myhost.mydomain.com with path `/` will receive custom headers : `X-Another-Header:Hohohohoho` and `X-Something-Else:Foobar`
-- Requests to each hosted domains will be limited to 10 requests per second per virtualhost.
+- Requests with response 4xx to each hosted domains will be limited to 20 requests per second per virtualhost.
+    - Requests limits are calculated per requester ip plus requested virtualhost.
+    - If the requester exceeds the limit it will receive `429 Too Many Requests` error.
+    - Optional. Rate limiter will be disabled if the parameter is entirely removed from config.
+- Requests to each hosted domains will be limited to 20 requests per second per virtualhost.
     - Requests limits are calculated per requester ip plus requested virtualhost.
     - If the requester exceeds the limit it will receive `429 Too Many Requests` error.
     - Optional. Rate limiter will be disabled if the parameter is entirely removed from config.
 - Requests to `myhost.mydomain.com/` will be limited to 20 requests per second.
+- Requests with 4xx responses to `myhost.mydomain.com/` will be limited to 10 requests per second.
 - Requests to `myhost.mydomain.com/` will be proxied to `127.0.0.1` and `127.0.0.2`.
 - Plain HTTP to `myhost.mydomain.com/foo` will get 301 redirect to configured TLS port of Aralez.
 - `myhost.mydomain.com/foo` will require authentication with JWT token, signed by `266463d1-210a-4787-9a81-4aacb37a8723`.
@@ -227,10 +234,8 @@ DEFAULT:
 - Global headers (CORS for this case) will be injected to all upstreams.
 - Additional headers will be injected into the request for `myhost.mydomain.com`.
 - You can choose any path, deep nested paths are supported, the best match chosen.
-- All requests to servers will require JWT token authentication (You can comment out the authorization to disable it),
-    - Firs parameter specifies the mechanism of authorisation `jwt`
-    - Second is the secret key for validating `jwt` tokens
 - `DEFAULT` catch up everything else and proxy to `127.0.0.1:3000`
+    - This is a special upstream and in order to do the catch-up jub it must be **DEFAULT** all capitals
 
 ---
 
