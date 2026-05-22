@@ -29,13 +29,14 @@ pub fn print_upstreams(upstreams: &UpstreamsDashMap) {
             for f in path_entry.value().0.clone() {
                 writeln!(
                     out,
-                    "        IP: {}, Port: {}, SSL: {}, H2: {}, To HTTPS: {}, Rate Limit: {}",
+                    "        IP: {}, Port: {}, SSL: {}, H2: {}, To HTTPS: {}, Rate Limit: {}, 4xx Limit: {}",
                     f.address,
                     f.port,
                     f.is_ssl,
                     f.is_http2,
                     f.to_https,
-                    f.rate_limit.unwrap_or(0)
+                    f.rate_limit.unwrap_or(0),
+                    f.x4xx_limit.unwrap_or(0)
                 )
                 .unwrap();
             }
@@ -152,13 +153,14 @@ pub fn clone_idmap_into(original: &UpstreamsDashMap, cloned: &UpstreamsIdMap) {
                 let mut id = String::new();
                 write!(
                     &mut id,
-                    "{}:{}:{}:{}:{}:{}:{}:{:?}",
+                    "{}:{}:{}:{}:{}:{}:{}:{}:{:?}",
                     outer_entry.key(),
                     x.address,
                     x.port,
                     x.is_http2,
                     x.to_https,
                     x.rate_limit.unwrap_or_default(),
+                    x.x4xx_limit.unwrap_or_default(),
                     x.healthcheck.unwrap_or_default(),
                     x.authorization
                 )
@@ -177,6 +179,7 @@ pub fn clone_idmap_into(original: &UpstreamsDashMap, cloned: &UpstreamsIdMap) {
                     is_http2: false,
                     to_https: false,
                     rate_limit: None,
+                    x4xx_limit: None,
                     healthcheck: None,
                     redirect_to: None,
                     authorization: None,
@@ -303,6 +306,7 @@ pub fn upstreams_to_json(upstreams: &UpstreamsDashMap) -> serde_json::Result<Str
                             is_http2: a.is_http2,
                             to_https: a.to_https,
                             rate_limit: a.rate_limit,
+                            x4xx_limit: a.x4xx_limit,
                             healthcheck: a.healthcheck,
                         })
                         .collect(),

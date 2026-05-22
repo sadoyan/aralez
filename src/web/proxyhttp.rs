@@ -7,6 +7,7 @@ use async_trait::async_trait;
 use axum::body::Bytes;
 use dashmap::DashMap;
 use log::{debug, error, warn};
+use moka::sync::Cache;
 use pingora::http::{RequestHeader, ResponseHeader, StatusCode};
 use pingora::prelude::*;
 use pingora::ErrorSource::Upstream;
@@ -17,6 +18,7 @@ use pingora_proxy::{ProxyHttp, Session};
 use sha2::{Digest, Sha256};
 use std::cell::RefCell;
 use std::fmt::Write;
+use std::net::IpAddr;
 use std::sync::{Arc, LazyLock};
 use std::time::Duration;
 use tokio::time::Instant;
@@ -24,6 +26,7 @@ use tokio::time::Instant;
 static REVERSE_STORE: LazyLock<DashMap<String, String>> = LazyLock::new(DashMap::new);
 thread_local! {static IP_BUFFER: RefCell<String> = RefCell::new(String::with_capacity(50));}
 pub static RATE_LIMITER: LazyLock<Rate> = LazyLock::new(|| Rate::new(Duration::from_secs(1)));
+pub static REQUESTS_4XX: LazyLock<Cache<IpAddr, u32>> = LazyLock::new(|| Cache::builder().time_to_live(Duration::from_secs(1)).build());
 pub static LOCALHOST: LazyLock<Arc<str>> = LazyLock::new(|| Arc::from("localhost"));
 
 #[derive(Clone)]
@@ -44,6 +47,7 @@ pub struct Context {
     upstream_peer: Option<Arc<InnerMap>>,
     extraparams: arc_swap::Guard<Arc<Extraparams>>,
     client_headers: Option<Vec<(String, Arc<str>)>>,
+    x4xx_limit: Option<u32>,
 }
 
 #[async_trait]
@@ -57,6 +61,7 @@ impl ProxyHttp for LB {
             upstream_peer: None,
             extraparams: self.extraparams.load(),
             client_headers: None,
+            x4xx_limit: None,
         }
     }
     async fn request_filter(&self, session: &mut Session, _ctx: &mut Self::CTX) -> Result<bool> {
@@ -87,6 +92,22 @@ impl ProxyHttp for LB {
                                 let _ = session.respond_error(401).await;
                                 warn!("Forbidden: {:?}, {}", session.client_addr(), session.req_header().uri.path());
                                 return Ok(true);
+                            }
+                        }
+                        if let Some(rate) = innermap.x4xx_limit.or(_ctx.extraparams.x4xx_limit) {
+                            _ctx.x4xx_limit = innermap.x4xx_limit;
+                            let rate_key = session.client_addr().and_then(|addr| addr.as_inet()).map(|inet| inet.ip());
+                            if let Some(rk) = rate_key {
+                                let count = REQUESTS_4XX.get(&rk).unwrap_or(0);
+                                if count > rate {
+                                    let header = ResponseHeader::build(429, None)?;
+                                    session.set_keepalive(None);
+                                    session.write_response_header(Box::new(header), true).await?;
+                                    if let (Some(oi), Some(oa)) = (&_ctx.hostname, rate_key) {
+                                        warn!("Limit 4XX: {}-rps exceed on {} from {}", rate, oi, oa);
+                                    }
+                                    return Ok(true);
+                                }
                             }
                         }
                         if let Some(rate) = innermap.rate_limit.or(_ctx.extraparams.rate_limit) {
@@ -282,6 +303,14 @@ impl ProxyHttp for LB {
         };
         calc_metrics(m);
         ACTIVE_SESSIONS.dec();
+        if let Some(_) = ctx.x4xx_limit.or(ctx.extraparams.x4xx_limit) {
+            if 400 <= response_code && response_code <= 499 {
+                if let Some(ip) = session.client_addr().and_then(|a| a.as_inet()).map(|i| i.ip()) {
+                    let current = REQUESTS_4XX.get(&ip).unwrap_or(0);
+                    REQUESTS_4XX.insert(ip, current + 1);
+                }
+            }
+        }
     }
 }
 

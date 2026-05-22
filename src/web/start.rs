@@ -36,6 +36,7 @@ pub fn run() {
         sticky_sessions: None,
         authentication: None,
         rate_limit: None,
+        x4xx_limit: None,
     }));
 
     let cfg = Arc::new(maincfg);

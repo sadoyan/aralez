@@ -156,6 +156,7 @@ async fn populate_headers_and_auth(config: &mut Configuration, parsed: &Config) 
     config.extraparams.to_https = parsed.to_https;
     config.extraparams.sticky_sessions = parsed.sticky_sessions;
     config.extraparams.rate_limit = parsed.rate_limit;
+    config.extraparams.x4xx_limit = parsed.x4xx_limit;
 
     if let Some(rate) = &parsed.rate_limit {
         info!("Applied Global Rate Limit : {} request per second", rate);
@@ -208,6 +209,7 @@ async fn populate_file_upstreams(config: &mut Configuration, parsed: &Config) {
                                 is_http2: false,
                                 to_https: path_config.to_https.unwrap_or(false),
                                 rate_limit: path_config.rate_limit,
+                                x4xx_limit: path_config.x4xx_limit,
                                 healthcheck: path_config.healthcheck,
                                 redirect_to: redirect_link,
                                 authorization: path_auth,

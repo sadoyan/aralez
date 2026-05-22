@@ -17,6 +17,7 @@ pub struct Extraparams {
     pub sticky_sessions: Option<u64>,
     pub authentication: Option<Arc<InnerAuth>>,
     pub rate_limit: Option<isize>,
+    pub x4xx_limit: Option<u32>,
 }
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
@@ -27,6 +28,7 @@ pub struct GlobalServiceMapping {
     pub to_https: Option<bool>,
     pub sticky_sessions: Option<u64>,
     pub rate_limit: Option<isize>,
+    pub x4xx_limit: Option<u32>,
     pub client_headers: Option<Vec<String>>,
     pub server_headers: Option<Vec<String>>,
 }
@@ -65,12 +67,14 @@ pub struct Config {
     pub kubernetes: Option<Kubernetes>,
     #[serde(default)]
     pub rate_limit: Option<isize>,
+    pub x4xx_limit: Option<u32>,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct HostConfig {
     pub paths: HashMap<String, PathConfig>,
     pub rate_limit: Option<isize>,
+    pub x4xx_limit: Option<u32>,
 }
 #[derive(Debug, Default, Serialize, Deserialize, Clone)]
 pub struct Auth {
@@ -86,6 +90,7 @@ pub struct PathConfig {
     pub client_headers: Option<Vec<String>>,
     pub server_headers: Option<Vec<String>>,
     pub rate_limit: Option<isize>,
+    pub x4xx_limit: Option<u32>,
     pub healthcheck: Option<bool>,
     pub redirect_to: Option<String>,
     pub authorization: Option<Auth>,
@@ -141,6 +146,7 @@ pub struct InnerMap {
     pub is_http2: bool,
     pub to_https: bool,
     pub rate_limit: Option<isize>,
+    pub x4xx_limit: Option<u32>,
     pub healthcheck: Option<bool>,
     pub redirect_to: Option<Arc<str>>,
     pub authorization: Option<Arc<InnerAuth>>,
@@ -156,6 +162,7 @@ impl InnerMap {
             is_http2: Default::default(),
             to_https: Default::default(),
             rate_limit: Default::default(),
+            x4xx_limit: Default::default(),
             healthcheck: Default::default(),
             redirect_to: Default::default(),
             authorization: Default::default(),
@@ -171,6 +178,7 @@ pub struct InnerMapForJson {
     pub is_http2: bool,
     pub to_https: bool,
     pub rate_limit: Option<isize>,
+    pub x4xx_limit: Option<u32>,
     pub healthcheck: Option<bool>,
 }
 #[derive(Debug, Default, Serialize, Deserialize)]
