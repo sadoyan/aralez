@@ -11,10 +11,10 @@ use log4rs::{
     encode::pattern::PatternEncoder,
 };
 use std::collections::HashMap;
-use std::fs;
 use std::path::Path;
 use std::sync::atomic::AtomicUsize;
 use std::sync::{Arc, LazyLock};
+use std::{env, fs};
 
 pub static DOMAINS: LazyLock<DashMap<String, bool>> = LazyLock::new(DashMap::new);
 
@@ -85,6 +85,7 @@ pub async fn load_configuration(d: &str, kind: &str) -> (Option<Configuration>, 
     let mut parsed: Config = match serde_yml::from_str(&yaml_data) {
         Ok(cfg) => cfg,
         Err(e) => {
+            println!("================================================");
             error!("Failed to parse upstreams file: {}", e);
             return (None, e.to_string());
         }
@@ -136,6 +137,7 @@ async fn populate_headers_and_auth(config: &mut Configuration, parsed: &Config) 
             }
         }
     }
+
     let global_headers: DashMap<Arc<str>, Vec<(String, Arc<str>)>> = DashMap::new();
     global_headers.insert(Arc::from("/"), ch);
     config.client_headers.insert(Arc::from("GLOBAL_CLIENT_HEADERS"), global_headers);
@@ -154,6 +156,7 @@ async fn populate_headers_and_auth(config: &mut Configuration, parsed: &Config) 
     config.extraparams.to_https = parsed.to_https;
     config.extraparams.sticky_sessions = parsed.sticky_sessions;
     config.extraparams.rate_limit = parsed.rate_limit;
+    config.extraparams.x4xx_limit = parsed.x4xx_limit;
 
     if let Some(rate) = &parsed.rate_limit {
         info!("Applied Global Rate Limit : {} request per second", rate);
@@ -162,7 +165,7 @@ async fn populate_headers_and_auth(config: &mut Configuration, parsed: &Config) 
     if let Some(pa) = &parsed.authorization {
         let y: InnerAuth = InnerAuth {
             auth_type: Arc::from(pa.auth_type.clone()),
-            auth_cred: Arc::from(pa.auth_cred.clone()),
+            auth_cred: Arc::from(pa.auth_cred.clone().unwrap_or_default()),
         };
         config.extraparams.authentication = Some(Arc::from(y));
     }
@@ -191,10 +194,11 @@ async fn populate_file_upstreams(config: &mut Configuration, parsed: &Config) {
                     if let Some(pa) = &path_config.authorization {
                         let y: InnerAuth = InnerAuth {
                             auth_type: Arc::from(pa.auth_type.clone()),
-                            auth_cred: Arc::from(pa.auth_cred.clone()),
+                            auth_cred: Arc::from(pa.auth_cred.clone().unwrap_or_default()),
                         };
                         path_auth = Some(Arc::from(y));
                     }
+
                     let redirect_link = path_config.redirect_to.as_ref().map(|www| Arc::from(www.as_str()));
                     if let Some((ip, port_str)) = server.split_once(':') {
                         if let Ok(port) = port_str.parse::<u16>() {
@@ -205,6 +209,7 @@ async fn populate_file_upstreams(config: &mut Configuration, parsed: &Config) {
                                 is_http2: false,
                                 to_https: path_config.to_https.unwrap_or(false),
                                 rate_limit: path_config.rate_limit,
+                                x4xx_limit: path_config.x4xx_limit,
                                 healthcheck: path_config.healthcheck,
                                 redirect_to: redirect_link,
                                 authorization: path_auth,
@@ -236,6 +241,11 @@ pub fn parce_main_config(path: &str) -> AppConfig {
     let reply = DashMap::new();
     let cfg: HashMap<String, String> = serde_yml::from_str(&data).expect("Failed to parse main config file");
     let mut cfo: AppConfig = serde_yml::from_str(&data).expect("Failed to parse main config file");
+
+    if let Ok(jwt_key) = env::var("JWT_KEY") {
+        cfo.master_key = Some(jwt_key);
+    };
+
     log_builder(&cfo, &cfo.log_file);
     cfo.hc_method = cfo.hc_method.to_uppercase();
     for (k, v) in cfg {
@@ -286,27 +296,6 @@ fn parce_tls_grades(what: Option<String>) -> Option<String> {
         }
     }
 }
-
-/*
-fn log_builder1(conf: &AppConfig) {
-    let log_level = conf.log_level.clone();
-    unsafe {
-        match log_level.as_str() {
-            "info" => env::set_var("RUST_LOG", "info"),
-            "error" => env::set_var("RUST_LOG", "error"),
-            "warn" => env::set_var("RUST_LOG", "warn"),
-            "debug" => env::set_var("RUST_LOG", "debug"),
-            "trace" => env::set_var("RUST_LOG", "trace"),
-            "off" => env::set_var("RUST_LOG", "off"),
-            _ => {
-                println!("Error reading log level, defaulting to: INFO");
-                env::set_var("RUST_LOG", "info")
-            }
-        }
-    }
-    env_logger::builder().init();
-}
-*/
 
 pub fn build_headers(path_config: &Option<Vec<String>>, _config: &Configuration, hl: &mut Vec<(String, Arc<str>)>) {
     if let Some(headers) = &path_config {

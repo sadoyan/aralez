@@ -99,6 +99,7 @@ impl BackgroundService for LB {
                         new.sticky_sessions = ss.extraparams.sticky_sessions;
                         new.authentication = ss.extraparams.authentication.clone();
                         new.rate_limit = ss.extraparams.rate_limit;
+                        new.x4xx_limit = ss.extraparams.x4xx_limit;
                         self.extraparams.store(Arc::new(new));
                         self.client_headers.clear();
                         self.server_headers.clear();

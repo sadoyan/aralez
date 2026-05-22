@@ -1,21 +1,17 @@
-use crate::utils::jwt::check_jwt;
-// use reqwest::Client;
+use crate::utils::jwt::{check_jwt, JWT_TOKEN};
+use crate::utils::structs::InnerAuth;
 use axum::http::StatusCode;
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine;
-use pingora_proxy::Session;
-use std::collections::HashMap;
-use std::sync::{Arc, LazyLock};
-use subtle::ConstantTimeEq;
-use urlencoding::decode;
-
-// use pingora::http::{RequestHeader, ResponseHeader, StatusCode};
 use pingora::http::RequestHeader;
-// --------------------------------- //
 use pingora_core::connectors::http::Connector;
 use pingora_core::upstreams::peer::HttpPeer;
 use pingora_http::ResponseHeader;
-// --------------------------------- //
+use pingora_proxy::Session;
+use std::collections::HashMap;
+use std::sync::LazyLock;
+use subtle::ConstantTimeEq;
+use urlencoding::decode;
 
 #[async_trait::async_trait]
 trait AuthValidator {
@@ -23,7 +19,7 @@ trait AuthValidator {
 }
 struct BasicAuth<'a>(&'a str);
 struct ApiKeyAuth<'a>(&'a str);
-struct JwtAuth<'a>(&'a str);
+struct JwtAuth();
 struct ForwardAuth<'a>(&'a str);
 
 pub static AUTH_CONNECTOR: LazyLock<Connector> = LazyLock::new(|| Connector::new(None));
@@ -180,17 +176,18 @@ impl AuthValidator for ApiKeyAuth<'_> {
 }
 
 #[async_trait::async_trait]
-impl AuthValidator for JwtAuth<'_> {
+impl AuthValidator for JwtAuth {
     async fn validate(&self, session: &mut Session) -> bool {
-        let jwtsecret = self.0;
-        if let Some(tok) = get_query_param(session, "araleztoken") {
-            return check_jwt(tok.as_str(), jwtsecret);
-        }
-        if let Some(auth_header) = session.get_header("authorization") {
-            if let Ok(header_str) = auth_header.to_str() {
-                if let Some((scheme, token)) = header_str.split_once(' ') {
-                    if scheme.eq_ignore_ascii_case("bearer") {
-                        return check_jwt(token, jwtsecret);
+        if let Some(jwtsecret) = JWT_TOKEN.clone() {
+            if let Some(tok) = get_query_param(session, "araleztoken") {
+                return check_jwt(tok.as_str(), jwtsecret.as_ref());
+            }
+            if let Some(auth_header) = session.get_header("authorization") {
+                if let Ok(header_str) = auth_header.to_str() {
+                    if let Some((scheme, token)) = header_str.split_once(' ') {
+                        if scheme.eq_ignore_ascii_case("bearer") {
+                            return check_jwt(token, jwtsecret.as_ref());
+                        }
                     }
                 }
             }
@@ -199,14 +196,14 @@ impl AuthValidator for JwtAuth<'_> {
     }
 }
 
-pub async fn authenticate(auth_type: &Arc<str>, credentials: &Arc<str>, session: &mut Session) -> bool {
-    match &**auth_type {
-        "basic" => BasicAuth(credentials).validate(session).await,
-        "apikey" => ApiKeyAuth(credentials).validate(session).await,
-        "jwt" => JwtAuth(credentials).validate(session).await,
-        "forward" => ForwardAuth(credentials).validate(session).await,
+pub async fn authenticate(auth: &InnerAuth, session: &mut Session) -> bool {
+    match &*auth.auth_type {
+        "basic" => BasicAuth(&*auth.auth_cred).validate(session).await,
+        "apikey" => ApiKeyAuth(&*auth.auth_cred).validate(session).await,
+        "jwt" => JwtAuth().validate(session).await,
+        "forward" => ForwardAuth(&*auth.auth_cred).validate(session).await,
         _ => {
-            log::warn!("Unsupported authentication mechanism : {}", auth_type);
+            log::warn!("Unsupported authentication mechanism : {}", &*auth.auth_type);
             false
         }
     }

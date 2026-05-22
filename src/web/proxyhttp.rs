@@ -7,6 +7,7 @@ use async_trait::async_trait;
 use axum::body::Bytes;
 use dashmap::DashMap;
 use log::{debug, error, warn};
+use moka::sync::Cache;
 use pingora::http::{RequestHeader, ResponseHeader, StatusCode};
 use pingora::prelude::*;
 use pingora::ErrorSource::Upstream;
@@ -17,6 +18,7 @@ use pingora_proxy::{ProxyHttp, Session};
 use sha2::{Digest, Sha256};
 use std::cell::RefCell;
 use std::fmt::Write;
+use std::net::IpAddr;
 use std::sync::{Arc, LazyLock};
 use std::time::Duration;
 use tokio::time::Instant;
@@ -24,6 +26,7 @@ use tokio::time::Instant;
 static REVERSE_STORE: LazyLock<DashMap<String, String>> = LazyLock::new(DashMap::new);
 thread_local! {static IP_BUFFER: RefCell<String> = RefCell::new(String::with_capacity(50));}
 pub static RATE_LIMITER: LazyLock<Rate> = LazyLock::new(|| Rate::new(Duration::from_secs(1)));
+pub static REQUESTS_4XX: LazyLock<Cache<IpAddr, u32>> = LazyLock::new(|| Cache::builder().time_to_live(Duration::from_secs(1)).build());
 pub static LOCALHOST: LazyLock<Arc<str>> = LazyLock::new(|| Arc::from("localhost"));
 
 #[derive(Clone)]
@@ -39,12 +42,12 @@ pub struct LB {
 
 pub struct Context {
     backend_id: Option<String>,
-    sticky_sessions: bool,
     start_time: Instant,
     hostname: Option<Arc<str>>,
     upstream_peer: Option<Arc<InnerMap>>,
     extraparams: arc_swap::Guard<Arc<Extraparams>>,
     client_headers: Option<Vec<(String, Arc<str>)>>,
+    x4xx_limit: Option<u32>,
 }
 
 #[async_trait]
@@ -53,12 +56,12 @@ impl ProxyHttp for LB {
     fn new_ctx(&self) -> Self::CTX {
         Context {
             backend_id: None,
-            sticky_sessions: false,
             start_time: Instant::now(),
             hostname: None,
             upstream_peer: None,
             extraparams: self.extraparams.load(),
             client_headers: None,
+            x4xx_limit: None,
         }
     }
     async fn request_filter(&self, session: &mut Session, _ctx: &mut Self::CTX) -> Result<bool> {
@@ -66,7 +69,7 @@ impl ProxyHttp for LB {
         let hostname = return_header_host_from_upstream(session, &self.ump_upst);
         _ctx.hostname = hostname;
         let mut backend_id = None;
-        if _ctx.extraparams.sticky_sessions {
+        if let Some(_) = _ctx.extraparams.sticky_sessions {
             if let Some(cookies) = session.req_header().headers.get("cookie") {
                 if let Ok(cookie_str) = cookies.to_str() {
                     if let Some(pos) = cookie_str.find("backend_id=") {
@@ -85,13 +88,28 @@ impl ProxyHttp for LB {
                     None => return Ok(false),
                     Some(ref innermap) => {
                         if let Some(auth) = _ctx.extraparams.authentication.as_ref().or(innermap.authorization.as_ref()) {
-                            if !authenticate(&auth.auth_type, &auth.auth_cred, session).await {
+                            if !authenticate(&auth, session).await {
                                 let _ = session.respond_error(401).await;
                                 warn!("Forbidden: {:?}, {}", session.client_addr(), session.req_header().uri.path());
                                 return Ok(true);
                             }
                         }
-
+                        if let Some(rate) = innermap.x4xx_limit.or(_ctx.extraparams.x4xx_limit) {
+                            _ctx.x4xx_limit = innermap.x4xx_limit;
+                            let rate_key = session.client_addr().and_then(|addr| addr.as_inet()).map(|inet| inet.ip());
+                            if let Some(rk) = rate_key {
+                                let count = REQUESTS_4XX.get(&rk).unwrap_or(0);
+                                if count > rate {
+                                    let header = ResponseHeader::build(429, None)?;
+                                    session.set_keepalive(None);
+                                    session.write_response_header(Box::new(header), true).await?;
+                                    if let (Some(oi), Some(oa)) = (&_ctx.hostname, rate_key) {
+                                        warn!("Limit 4XX: {}-rps exceed on {} from {}", rate, oi, oa);
+                                    }
+                                    return Ok(true);
+                                }
+                            }
+                        }
                         if let Some(rate) = innermap.rate_limit.or(_ctx.extraparams.rate_limit) {
                             let rate_key = session.client_addr().and_then(|addr| addr.as_inet()).map(|inet| inet.ip());
                             let curr_window_requests = RATE_LIMITER.observe(&rate_key, 1);
@@ -99,7 +117,9 @@ impl ProxyHttp for LB {
                                 let header = ResponseHeader::build(429, None)?;
                                 session.set_keepalive(None);
                                 session.write_response_header(Box::new(header), true).await?;
-                                debug!("Rate limited: {:?}, {}", rate_key, rate);
+                                if let (Some(oi), Some(oa)) = (&_ctx.hostname, rate_key) {
+                                    warn!("Limit: {}-rps exceed on {} from {}", rate, oi, oa);
+                                }
                                 return Ok(true);
                             }
                         }
@@ -161,7 +181,7 @@ impl ProxyHttp for LB {
                         peer.options.verify_cert = false;
                         peer.options.verify_hostname = false;
                     }
-                    if ctx.extraparams.sticky_sessions {
+                    if let Some(_) = ctx.extraparams.sticky_sessions {
                         let mut s = String::with_capacity(64);
                         write!(
                             &mut s,
@@ -177,7 +197,6 @@ impl ProxyHttp for LB {
                         )
                         .unwrap_or(());
                         ctx.backend_id = Some(s);
-                        ctx.sticky_sessions = true;
                     }
                     Ok(peer)
                 }
@@ -237,7 +256,7 @@ impl ProxyHttp for LB {
         Ok(())
     }
     async fn response_filter(&self, _session: &mut Session, _upstream_response: &mut ResponseHeader, ctx: &mut Self::CTX) -> Result<()> {
-        if ctx.sticky_sessions {
+        if let Some(val) = ctx.extraparams.sticky_sessions {
             if let Some(bid) = &ctx.backend_id {
                 let tt = if let Some(existing) = REVERSE_STORE.get(bid) {
                     existing.value().clone()
@@ -255,7 +274,11 @@ impl ProxyHttp for LB {
                 let mut buf = String::with_capacity(80);
                 buf.push_str("backend_id=");
                 buf.push_str(&tt);
-                buf.push_str("; Path=/; Max-Age=86400; HttpOnly; SameSite=Lax");
+                buf.push_str("; Path=/; Max-Age=");
+                buf.push_str(&val.to_string());
+                buf.push_str("; HttpOnly; SameSite=Lax");
+                // buf.push_str("; Path=/; Max-Age=86400; HttpOnly; SameSite=Lax");
+                // println!("{}", buf);
                 let _ = _upstream_response.insert_header("set-cookie", buf.as_str());
             }
         }
@@ -280,6 +303,14 @@ impl ProxyHttp for LB {
         };
         calc_metrics(m);
         ACTIVE_SESSIONS.dec();
+        if let Some(_) = ctx.x4xx_limit.or(ctx.extraparams.x4xx_limit) {
+            if 400 <= response_code && response_code <= 499 {
+                if let Some(ip) = session.client_addr().and_then(|a| a.as_inet()).map(|i| i.ip()) {
+                    let current = REQUESTS_4XX.get(&ip).unwrap_or(0);
+                    REQUESTS_4XX.insert(ip, current + 1);
+                }
+            }
+        }
     }
 }
 
