@@ -1,9 +1,8 @@
-// use std::net::SocketAddr;
 use crate::tls::acme::order::CHALLENGES;
-// use axum_server::tls_openssl::OpenSSLConfig;
 use crate::tls::acme::{account, order};
 use crate::utils::discovery::APIUpstreamProvider;
 use crate::utils::jwt::Claims;
+use crate::utils::metrics::{get_memory_usage, get_open_files, MEMORY_USAGE, OPEN_FILES};
 use crate::utils::structs::{Config, Configuration, UpstreamsDashMap};
 use crate::utils::tools::{upstreams_liveness_json, upstreams_to_json};
 use axum::body::Body;
@@ -56,11 +55,6 @@ pub async fn run_server(config: &APIUpstreamProvider, mut to_return: Sender<Conf
     };
     let app = Router::new()
         // .route("/{*wildcard}", get(senderror))
-        // .route("/{*wildcard}", post(senderror))
-        // .route("/{*wildcard}", put(senderror))
-        // .route("/{*wildcard}", head(senderror))
-        // .route("/{*wildcard}", delete(senderror))
-        // .nest_service("/static", static_files)
         .route("/jwt", post(jwt_gen))
         .route("/acme_create", any(acme_create))
         .route("/acme_order/{*domain}", any(acme_order))
@@ -69,19 +63,6 @@ pub async fn run_server(config: &APIUpstreamProvider, mut to_return: Sender<Conf
         .route("/metrics", get(metrics))
         .route("/status", get(status))
         .with_state(app_state);
-
-    // if let Some(value) = &config.tls_address {
-    //     let cf = OpenSSLConfig::from_pem_file(config.tls_certificate.clone().unwrap(), config.tls_key_file.clone().unwrap()).unwrap();
-    //     let addr: SocketAddr = value.parse().expect("Unable to parse socket address");
-    //     let tls_app = app.clone();
-    //     tokio::spawn(async move {
-    //         if let Err(e) = axum_server::bind_openssl(addr, cf).serve(tls_app.into_make_service()).await {
-    //             eprintln!("TLS server failed: {}", e);
-    //         }
-    //     });
-    //     info!("Starting the TLS API server on: {}", value);
-    // }
-
     if let (Some(address), Some(folder)) = (&config.file_server_address, &config.file_server_folder) {
         let static_files = ServeDir::new(folder);
         let static_serve: Router = Router::new().fallback_service(static_files);
@@ -171,6 +152,9 @@ async fn jwt_gen(State(state): State<AppState>, Json(payload): Json<Claims>) -> 
 }
 
 async fn metrics() -> impl IntoResponse {
+    MEMORY_USAGE.set(get_memory_usage() as i64);
+    OPEN_FILES.set(get_open_files() as i64);
+
     let metric_families = gather();
     let encoder = TextEncoder::new();
     let mut buffer = Vec::new();
@@ -280,14 +264,5 @@ pub async fn http01_challenge(axum::extract::Path(token): axum::extract::Path<St
         .body(Body::from("Not found"))
         .unwrap()
 }
-
-// fn key_authorization(headers: &HeaderMap, params: &HashMap<String, String>, masterkey: &str) -> bool {
-//     if let Some(s) = headers.get("x-api-key").and_then(|v| v.to_str().ok()).or(params.get("key").map(|s| s.as_str())) {
-//         if s.as_bytes().ct_eq(masterkey.as_bytes()).into() {
-//             return true;
-//         }
-//     }
-//     false
-// }
 
 // -- ⚝ by Dave -- in NeoVim ⚝ --
