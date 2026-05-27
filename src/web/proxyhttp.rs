@@ -104,7 +104,7 @@ impl ProxyHttp for LB {
                                     session.set_keepalive(None);
                                     session.write_response_header(Box::new(header), true).await?;
                                     if let (Some(oi), Some(oa)) = (&_ctx.hostname, rate_key) {
-                                        warn!("Limit 4XX: {}-rps exceed on {} from {}", rate, oi, oa);
+                                        warn!("Limit 4XX: {}-rps exceed on {} from {} path {}", rate, oi, oa, session.req_header().uri.path());
                                     }
                                     return Ok(true);
                                 }
