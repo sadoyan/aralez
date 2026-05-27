@@ -31,7 +31,7 @@ pub async fn load_configuration(d: &str, kind: &str) -> (Option<Configuration>, 
                             data = content;
                             break;
                         }
-                    },
+                    }
                     Err(e) => {
                         last_error = Some(e);
                     }
@@ -95,8 +95,7 @@ pub async fn load_configuration(d: &str, kind: &str) -> (Option<Configuration>, 
 
             info!("Reading upstreams from {}", d);
             data
-
-        },
+        }
         "content" => {
             info!("Reading upstreams from API post body");
             d.to_string()
