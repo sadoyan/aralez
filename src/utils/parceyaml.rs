@@ -21,56 +21,81 @@ pub static DOMAINS: LazyLock<DashMap<String, bool>> = LazyLock::new(DashMap::new
 pub async fn load_configuration(d: &str, kind: &str) -> (Option<Configuration>, String) {
     let mut conf_files = Vec::new();
     let yaml_data = match kind {
-        "filepath" => match fs::read_to_string(d) {
-            Ok(data) => {
-                let mut confdir = Path::new(d).parent().unwrap().to_path_buf();
-                let mut autocfg = Path::new(d).parent().unwrap().to_path_buf();
-
-                autocfg.push("autoconfigs");
-                if fs::metadata(autocfg.clone()).is_err() {
-                    fs::create_dir_all(autocfg.clone()).ok();
-                }
-                autocfg.push("domains.json");
-                if autocfg.exists() {
-                    let json: Option<Vec<String>> = fs::read_to_string(autocfg).ok().and_then(|s| serde_json::from_str(&s).ok());
-                    if let Some(domains) = json {
-                        for domain in domains {
-                            DOMAINS.insert(domain, true);
+        "filepath" => {
+            let mut data = String::new();
+            let mut last_error = None;
+            for _ in 0..5 {
+                match fs::read_to_string(d) {
+                    Ok(content) => {
+                        if !content.trim().is_empty() {
+                            data = content;
+                            break;
                         }
+                    },
+                    Err(e) => {
+                        last_error = Some(e);
                     }
                 }
-
-                confdir.push("conf.d");
-
-                if let Ok(entries) = fs::read_dir(&confdir) {
-                    let mut paths: Vec<_> = entries
-                        .flatten()
-                        .map(|e| e.path())
-                        .filter(|p| p.extension().and_then(|e| e.to_str()) == Some("yaml"))
-                        .collect();
-                    paths.sort();
-
-                    for path in paths {
-                        let content = fs::read_to_string(&path);
-                        match content {
-                            Ok(content) => {
-                                conf_files.push(content);
-                            }
-                            Err(e) => {
-                                error!("Reading: {}: {:?}", path.display(), e)
-                            }
-                        };
-                    }
-                }
-
-                info!("Reading upstreams from {}", d);
-                data
+                tokio::time::sleep(std::time::Duration::from_millis(10)).await;
             }
-            Err(e) => {
-                error!("Reading: {}: {:?}", d, e);
+            if data.is_empty() {
+                let err_msg = match last_error {
+                    Some(e) => {
+                        error!("Reading: {}: {:?}", d, e);
+                        e.to_string()
+                    }
+                    None => {
+                        error!("Reading: {}: File is empty after retries", d);
+                        "File is empty".to_string()
+                    }
+                };
                 warn!("Running with empty upstreams list, update it via API");
-                return (None, e.to_string());
+                return (None, err_msg);
             }
+
+            let mut confdir = Path::new(d).parent().unwrap().to_path_buf();
+            let mut autocfg = Path::new(d).parent().unwrap().to_path_buf();
+
+            autocfg.push("autoconfigs");
+            if fs::metadata(autocfg.clone()).is_err() {
+                fs::create_dir_all(autocfg.clone()).ok();
+            }
+            autocfg.push("domains.json");
+            if autocfg.exists() {
+                let json: Option<Vec<String>> = fs::read_to_string(autocfg).ok().and_then(|s| serde_json::from_str(&s).ok());
+                if let Some(domains) = json {
+                    for domain in domains {
+                        DOMAINS.insert(domain, true);
+                    }
+                }
+            }
+
+            confdir.push("conf.d");
+
+            if let Ok(entries) = fs::read_dir(&confdir) {
+                let mut paths: Vec<_> = entries
+                    .flatten()
+                    .map(|e| e.path())
+                    .filter(|p| p.extension().and_then(|e| e.to_str()) == Some("yaml"))
+                    .collect();
+                paths.sort();
+
+                for path in paths {
+                    let content = fs::read_to_string(&path);
+                    match content {
+                        Ok(content) => {
+                            conf_files.push(content);
+                        }
+                        Err(e) => {
+                            error!("Reading: {}: {:?}", path.display(), e)
+                        }
+                    };
+                }
+            }
+
+            info!("Reading upstreams from {}", d);
+            data
+
         },
         "content" => {
             info!("Reading upstreams from API post body");
