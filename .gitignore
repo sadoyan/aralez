@@ -7,8 +7,8 @@
 *.sh
 /docs/
 /docs
-/etc/
-/etc
+etc/
+etc
 /target/
 *.iml
 .idea/
