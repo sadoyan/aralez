@@ -113,6 +113,24 @@ For getting the best performance on newer hardware use `aralez-x86_64-*.gz`.
 docker run -d -v /path/to/config:/etc/aralez:rw -p 80:80 -p 443:443 sadoyan/aralez
 ```
 
+**Dockerfile :**
+
+```dockerfile
+FROM debian:trixie-slim
+
+RUN apt-get update && apt-get install -y ca-certificates curl net-tools iputils-ping
+RUN apt-get clean && rm -rf /var/lib/apt/lists/*
+
+COPY aralez /usr/local/bin/aralez
+
+RUN chmod +x /usr/local/bin/aralez
+RUN mkdir -p /etc/aralez/certs/upstreams
+
+WORKDIR /etc/aralez
+
+ENTRYPOINT ["/usr/local/bin/aralez", "-c", "/etc/aralez/main.yaml"]
+```
+
 ## Running the Proxy
 
 ```bash
