@@ -1,0 +1,27 @@
+provider: "file"
+sticky_sessions: false
+to_https: false
+rate_limit: 100
+server_headers:
+  - "Y-Global-Something: Yes this is something"
+client_headers:
+  - "Access-Control-Allow-Origin:*"
+  - "Access-Control-Allow-Methods:POST, GET, OPTIONS"
+  - "Access-Control-Max-Age:86400"
+  - "Strict-Transport-Security:max-age=31536000; includeSubDomains; preload"
+upstreams:
+  mip.netangels.net:
+    paths:
+      "/":
+        rate_limit: 200
+        to_https: false
+        servers:
+          - "127.0.0.1:8000"
+  polo.netangels.net:
+    paths:
+      "/":
+        to_https: false
+        client_headers:
+          - "X-Some-Thing:Yaaaaaaaaaaaaaaa"
+        servers:
+          - "192.168.1.1:8000"
