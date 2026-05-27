@@ -222,7 +222,7 @@ async fn clone_compare(upstreams: &UpstreamsDashMap, prev_upstreams: &UpstreamsD
         };
         clone_dashmap_into(upstreams, prev_upstreams);
         clone_dashmap_into(upstreams, &tosend.upstreams);
-        print_upstreams(&tosend.upstreams);
+        print_upstreams(&tosend.upstreams, &tosend.extraparams);
         return Some(tosend);
     };
     None

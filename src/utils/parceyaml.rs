@@ -233,7 +233,7 @@ async fn populate_file_upstreams(config: &mut Configuration, parsed: &Config) {
             clone_dashmap_into(&r, &config.upstreams);
         }
         info!("Upstream Config:");
-        print_upstreams(&config.upstreams);
+        print_upstreams(&config.upstreams, &config.extraparams);
     }
 }
 pub fn parce_main_config(path: &str) -> AppConfig {
