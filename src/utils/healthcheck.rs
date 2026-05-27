@@ -53,14 +53,13 @@ async fn build_upstreams(fullist: &UpstreamsDashMap, method: &str, client: &Clie
             let mut innervec = Vec::new();
 
             for upstream in path_entry.value().0.iter() {
-                let tls = detect_tls(upstream.address.as_ref(), &upstream.port, client).await;
-                let is_h2 = matches!(tls.1, Some(Version::HTTP_2));
-
-                let link = if tls.0 {
-                    format!("https://{}:{}{}", upstream.address, upstream.port, path)
+                let tls = if upstream.healthcheck.unwrap_or(true) {
+                    detect_tls(upstream.address.as_ref(), &upstream.port, client).await
                 } else {
-                    format!("http://{}:{}{}", upstream.address, upstream.port, path)
+                    (false, None)
                 };
+
+                let is_h2 = matches!(tls.1, Some(Version::HTTP_2));
 
                 let mut scheme = InnerMap {
                     address: upstream.address.clone(),
@@ -76,6 +75,12 @@ async fn build_upstreams(fullist: &UpstreamsDashMap, method: &str, client: &Clie
                 };
 
                 if scheme.healthcheck.unwrap_or(true) {
+                    let link = if tls.0 {
+                        format!("https://{}:{}{}", upstream.address, upstream.port, path)
+                    } else {
+                        format!("http://{}:{}{}", upstream.address, upstream.port, path)
+                    };
+
                     let resp = http_request(&link, method, "", client).await;
                     if resp.0 {
                         if resp.1 {
