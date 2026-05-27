@@ -33,6 +33,7 @@ pub async fn load_configuration(d: &str, kind: &str) -> (Option<Configuration>, 
                         }
                     }
                     Err(e) => {
+                        error!("Config read failed, retrying...");
                         last_error = Some(e);
                     }
                 }
