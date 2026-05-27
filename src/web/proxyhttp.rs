@@ -86,7 +86,7 @@ impl ProxyHttp for LB {
                 let optioninnermap = self.get_host(host, session.req_header().uri.path(), backend_id);
                 match optioninnermap {
                     None => return Ok(false),
-                    Some(ref innermap) => {
+                    Some((ref innermap, ref path)) => {
                         if let Some(auth) = _ctx.extraparams.authentication.as_ref().or(innermap.authorization.as_ref()) {
                             if !authenticate(&auth, session).await {
                                 let _ = session.respond_error(401).await;
@@ -104,7 +104,7 @@ impl ProxyHttp for LB {
                                     session.set_keepalive(None);
                                     session.write_response_header(Box::new(header), true).await?;
                                     if let (Some(oi), Some(oa)) = (&_ctx.hostname, rate_key) {
-                                        warn!("Limit 4XX: {}-rps exceed on {} from {}", rate, oi, oa);
+                                        warn!("Limit 4XX: {}-rps exceed on {} [path: {}] from {}", rate, oi, path, oa);
                                     }
                                     return Ok(true);
                                 }
@@ -118,7 +118,7 @@ impl ProxyHttp for LB {
                                 session.set_keepalive(None);
                                 session.write_response_header(Box::new(header), true).await?;
                                 if let (Some(oi), Some(oa)) = (&_ctx.hostname, rate_key) {
-                                    warn!("Limit: {}-rps exceed on {} from {}", rate, oi, oa);
+                                    warn!("Limit: {}-rps exceed on {} [path: {}] from {}", rate, oi, path, oa);
                                 }
                                 return Ok(true);
                             }
@@ -163,7 +163,7 @@ impl ProxyHttp for LB {
                         }
                     }
                 }
-                _ctx.upstream_peer = optioninnermap;
+                _ctx.upstream_peer = Some(optioninnermap.unwrap().0);
             }
         }
         Ok(false)

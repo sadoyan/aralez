@@ -12,17 +12,18 @@ pub struct GetHostsReturHeaders {
 
 #[async_trait]
 pub trait GetHost {
-    fn get_host(&self, peer: &str, path: &str, backend_id: Option<&str>) -> Option<Arc<InnerMap>>;
+    fn get_host(&self, peer: &str, path: &str, backend_id: Option<&str>) -> Option<(Arc<InnerMap>, Arc<str>)>;
 
     fn get_header(&self, peer: &str, path: &str) -> Option<GetHostsReturHeaders>;
     // fn get_upstreams(&self) -> Arc<UpstreamsDashMap>;
 }
 #[async_trait]
 impl GetHost for LB {
-    fn get_host(&self, peer: &str, path: &str, backend_id: Option<&str>) -> Option<Arc<InnerMap>> {
+    fn get_host(&self, peer: &str, path: &str, backend_id: Option<&str>) -> Option<(Arc<InnerMap>, Arc<str>)> {
         if let Some(b) = backend_id {
             if let Some(bb) = self.ump_byid.get(b) {
-                return Some(bb.value().clone());
+                let matched_path: Arc<str> = bb.key().as_str().into();
+                return Some(((bb.value().clone()), matched_path));
             }
         }
         let host_entry = self.ump_upst.get(peer)?;
@@ -33,7 +34,8 @@ impl GetHost for LB {
                 let (servers, index) = entry.value();
                 if !servers.is_empty() {
                     let idx = index.fetch_add(1, Ordering::Relaxed) % servers.len();
-                    return Some(servers[idx].clone());
+                    let matched_path = Arc::clone(entry.key());
+                    return Some(((servers[idx].clone()), matched_path));
                 }
             }
             if let Some(pos) = slice.rfind('/') {
@@ -46,7 +48,8 @@ impl GetHost for LB {
             let (servers, index) = entry.value();
             if !servers.is_empty() {
                 let idx = index.fetch_add(1, Ordering::Relaxed) % servers.len();
-                return Some(servers[idx].clone());
+                let matched_path = Arc::clone(entry.key());
+                return Some(((servers[idx].clone()), matched_path));
             }
         }
         None
