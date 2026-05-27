@@ -121,7 +121,7 @@ docker run -d -v /path/to/config:/etc/aralez:rw -p 80:80 -p 443:443 sadoyan/aral
 
 ## Systemd integration
 
-Assuming Arales in installed in `/opt/aralez` folder
+Assuming Aralez in installed in `/opt/aralez` folder
 
 ```bash
 cat > /etc/systemd/system/aralez.service <<EOF
@@ -209,7 +209,7 @@ DEFAULT:
 
 **This means:**
 
-- Sticky sessions are enabled globally. This setting applies to all upstreams. If enabled the value withh be set for `Max-Age=` cookie.
+- Sticky sessions are enabled globally. This setting applies to all upstreams. If enabled the value will be set for `Max-Age=` cookie.
 - HTTP to HTTPS redirect disabled globally, but can be overridden by `to_https` setting per upstream.
 - All upstreams will receive custom headers : `X-Forwarded-Proto:https` and `X-Forwarded-Port:443`
 - Additionally, myhost.mydomain.com with path `/` will receive custom headers : `X-Another-Header:Hohohohoho` and `X-Something-Else:Foobar`
