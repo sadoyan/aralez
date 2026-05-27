@@ -320,7 +320,8 @@ fn log_builder(conf: &AppConfig, location: &Option<String>) {
             LevelFilter::Info
         }
     };
-    let pattern = "{d(%Y-%m-%d %H:%M:%S)} {l} {t} - {m}{n}";
+    // let pattern = "{d(%Y-%m-%d %H:%M:%S)} {l} {t} - {m}{n}";
+    let pattern = "{d(%Y-%m-%d %H:%M:%S)} {l} {t} - {m}\n";
     if let Some(location) = location {
         let file = FileAppender::builder().encoder(Box::new(PatternEncoder::new(pattern))).build(location).unwrap();
         let config = Log4rsConfig::builder()
