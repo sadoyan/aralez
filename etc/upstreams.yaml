@@ -1,8 +1,9 @@
 # The file under watch and hot reload, changes are applied immediately, no need to restart or reload.
 provider: "file" # "file" "consul" "kubernetes"
-sticky_sessions: false
+sticky_sessions: 8600
 to_https: false
-rate_limit: 100
+rate_limit: 300
+x4xx_limit: 200
 server_headers:
   - "X-Forwarded-Proto:https"
   - "X-Forwarded-Port:443"
@@ -62,6 +63,7 @@ upstreams:
     paths:
       "/":
         rate_limit: 200
+        x4xx_limit: 100
         to_https: false
         client_headers:
           - "X-Proxy-From:Aralez"
@@ -72,7 +74,7 @@ upstreams:
           - "127.0.0.4:8000"
           - "127.0.0.5:8000"
       "/ping":
-        authorization: # Will be ignored if global authentication is enabled. 
+        authorization: # Will be ignored if global authentication is enabled.
           type: "basic"
           creds: "admin:admin"
         to_https: false
