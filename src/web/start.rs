@@ -6,16 +6,22 @@ use crate::utils::structs::Extraparams;
 use crate::utils::tools::*;
 use crate::web::proxyhttp::LB;
 use arc_swap::ArcSwap;
-use ctrlc;
 use dashmap::DashMap;
 use log::info;
 use pingora::tls::ssl::{SslAlert, SslRef};
 use pingora_core::listeners::tls::TlsSettings;
 use pingora_core::prelude::{background_service, Opt};
 use pingora_core::server::Server;
+use privdrop::reexports::libc::SIGQUIT;
+use signal_hook::{
+    consts::{SIGINT, SIGTERM},
+    iterator::Signals,
+};
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::Arc;
+use std::time::Duration;
 use std::{fs, thread};
+
 pub fn run() {
     // default_provider().install_default().expect("Failed to install rustls crypto provider");
     let parameters = Opt::parse_args();
@@ -104,15 +110,23 @@ pub fn run() {
     proxy.add_tcp(bind_address_http.as_str());
     server.add_service(proxy);
     server.add_service(bg_srvc);
-
     thread::spawn(move || server.run_forever());
 
     if let (Some(user), Some(group)) = (cfg.rungroup.clone(), cfg.runuser.clone()) {
         drop_priv(user, group, cfg.proxy_address_http.clone(), cfg.proxy_address_tls.clone());
     }
 
-    let (tx, rx) = channel();
-    ctrlc::set_handler(move || tx.send(()).expect("Could not send signal on channel.")).expect("Error setting Ctrl-C handler");
-    rx.recv().expect("Could not receive from channel.");
-    info!("Signal received ! Exiting...");
+    let mut signals = Signals::new(&[SIGINT, SIGTERM, SIGQUIT]).unwrap();
+    for sig in signals.forever() {
+        match sig {
+            SIGINT => info!("SIGINT received! Exiting..."),
+            SIGTERM => info!("SIGTERM received! Exiting..."),
+            SIGQUIT => {
+                thread::sleep(Duration::from_secs(300));
+                info!("SIGQUIT received! Exiting...")
+            }
+            _ => unreachable!(),
+        }
+        break;
+    }
 }

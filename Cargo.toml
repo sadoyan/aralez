@@ -50,3 +50,4 @@ log4rs = "1.4.0"
 #mimalloc = { version = "0.1.52", default-features = false }
 tikv-jemallocator = "0.7.0"
 tikv-jemalloc-ctl = { version = "0.7.0", features = ["stats"] }
+signal-hook = "0.4.4"

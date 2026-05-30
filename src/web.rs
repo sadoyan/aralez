@@ -1,3 +1,4 @@
+pub mod acme;
 pub mod bgservice;
 pub mod gethosts;
 pub mod proxyhttp;

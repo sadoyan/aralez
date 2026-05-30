@@ -1,10 +1,9 @@
-use crate::tls::acme::order::CHALLENGES;
-use crate::tls::acme::{account, order};
 use crate::utils::discovery::APIUpstreamProvider;
 use crate::utils::jwt::Claims;
 use crate::utils::metrics::{get_memory_usage, get_open_files, MEMORY_USAGE, OPEN_FILES};
 use crate::utils::structs::{Config, Configuration, UpstreamsDashMap};
 use crate::utils::tools::{upstreams_liveness_json, upstreams_to_json};
+use crate::web::acme::{acme_create, acme_order, http01_challenge};
 use axum::body::Body;
 use axum::extract::{Query, State};
 use axum::http::{Response, StatusCode};
@@ -17,10 +16,12 @@ use jsonwebtoken::{encode, EncodingKey, Header};
 use log::{debug, error, info, warn};
 use prometheus::{gather, Encoder, TextEncoder};
 use serde::Serialize;
+use signal_hook::{consts::SIGQUIT, iterator::Signals};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::net::TcpListener;
+use tokio::sync::mpsc;
 use tower_http::services::ServeDir;
 
 #[derive(Serialize, Debug)]
@@ -29,10 +30,10 @@ struct OutToken {
 }
 
 #[derive(Clone)]
-struct AppState {
+pub(crate) struct AppState {
     master_key: Option<String>,
-    cert_creds: String,
-    certs_dir: String,
+    pub(crate) cert_creds: String,
+    pub(crate) certs_dir: String,
     upstreams_file: String,
     config_sender: Sender<Configuration>,
     config_api_enabled: bool,
@@ -63,16 +64,49 @@ pub async fn run_server(config: &APIUpstreamProvider, mut to_return: Sender<Conf
         .route("/metrics", get(metrics))
         .route("/status", get(status))
         .with_state(app_state);
+
+    let mut static_handle: Option<tokio::task::JoinHandle<()>> = None;
     if let (Some(address), Some(folder)) = (&config.file_server_address, &config.file_server_folder) {
+        port_is_available("File Server", &address).await;
         let static_files = ServeDir::new(folder);
         let static_serve: Router = Router::new().fallback_service(static_files);
         let static_listen = TcpListener::bind(address).await.unwrap();
-        drop(tokio::spawn(async move { axum::serve(static_listen, static_serve).await.unwrap() }));
+        // drop(tokio::spawn(async move { axum::serve(static_listen, static_serve).await.unwrap() }));
+        static_handle = Some(tokio::spawn(async move { axum::serve(static_listen, static_serve).await.unwrap() }))
     }
 
+    port_is_available("Config API", &config.address).await;
     let listener = TcpListener::bind(config.address.clone()).await.unwrap();
     info!("Starting the API server on: {}", config.address);
-    axum::serve(listener, app).await.unwrap();
+    let api_server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+
+    let (tx, mut rx) = mpsc::channel(1);
+    std::thread::spawn(move || {
+        let mut signals = Signals::new(&[SIGQUIT]).unwrap();
+        for sig in signals.forever() {
+            tx.blocking_send(sig).unwrap();
+            break;
+        }
+    });
+    rx.recv().await; // async wait, yields to tokio properly
+    api_server.abort();
+    if let Some(handle) = static_handle {
+        handle.abort();
+    }
+    info!("Exiting...");
+
+    // port_is_available("Config API", &config.address).await;
+    // let listener = TcpListener::bind(config.address.clone()).await.unwrap();
+    // info!("Starting the API server on: {}", config.address);
+    // axum::serve(listener, app).await.unwrap();
+    // if let (Some(address), Some(folder)) = (&config.file_server_address, &config.file_server_folder) {
+    //     port_is_available("File Server", &address).await;
+    //     let static_files = ServeDir::new(folder);
+    //     let static_serve: Router = Router::new().fallback_service(static_files);
+    //     let static_listen = TcpListener::bind(address).await.unwrap();
+    //     static_handle = Some(tokio::spawn(async move { axum::serve(static_listen, static_serve).await.unwrap() }))
+    // }
+    //
 }
 
 async fn conf(State(st): State<AppState>, Query(params): Query<HashMap<String, String>>, content: String) -> impl IntoResponse {
@@ -206,63 +240,27 @@ async fn status(State(st): State<AppState>, Query(params): Query<HashMap<String,
         .unwrap()
 }
 
-#[allow(clippy::needless_return)]
-async fn acme_create(State(state): State<AppState>) -> impl IntoResponse {
-    match account::load_or_create(state.cert_creds.as_str()).await {
-        Ok(txt) => {
-            return Response::builder()
-                .status(StatusCode::OK)
-                .header("Content-Type", "text/plain")
-                .body(Body::from(txt))
-                .unwrap()
-        }
-        Err(e) => {
-            return Response::builder()
-                .status(StatusCode::INTERNAL_SERVER_ERROR)
-                .body(Body::from(format!("Failed to create account: {}", e)))
-                .unwrap()
-        }
-    };
-}
-#[allow(clippy::needless_return)]
-async fn acme_order(State(state): State<AppState>, axum::extract::Path(domain): axum::extract::Path<String>) -> impl IntoResponse {
-    let domain_clean = domain.trim_matches('/');
-    match order::order(domain_clean, state.cert_creds.as_str(), state.certs_dir).await {
-        Ok(txt) => {
-            return Response::builder()
-                .status(StatusCode::OK)
-                .header("Content-Type", "text/plain")
-                .body(Body::from(txt))
-                .unwrap()
-        }
-        Err(e) => {
-            return Response::builder()
-                .status(StatusCode::INTERNAL_SERVER_ERROR)
-                .body(Body::from(format!("Failed to order a certificate: {}", e)))
-                .unwrap()
-        }
-    };
-}
+pub async fn port_is_available(name: &str, address: &str) {
+    let addr_port = address.split(":").collect::<Vec<&str>>();
+    let t = Duration::from_secs(2);
 
-pub async fn http01_challenge(axum::extract::Path(token): axum::extract::Path<String>) -> impl IntoResponse {
-    if let Ok(challenges) = CHALLENGES.read() {
-        // for k in challenges.iter() {
-        //     println!("   ==> {} : {}", k.0, k.1);
-        // }
+    let mut a = addr_port[0];
+    if address == "0.0.0.0" {
+        a = "127.0.0.1";
+    }
+    let p = addr_port[1].parse::<u16>().unwrap();
 
-        if let Some(key_authorization) = challenges.get(&token) {
-            return Response::builder()
-                .status(StatusCode::OK)
-                .header("Content-Type", "text/plain")
-                .body(Body::from(key_authorization.clone()))
-                .unwrap();
+    loop {
+        match TcpListener::bind((a, p)).await {
+            Ok(_) => {
+                break;
+            }
+            Err(_) => {
+                warn!("{} port is not available: {} will try again in {:?}", name, p, t);
+                tokio::time::sleep(t).await;
+            }
         }
     }
-    Response::builder()
-        .status(StatusCode::NOT_FOUND)
-        .header("Content-Type", "text/plain")
-        .body(Body::from("Not found"))
-        .unwrap()
 }
 
 // -- ⚝ by Dave -- in NeoVim ⚝ --
