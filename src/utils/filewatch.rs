@@ -37,9 +37,8 @@ pub async fn start(fp: String, mut toreturn: Sender<Configuration>) {
         match event {
             Ok(e) => match e.kind {
                 EventKind::Modify(ModifyKind::Data(_)) | EventKind::Create(..) | EventKind::Remove(..) => {
-                    if e.paths.iter().any(|path| path.to_str() == Some(file_path)) && start.elapsed() > Duration::from_secs(2) {
+                    if start.elapsed() > Duration::from_secs(2) {
                         start = Instant::now();
-                        // info!("Config File changed :=> {:?}", e);
                         let snd = load_configuration(file_path, "filepath").await.0;
                         if let Some(snd) = snd {
                             toreturn.send(snd).await.unwrap();
