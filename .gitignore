@@ -7,8 +7,10 @@
 *.sh
 /docs/
 /docs
-etc/
+etc/*
 etc
+etc/main.yaml
+etc/upstreams.yaml
 /target/
 *.iml
 .idea/
