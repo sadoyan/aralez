@@ -60,19 +60,13 @@ impl BackgroundService for LB {
             masterkey: self.config.master_key.clone(),
             config_api_enabled: self.config.config_api_enabled,
             upstreams_file: self.config.upstreams_conf.clone(),
-            // certs_dir: self.config.proxy_certificates.clone().unwrap_or_else(|| "/tmp".to_string()),
             config_dir: confdir.clone(),
             certs_dir: certdir.clone(),
-            // tls_address: self.config.config_tls_address.clone(),
-            // tls_certificate: self.config.config_tls_certificate.clone(),
-            // tls_key_file: self.config.config_tls_key_file.clone(),
             file_server_address: self.config.file_server_address.clone(),
             file_server_folder: self.config.file_server_folder.clone(),
             current_upstreams: self.ump_upst.clone(),
             full_upstreams: self.ump_full.clone(),
         };
-        // let crtdir = api_load.certs_dir.clone();
-        // let tx_api = tx.clone();
         drop(tokio::spawn(async move { api_load.start(tx_api).await }));
 
         let uu = self.ump_upst.clone();
