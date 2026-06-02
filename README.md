@@ -58,7 +58,6 @@ Built on Rust, on top of **Cloudflare’s Pingora engine**, **Aralez** delivers 
 | **daemon**                       | false                      | Run in background (boolean)                                                                     |
 | **upstream_keepalive_pool_size** | 500                        | Pool size for upstream keepalive connections                                                    |
 | **pid_file**                     | /tmp/aralez.pid            | Path to PID file                                                                                |
-| **error_log**                    | /tmp/aralez_err.log        | Path to error log file                                                                          |
 | **config_address**               | 0.0.0.0:3000               | HTTP API address for pushing upstreams.yaml from remote location                                |
 | **proxy_tls_grade**              | high, medium, unsafe       | Grade of TLS ciphers. `high` matches Qualys SSL Labs A+ (defaults to `medium`)                  |
 | **proxy_address_http**           | 0.0.0.0:6193               | Aralez HTTP bind address                                                                        |
