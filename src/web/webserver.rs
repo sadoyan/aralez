@@ -88,25 +88,12 @@ pub async fn run_server(config: &APIUpstreamProvider, mut to_return: Sender<Conf
             break;
         }
     });
-    rx.recv().await; // async wait, yields to tokio properly
+    rx.recv().await;
     api_server.abort();
     if let Some(handle) = static_handle {
         handle.abort();
     }
     info!("Exiting...");
-
-    // port_is_available("Config API", &config.address).await;
-    // let listener = TcpListener::bind(config.address.clone()).await.unwrap();
-    // info!("Starting the API server on: {}", config.address);
-    // axum::serve(listener, app).await.unwrap();
-    // if let (Some(address), Some(folder)) = (&config.file_server_address, &config.file_server_folder) {
-    //     port_is_available("File Server", &address).await;
-    //     let static_files = ServeDir::new(folder);
-    //     let static_serve: Router = Router::new().fallback_service(static_files);
-    //     let static_listen = TcpListener::bind(address).await.unwrap();
-    //     static_handle = Some(tokio::spawn(async move { axum::serve(static_listen, static_serve).await.unwrap() }))
-    // }
-    //
 }
 
 async fn conf(State(st): State<AppState>, Query(params): Query<HashMap<String, String>>, content: String) -> impl IntoResponse {

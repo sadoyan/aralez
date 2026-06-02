@@ -13,6 +13,7 @@ use pingora_core::listeners::tls::TlsSettings;
 use pingora_core::prelude::{background_service, Opt};
 use pingora_core::server::Server;
 use privdrop::reexports::libc::SIGQUIT;
+use sd_notify::NotifyState;
 use signal_hook::{
     consts::{SIGINT, SIGTERM},
     iterator::Signals,
@@ -20,7 +21,7 @@ use signal_hook::{
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::Arc;
 use std::time::Duration;
-use std::{fs, thread};
+use std::{fs, process, thread};
 
 pub fn run() {
     // default_provider().install_default().expect("Failed to install rustls crypto provider");
@@ -115,6 +116,8 @@ pub fn run() {
     if let (Some(user), Some(group)) = (cfg.rungroup.clone(), cfg.runuser.clone()) {
         drop_priv(user, group, cfg.proxy_address_http.clone(), cfg.proxy_address_tls.clone());
     }
+    let _ = sd_notify::notify(&[NotifyState::Ready]);
+    let _ = fs::write("/tmp/aralez.pid", process::id().to_string());
 
     let mut signals = Signals::new(&[SIGINT, SIGTERM, SIGQUIT]).unwrap();
     for sig in signals.forever() {
