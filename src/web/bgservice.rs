@@ -87,6 +87,7 @@ impl BackgroundService for LB {
                     if let Some(ss) = val {
                         clone_dashmap_into(&ss.upstreams, &self.ump_full);
                         clone_dashmap_into(&ss.upstreams, &self.ump_upst);
+                        clone_idmap_into(&ss.upstreams, &self.ump_byid);
                         let current = self.extraparams.load_full();
                         let mut new = (*current).clone();
                         new.to_https = ss.extraparams.to_https;

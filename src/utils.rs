@@ -6,6 +6,7 @@ pub mod healthcheck;
 pub mod httpclient;
 pub mod jwt;
 pub mod kuberconsul;
+pub mod lazylock;
 pub mod metrics;
 pub mod parceyaml;
 pub mod state;

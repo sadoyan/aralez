@@ -1,4 +1,5 @@
 use crate::utils::healthcheck;
+use crate::utils::lazylock::REVERSE_STORE;
 use crate::utils::state::{is_first_run, mark_not_first_run};
 use crate::utils::structs::*;
 use crate::utils::tools::{clone_dashmap, clone_dashmap_into, print_upstreams};
@@ -110,7 +111,6 @@ pub async fn load_configuration(d: &str, kind: &str) -> (Option<Configuration>, 
     let mut parsed: Config = match serde_yml::from_str(&yaml_data) {
         Ok(cfg) => cfg,
         Err(e) => {
-            println!("================================================");
             error!("Failed to parse upstreams file: {}", e);
             return (None, e.to_string());
         }
@@ -258,6 +258,7 @@ async fn populate_file_upstreams(config: &mut Configuration, parsed: &Config) {
             clone_dashmap_into(&r, &config.upstreams);
         }
         info!("Upstream Config:");
+        REVERSE_STORE.clear();
         print_upstreams(&config.upstreams, &config.extraparams);
     }
 }

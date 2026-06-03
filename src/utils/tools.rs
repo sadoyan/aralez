@@ -1,6 +1,6 @@
 use crate::tls::load;
 use crate::tls::load::CertificateConfig;
-use crate::utils::structs::{InnerMap, InnerMapForJson, Extraparams, UpstreamSnapshotForJson, UpstreamsDashMap, UpstreamsIdMap};
+use crate::utils::structs::{Extraparams, InnerMap, InnerMapForJson, UpstreamSnapshotForJson, UpstreamsDashMap, UpstreamsIdMap};
 use dashmap::DashMap;
 use log::{error, info};
 use notify::{event::ModifyKind, Config, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
@@ -159,8 +159,8 @@ pub fn clone_idmap_into(original: &UpstreamsDashMap, cloned: &UpstreamsIdMap) {
                     x.port,
                     x.is_http2,
                     x.to_https,
-                    x.rate_limit.unwrap_or_default(),
                     x.x4xx_limit.unwrap_or_default(),
+                    x.rate_limit.unwrap_or_default(),
                     x.healthcheck.unwrap_or_default(),
                     x.authorization
                 )

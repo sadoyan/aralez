@@ -1,3 +1,4 @@
+use crate::utils::lazylock::REVERSE_STORE;
 use crate::utils::structs::{InnerMap, UpstreamsDashMap, UpstreamsIdMap};
 use crate::utils::tools::*;
 use dashmap::DashMap;
@@ -20,6 +21,7 @@ pub async fn hc2(upslist: Arc<UpstreamsDashMap>, fullist: Arc<UpstreamsDashMap>,
                 if !compare_dashmaps(&totest, &upslist) {
                     clone_dashmap_into(&totest, &upslist);
                     clone_idmap_into(&totest, &idlist);
+                    REVERSE_STORE.clear();
                 }
             }
         }
@@ -139,10 +141,7 @@ async fn detect_tls(ip: &str, port: &u16, client: &Client) -> (bool, Option<Vers
     }
     let http_url = format!("http://{}:{}", ip, port);
     match client.get(&http_url).send().await {
-        Ok(response) => {
-            // println!("{} => {:?} (HTTP)", http_url, response.version());
-            (false, Some(response.version()))
-        }
+        Ok(response) => (false, Some(response.version())),
         Err(_) => {
             if ping_grpc(&http_url).await {
                 (false, Some(Version::HTTP_2))

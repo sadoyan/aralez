@@ -1,33 +1,29 @@
 use crate::utils::auth::authenticate;
+use crate::utils::lazylock::{LOCALHOST, RATE_LIMITER, REQUESTS_4XX, REVERSE_STORE};
 use crate::utils::metrics::*;
 use crate::utils::structs::{AppConfig, Extraparams, Headers, InnerMap, UpstreamsDashMap, UpstreamsIdMap};
 use crate::web::gethosts::{GetHost, GetHostsReturHeaders};
 use arc_swap::ArcSwap;
 use async_trait::async_trait;
 use axum::body::Bytes;
-use dashmap::DashMap;
 use log::{debug, error, warn};
-use moka::sync::Cache;
 use pingora::http::{RequestHeader, ResponseHeader, StatusCode};
 use pingora::prelude::*;
 use pingora::ErrorSource::Upstream;
 use pingora_core::listeners::ALPN;
 use pingora_core::prelude::HttpPeer;
-use pingora_limits::rate::Rate;
 use pingora_proxy::{ProxyHttp, Session};
 use sha2::{Digest, Sha256};
 use std::cell::RefCell;
 use std::fmt::Write;
-use std::net::IpAddr;
-use std::sync::{Arc, LazyLock};
-use std::time::Duration;
+use std::sync::Arc;
 use tokio::time::Instant;
 
-static REVERSE_STORE: LazyLock<DashMap<String, String>> = LazyLock::new(DashMap::new);
 thread_local! {static IP_BUFFER: RefCell<String> = RefCell::new(String::with_capacity(50));}
-pub static RATE_LIMITER: LazyLock<Rate> = LazyLock::new(|| Rate::new(Duration::from_secs(1)));
-pub static REQUESTS_4XX: LazyLock<Cache<IpAddr, u32>> = LazyLock::new(|| Cache::builder().time_to_live(Duration::from_secs(1)).build());
-pub static LOCALHOST: LazyLock<Arc<str>> = LazyLock::new(|| Arc::from("localhost"));
+// static REVERSE_STORE: LazyLock<DashMap<String, String>> = LazyLock::new(DashMap::new);
+// pub static RATE_LIMITER: LazyLock<Rate> = LazyLock::new(|| Rate::new(Duration::from_secs(1)));
+// pub static REQUESTS_4XX: LazyLock<Cache<IpAddr, u32>> = LazyLock::new(|| Cache::builder().time_to_live(Duration::from_secs(1)).build());
+// pub static LOCALHOST: LazyLock<Arc<str>> = LazyLock::new(|| Arc::from("localhost"));
 
 #[derive(Clone)]
 pub struct LB {
@@ -185,12 +181,13 @@ impl ProxyHttp for LB {
                         let mut s = String::with_capacity(64);
                         write!(
                             &mut s,
-                            "{}:{}:{}:{}:{}:{}:{}:{:?}",
+                            "{}:{}:{}:{}:{}:{}:{}:{}:{:?}",
                             hostname,
                             innermap.address,
                             innermap.port,
                             innermap.is_http2,
                             innermap.to_https,
+                            innermap.x4xx_limit.unwrap_or_default(),
                             innermap.rate_limit.unwrap_or_default(),
                             innermap.healthcheck.unwrap_or_default(),
                             innermap.authorization
@@ -278,7 +275,6 @@ impl ProxyHttp for LB {
                 buf.push_str(&val.to_string());
                 buf.push_str("; HttpOnly; SameSite=Lax");
                 // buf.push_str("; Path=/; Max-Age=86400; HttpOnly; SameSite=Lax");
-                // println!("{}", buf);
                 let _ = _upstream_response.insert_header("set-cookie", buf.as_str());
             }
         }
