@@ -5,7 +5,6 @@ use prometheus::{register_histogram, register_int_counter, register_int_counter_
 use std::sync::Arc;
 use std::sync::LazyLock;
 use std::time::Duration;
-use tikv_jemalloc_ctl::{epoch, stats};
 
 pub struct MetricTypes {
     pub method: Method,
@@ -66,9 +65,17 @@ pub fn calc_metrics(metric_types: &MetricTypes) {
     RESPONSE_LATENCY.observe(metric_types.latency.as_secs_f64());
 }
 
-pub fn get_memory_usage() -> usize {
-    epoch::mib().unwrap().advance().unwrap(); // refresh stats
-    stats::allocated::mib().unwrap().read().unwrap() // bytes allocated
+pub(crate) fn get_memory_usage() -> usize {
+    std::fs::read_to_string("/proc/self/status")
+        .ok()
+        .and_then(|s| {
+            s.lines()
+                .find(|l| l.starts_with("VmRSS:"))
+                .and_then(|l| l.split_whitespace().nth(1))
+                .and_then(|v| v.parse::<usize>().ok())
+        })
+        .unwrap_or(0)
+        * 1024
 }
 
 pub fn get_open_files() -> usize {
