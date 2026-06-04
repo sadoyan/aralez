@@ -8,10 +8,14 @@
 /docs/
 /docs
 /etc
+/etc/
+etc
+.etc/
+assets/
+assets
 /target/
 *.iml
 .idea/
-.etc/
 *.ipr
 *.iws
 /out/
