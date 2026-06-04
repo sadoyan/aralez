@@ -1,6 +1,6 @@
 [package]
 name = "aralez"
-version = "0.9.2"
+version = "0.92.9"
 edition = "2021"
 
 [profile.release]
