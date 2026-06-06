@@ -19,6 +19,7 @@ use serde::Serialize;
 use signal_hook::{consts::SIGQUIT, iterator::Signals};
 use std::collections::HashMap;
 use std::net::SocketAddr;
+use std::str::FromStr;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::net::TcpListener;
@@ -227,7 +228,8 @@ async fn status(State(st): State<AppState>, Query(params): Query<HashMap<String,
 }
 
 pub async fn port_is_available(name: &str, address: &str) -> TcpListener {
-    let addr: SocketAddr = address.parse().expect("Invalid address format");
+    let addr = SocketAddr::from_str(address)
+        .unwrap_or_else(|e| panic!("{}: Invalid address format: {:?}", name, e));
     let t = Duration::from_secs(2);
 
     //if addr.ip() == IpAddr::V4(Ipv4Addr::UNSPECIFIED) {
