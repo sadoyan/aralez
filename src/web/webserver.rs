@@ -18,6 +18,7 @@ use prometheus::{gather, Encoder, TextEncoder};
 use serde::Serialize;
 use signal_hook::{consts::SIGQUIT, iterator::Signals};
 use std::collections::HashMap;
+use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::net::TcpListener;
@@ -67,16 +68,14 @@ pub async fn run_server(config: &APIUpstreamProvider, mut to_return: Sender<Conf
 
     let mut static_handle: Option<tokio::task::JoinHandle<()>> = None;
     if let (Some(address), Some(folder)) = (&config.file_server_address, &config.file_server_folder) {
-        port_is_available("File Server", &address).await;
+        let static_listen = port_is_available("File Server", &address).await;
         let static_files = ServeDir::new(folder);
         let static_serve: Router = Router::new().fallback_service(static_files);
-        let static_listen = TcpListener::bind(address).await.unwrap();
         // drop(tokio::spawn(async move { axum::serve(static_listen, static_serve).await.unwrap() }));
         static_handle = Some(tokio::spawn(async move { axum::serve(static_listen, static_serve).await.unwrap() }))
     }
 
-    port_is_available("Config API", &config.address).await;
-    let listener = TcpListener::bind(config.address.clone()).await.unwrap();
+    let listener = port_is_available("Config API", &config.address).await;
     info!("Starting the API server on: {}", config.address);
     let api_server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
 
@@ -227,20 +226,18 @@ async fn status(State(st): State<AppState>, Query(params): Query<HashMap<String,
         .unwrap()
 }
 
-pub async fn port_is_available(name: &str, address: &str) {
-    let addr_port = address.split(":").collect::<Vec<&str>>();
+pub async fn port_is_available(name: &str, address: &str) -> TcpListener {
+    let addr: SocketAddr = address.parse().expect("Invalid address format");
     let t = Duration::from_secs(2);
 
-    let mut a = addr_port[0];
-    if address == "0.0.0.0" {
-        a = "127.0.0.1";
-    }
-    let p = addr_port[1].parse::<u16>().unwrap();
-
+    //if addr.ip() == IpAddr::V4(Ipv4Addr::UNSPECIFIED) {
+    //    addr.set_ip(IpAddr::V4(Ipv4Addr::LOCALHOST));
+    //}
+    let p = addr.port();
     loop {
-        match TcpListener::bind((a, p)).await {
-            Ok(_) => {
-                break;
+        match TcpListener::bind(addr).await {
+            Ok(listener) => {
+                return listener;
             }
             Err(_) => {
                 warn!("{} port is not available: {} will try again in {:?}", name, p, t);
