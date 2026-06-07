@@ -274,7 +274,7 @@ pub fn drop_priv(user: String, group: String, http_addr: String, tls_addr: Optio
 }
 
 pub fn check_priv(addr: &str) {
-    let port = SocketAddr::from_str(addr).map(|sa| sa.port()).unwrap();
+    let port = SocketAddr::from_str(addr).map(|sa| sa.port()).expect("Failed to parse address port ");
     if port < 1024 {
         let meta = std::fs::metadata("/proc/self").map(|m| m.uid()).unwrap();
         if meta != 0 {
