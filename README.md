@@ -9,13 +9,23 @@
 Aralez is a high-performance Rust reverse proxy with zero-configuration automatic protocol handling, TLS, and upstream management,
 featuring Consul and Kubernetes integration for dynamic pod discovery and health-checked routing, acting as a lightweight ingress-style proxy.
 
+
 ---
 What Aralez means ?
 **Aralez = Արալեզ** <ins>Named after the legendary Armenian guardian spirit, winged dog-like creature, that descend upon fallen heroes to lick their wounds and resurrect them</ins>.
 
 Built on Rust, on top of **Cloudflare’s Pingora engine**, **Aralez** delivers world-class performance, security and scalability — right out of the box.
 
-[![Buy Me A Coffee](https://img.shields.io/badge/☕-Buy%20me%20a%20coffee-orange)](https://www.buymeacoffee.com/sadoyan)
+---
+
+## Links
+
+- [**Documentation**](https://aralez.rs) : The manual you should read
+- [**Downloads**](https://github.com/sadoyan/aralez/releases) : Binary downloads
+- [**Issues**](https://github.com/sadoyan/aralez/issues) : Issues and requests
+- [**Crates**](https://crates.io/crates/aralez) : The Rust crate registry
+- [**DockerHUB**](https://hub.docker.com/r/sadoyan/aralez) : DockerHUB official repository
+- [**GitHUB Packages**](https://github.com/sadoyan/aralez/pkgs/container/aralez) : GitHUB ghcr.io images
 
 ---
 
@@ -557,10 +567,3 @@ The results show requests per second performed by Load balancer. You can see 3 b
 1. Requests via http1.1 to plain text endpoint.
 2. Requests to via http2 to SSL endpoint.
 3. Mixed workload with plain http1.1 and htt2 SSL.
-
-## Links
-
-- [**Documentation**](https://aralez.rs) : The manual you should read
-- [**Downloads**](https://github.com/sadoyan/aralez/releases) : Binary downloads
-- [**Issues**](https://github.com/sadoyan/aralez/issues) : Issues and requests 
-

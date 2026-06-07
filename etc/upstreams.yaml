@@ -1,49 +1,47 @@
 # The file under watch and hot reload, changes are applied immediately, no need to restart or reload.
 provider: "file" # "file" "consul" "kubernetes"
-sticky_sessions: 8600
+sticky_sessions: 172000
 to_https: false
-rate_limit: 300
-x4xx_limit: 200
-server_headers:
-  - "X-Forwarded-Proto:https"
-  - "X-Forwarded-Port:443"
-client_headers:
-  - "Access-Control-Allow-Origin:*"
-  - "Access-Control-Allow-Methods:POST, GET, OPTIONS"
-  - "Access-Control-Max-Age:86400"
+rate_limit: 500000
+x4xx_limit: 100000
+#server_headers:
+#  - "Y-Global-Something: Yes this is something"
+#client_headers:
+#  - "Access-Control-Allow-Origin:*"
+#  - "Access-Control-Allow-Methods:POST, GET, OPTIONS"
+#  - "Access-Control-Max-Age:86400"
+#  - "Strict-Transport-Security:max-age=31536000; includeSubDomains; preload"
 #authorization:
-#  type: "jwt"
-#  creds: "910517d9-f9a1-48de-8826-dbadacbd84af-cb6f830e-ab16-47ec-9d8f-0090de732774"
 #  type: "basic"
-#  creds: "username:Pa$$w0rd"
-#  type: "apikey"
-#  creds: "5ecbf799-1343-4e94-a9b5-e278af5cd313-56b45249-1839-4008-a450-a60dc76d2bae"
+#  data: "root:toor"
+#  type: "jwt"
+#  data: "910517d9-f9a1-48de-8826-dbadacbd84af-cb6f830e-ab16-47ec-9d8f-0090de732774"
+#    type: "apikey"
+#    data: "5ecbf799-1343-4e94-a9b5-e278af5cd313-56b45249-1839-4008-a450-a60dc76d2bae"
 consul:
   servers:
-    - "http://192.168.1.199:8500"
-    - "http://192.168.1.200:8500"
-    - "http://192.168.1.201:8500"
+    - "http://consul1:8500"
   services: # hostname: The hostname to access the proxy server, upstream : The real service name in Consul database.
-    - hostname: "webapi-service"
-      upstream: "webapi-service-health"
+    - hostname: "nconsul"
+      upstream: "nginx-consul-NginX-health"
       path: "/one"
       client_headers:
         - "X-Some-Thing:Yaaaaaaaaaaaaaaa"
         - "X-Proxy-From:Aralez"
       rate_limit: 1
       to_https: false
-    - hostname: "webapi-service"
-      upstream: "webapi-service-health"
+    - hostname: "nconsul"
+      upstream: "nginx-consul-NginX-health"
       path: "/"
   token: "8e2db809-845b-45e1-8b47-2c8356a09da0-a4370955-18c2-4d6e-a8f8-ffcc0b47be81" # Consul server access token, If Consul auth is enabled
 kubernetes:
   servers:
-    - "192.168.1.55:443" #For testing only, overrides with KUBERNETES_SERVICE_HOST : KUBERNETES_SERVICE_PORT_HTTPS env variables.
+    - "172.16.0.11:5443" # Gets KUBERNETES_SERVICE_HOST : KUBERNETES_SERVICE_PORT_HTTPS env variables.
   services:
-    - hostname: "webapi-service"
+    - hostname: "api-service-v2"
+      upstream: "api-service-v2"
       path: "/"
-      upstream: "webapi-service"
-    - hostname: "webapi-service"
+    - hostname: "api-service-v2"
       upstream: "console-service"
       path: "/one"
       client_headers:
@@ -51,71 +49,146 @@ kubernetes:
         - "X-Proxy-From:Aralez"
       rate_limit: 100
       to_https: false
-    - hostname: "webapi-service"
-      upstream: "rambul-service"
+    - hostname: "api-service-v2"
+      upstream: "feed-fanout-service"
       path: "/two"
     - hostname: "websocket-service"
       upstream: "websocket-service"
       path: "/"
-  tokenpath: "/path/to/kubetoken.txt" #If not set, will default to /var/run/secrets/kubernetes.io/serviceaccount/token
+  tokenpath: "/opt/Rust/Projects/asyncweb/etc/kubetoken.txt" # Defaults to /var/run/secrets/kubernetes.io/serviceaccount/token
 upstreams:
-  myip.mydomain.com:
+  myip.netangels.net:
     paths:
       "/":
-        rate_limit: 200
-        x4xx_limit: 100
-        to_https: false
+        #        rate_limit: 50
+        #        x4xx_limit: 100
+        #        to_https: false
+        #        authorization:
+        #          type: "basic"
+        #          data: "root:toor"
+        server_headers:
+          - "Y-Proxy-Server-Some:Yaaaaaaaaaaaaaaa"
+          - "Y-Proxy-Server-From:Aralez"
+          - "Y-Proxy-Server-Vers:Aralez v0.89"
         client_headers:
-          - "X-Proxy-From:Aralez"
+          - "X-Proxy-From:Aralezzzzzzzzzzz"
+          - "X-Hopar-From:Hopaaaaaaaaaaaar"
+          - "X-Proxy-Some:X-Proxy-Somebody"
         servers:
           - "127.0.0.1:8000"
           - "127.0.0.2:8000"
           - "127.0.0.3:8000"
           - "127.0.0.4:8000"
           - "127.0.0.5:8000"
+          - "192.168.1.1:8000"
       "/ping":
-        authorization: # Will be ignored if global authentication is enabled.
-          type: "basic"
-          creds: "admin:admin"
         to_https: false
-        server_headers:
-          - "X-Forwarded-Proto:https"
-          - "X-Forwarded-Port:443"
         client_headers:
           - "X-Some-Thing:Yaaaaaaaaaaaaaaa"
           - "X-Proxy-From:Aralez"
         servers:
           - "127.0.0.1:8000"
           - "127.0.0.2:8000"
-      "/draw":
-        servers:
-          - "192.168.1.1:8000"
-  polo.mydomain.com:
-    paths:
-      "/":
+      "/pong":
         to_https: false
         client_headers:
           - "X-Some-Thing:Yaaaaaaaaaaaaaaa"
+          - "X-Proxy-From:Aralez"
         servers:
-          - "192.168.1.1:8000"
-          - "192.168.1.10:8000"
           - "127.0.0.1:8000"
-          - "127.0.0.2:8000"
-          - "127.0.0.3:8000"
-          - "127.0.0.4:8000"
-  apt.mydomain.com:
+      "/secret":
+        authorization:
+          type: "forward"
+          data: "http://192.168.1.1:8899/admin/login"
+          #data: "https://netangels.net/admin/login"
+        servers:
+          - "192.168.1.10:8000"
+  netangels.net:
     paths:
       "/":
+        redirect_to: "https://www.netangels.net:6194"
         servers:
-          - "192.168.1.10:443"
+          - "192.168.1.1:80"
+  www.netangels.net:
+    paths:
+      "/":
+        to_https: true
+        servers:
+          - "192.168.1.1:80"
+  apt.netangels.net:
+    paths:
+      "/":
+        server_headers:
+          - "Y-Global-Something: Yes this is something"
+        client_headers:
+          - "Access-Control-Allow-Methods:POST, GET, OPTIONS"
+        rate_limit: 60
+        x4xx_limit: 30
+        #authorization:
+        #  type: "jwt"
+        #  data: "SOMETHING"
+        servers:
+          - "127.0.0.1:8000"
+          - "127.0.0.2:8000"
       "/.well-known/acme-challenge":
         healthcheck: false
         servers:
           - "127.0.0.1:8001"
-  rdr.mydomain.com:
-    paths:
-      "/":
-        redirect_to: "https://som.other.domain:6194"
+      "/400":
+        rate_limit: 4
+        x4xx_limit: 2
+        servers:
+          - "192.168.1.1:8899"
+      "/500":
         healthcheck: false
         servers:
-          - "127.0.0.1:8080"
+          - "192.168.1.1:8899"
+  #  grafanalocal:
+  #    paths:
+  #      "/":
+  #        healthcheck: false
+  #        servers:
+  #          - "95.211.203.222:443"
+  #      "/.well-known/acme-challenge":
+  #        healthcheck: false
+  #        servers:
+  #          - "127.0.0.1:8001"
+  localpost:
+    paths:
+      "/":
+        to_https: true
+        servers:
+          - "127.0.0.1:9000"
+  #  192.168.177.2:
+  #    paths:
+  #      "/":
+  #        servers:
+  #          - "127.0.0.1:8000"
+  ara.matyan.org:
+    paths:
+      "/":
+        servers:
+          - "127.0.0.1:8000"
+      "/.well-known/acme-challenge":
+        healthcheck: false
+        servers:
+          - "127.0.0.1:3000"
+  aro.matyan.org:
+    paths:
+      "/":
+        servers:
+          - "127.0.0.1:8000"
+      "/.well-known/acme-challenge":
+        healthcheck: false
+        servers:
+          - "127.0.0.1:3000"
+  DEFAUwLT:
+    paths:
+      "/":
+        healthcheck: false
+        servers:
+          - "127.0.0.1:3000"
+      "/.well-known/acme-challenge":
+        healthcheck: false
+        servers:
+          - "127.0.0.1:3000"
