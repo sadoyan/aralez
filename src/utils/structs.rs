@@ -130,6 +130,9 @@ pub struct AppConfig {
     pub runuser: Option<String>,
     pub rungroup: Option<String>,
     pub log_file: Option<String>,
+    pub tcp_keepalive_idle: Option<u64>,
+    pub tcp_keepalive_interval: Option<u64>,
+    pub tcp_keepalive_count: Option<usize>,
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]

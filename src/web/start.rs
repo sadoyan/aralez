@@ -10,7 +10,9 @@ use dashmap::DashMap;
 use log::info;
 use pingora::tls::ssl::{SslAlert, SslRef};
 use pingora_core::listeners::tls::TlsSettings;
+use pingora_core::listeners::TcpSocketOptions;
 use pingora_core::prelude::{background_service, Opt};
+use pingora_core::protocols::TcpKeepalive;
 use pingora_core::server::Server;
 use privdrop::reexports::libc::SIGQUIT;
 use sd_notify::NotifyState;
@@ -62,11 +64,33 @@ pub fn run() {
     info!("TLS grade set to: [ {} ]", grade);
 
     let bg_srvc = background_service("bgsrvc", lb.clone());
-    let mut proxy = pingora_proxy::http_proxy_service(&server.configuration, lb.clone());
     let bind_address_http = cfg.proxy_address_http.clone();
     let bind_address_tls = cfg.proxy_address_tls.clone();
 
+    let mut proxy = pingora_proxy::http_proxy_service(&server.configuration, lb.clone());
+
     check_priv(bind_address_http.as_str());
+
+    // let mut tcp_options: Option<TcpSocketOptions> = Some(TcpSocketOptions::default());
+    // let mut tcp_options = TcpSocketOptions::default();
+
+    let mut tcp_options: Option<TcpSocketOptions> = None;
+    if let Some(idle) = cfg.tcp_keepalive_idle {
+        let mut to = TcpSocketOptions::default();
+        to.tcp_keepalive = Some(TcpKeepalive {
+            idle: Duration::from_secs(idle),
+            interval: Duration::from_secs(cfg.tcp_keepalive_interval.unwrap_or(60)),
+            user_timeout: Default::default(),
+            count: cfg.tcp_keepalive_count.unwrap_or(5usize),
+        });
+        tcp_options = Some(to);
+        info!(
+            "Applying kernel tcp_keepalive parameters: idle {}, interval {}, count {}",
+            idle,
+            cfg.tcp_keepalive_interval.unwrap_or(60),
+            cfg.tcp_keepalive_count.unwrap_or(5),
+        );
+    }
 
     if let Some(bind_address_tls) = bind_address_tls {
         check_priv(bind_address_tls.as_str());
@@ -95,7 +119,14 @@ pub fn run() {
         tls_settings.set_servername_callback(move |ssl_ref: &mut SslRef, ssl_alert: &mut SslAlert| certs_for_callback.load().server_name_callback(ssl_ref, ssl_alert));
         tls_settings.set_alpn_select_callback(grades::prefer_h2);
 
-        proxy.add_tls_with_settings(&bind_address_tls, None, tls_settings);
+        proxy.add_tls_with_settings(&bind_address_tls, tcp_options.clone(), tls_settings);
+
+        // if let Some(to) = tcp_options.clone() {
+        //     proxy.add_tls_with_settings(&bind_address_tls, Some(to.clone()), tls_settings);
+        // } else {
+        //     proxy.add_tls_with_settings(&bind_address_tls, None, tls_settings);
+        // }
+        // proxy.add_tls_with_settings(&bind_address_tls, None, tls_settings);
 
         let certs_for_watcher = certificates.clone();
         thread::spawn(move || {
@@ -107,8 +138,13 @@ pub fn run() {
             }
         });
     }
-    info!("Running HTTP listener on :{}", bind_address_http.as_str());
-    proxy.add_tcp(bind_address_http.as_str());
+    info!("Running HTTP listener on :{}", bind_address_http);
+    if let Some(tc) = tcp_options {
+        proxy.add_tcp_with_settings(&bind_address_http, tc);
+    } else {
+        proxy.add_tcp(&bind_address_http)
+    }
+
     server.add_service(proxy);
     server.add_service(bg_srvc);
     thread::spawn(move || server.run_forever());

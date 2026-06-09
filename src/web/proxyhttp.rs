@@ -177,6 +177,20 @@ impl ProxyHttp for LB {
                         peer.options.verify_cert = false;
                         peer.options.verify_hostname = false;
                     }
+                    /*
+                    Experimental optionsv
+                    The following TCP optimizations were tested but caused performance degrade under heavy load:
+                    peer.options.tcp_keepalive = Some(TcpKeepalive {
+                        idle: Duration::from_secs(60),
+                        interval: Duration::from_secs(10),
+                        count: 5,
+                        user_timeout: Duration::from_secs(30),
+                    });
+
+                    peer.options.idle_timeout = Some(Duration::from_secs(300));
+                    peer.options.tcp_recv_buf = Some(128 * 1024);
+                    End of experimental options
+                    */
                     if let Some(_) = ctx.extraparams.sticky_sessions {
                         let mut s = String::with_capacity(64);
                         write!(
