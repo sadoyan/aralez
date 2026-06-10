@@ -112,6 +112,7 @@ pub struct AppConfig {
     pub hc_method: String,
     pub upstreams_conf: String,
     pub log_level: String,
+    pub pid_file: Option<String>,
     pub master_key: Option<String>,
     pub config_address: String,
     pub proxy_address_http: String,

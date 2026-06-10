@@ -79,7 +79,7 @@ pub fn run() {
         let mut to = TcpSocketOptions::default();
         to.tcp_keepalive = Some(TcpKeepalive {
             idle: Duration::from_secs(idle),
-            interval: Duration::from_secs(cfg.tcp_keepalive_interval.unwrap_or(60)),
+            interval: Duration::from_secs(cfg.tcp_keepalive_interval.unwrap_or(10)),
             user_timeout: Default::default(),
             count: cfg.tcp_keepalive_count.unwrap_or(5usize),
         });
@@ -121,13 +121,6 @@ pub fn run() {
 
         proxy.add_tls_with_settings(&bind_address_tls, tcp_options.clone(), tls_settings);
 
-        // if let Some(to) = tcp_options.clone() {
-        //     proxy.add_tls_with_settings(&bind_address_tls, Some(to.clone()), tls_settings);
-        // } else {
-        //     proxy.add_tls_with_settings(&bind_address_tls, None, tls_settings);
-        // }
-        // proxy.add_tls_with_settings(&bind_address_tls, None, tls_settings);
-
         let certs_for_watcher = certificates.clone();
         thread::spawn(move || {
             while let Ok(new_configs) = rx.recv() {
@@ -153,7 +146,7 @@ pub fn run() {
         drop_priv(user, group, cfg.proxy_address_http.clone(), cfg.proxy_address_tls.clone());
     }
     let _ = sd_notify::notify(&[NotifyState::Ready]);
-    let _ = fs::write("/tmp/aralez.pid", process::id().to_string());
+    let _ = fs::write(cfg.pid_file.clone().unwrap_or("/tmp/aralez.pid".to_string()), process::id().to_string());
 
     let mut signals = Signals::new(&[SIGINT, SIGTERM, SIGQUIT]).unwrap();
     for sig in signals.forever() {
