@@ -102,7 +102,7 @@ async fn conf(State(st): State<AppState>, Query(params): Query<HashMap<String, S
     }
 
     let strcontent = content.as_str();
-    let parsed = serde_yml::from_str::<Config>(strcontent);
+    let parsed = noyalib::from_str::<Config>(strcontent);
     match parsed {
         Ok(_) => {
             if let Some(_) = params.get("save") {
@@ -228,8 +228,7 @@ async fn status(State(st): State<AppState>, Query(params): Query<HashMap<String,
 }
 
 pub async fn port_is_available(name: &str, address: &str) -> TcpListener {
-    let addr = SocketAddr::from_str(address)
-        .unwrap_or_else(|e| panic!("{}: Invalid address format: {:?}", name, e));
+    let addr = SocketAddr::from_str(address).unwrap_or_else(|e| panic!("{}: Invalid address format: {:?}", name, e));
     let t = Duration::from_secs(2);
 
     //if addr.ip() == IpAddr::V4(Ipv4Addr::UNSPECIFIED) {
