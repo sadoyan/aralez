@@ -29,7 +29,7 @@ futures = "0.3.32"
 notify = "9.0.0-rc.4"
 axum = { version = "0.8.9" }
 reqwest = { version = "0.13.4", features = ["json", "stream", "blocking"] }
-serde_yml = "0.0.12"
+noyalib = { version = "0.0.7", features = ["compat-serde-yaml"] }
 rand = "0.10.1"
 base64 = "0.22.1"
 jsonwebtoken = { version = "10.4.0", default-features = false, features = ["use_pem", "rust_crypto"] }
