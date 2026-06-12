@@ -5,12 +5,8 @@
 *.dll
 *.exe
 *.sh
-/docs/
+*.yaml
 /docs
-/etc
-/etc/
-etc
-.etc/
 assets/
 assets
 /target/
@@ -26,4 +22,5 @@ crashlytics.properties
 crashlytics-build.properties
 /target
 /z_shpo
+/configs
 Makefile
