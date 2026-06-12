@@ -4,13 +4,10 @@ sticky_sessions: 172000
 to_https: false
 rate_limit: 500000
 x4xx_limit: 100000
-#server_headers:
-#  - "Y-Global-Something: Yes this is something"
-#client_headers:
-#  - "Access-Control-Allow-Origin:*"
-#  - "Access-Control-Allow-Methods:POST, GET, OPTIONS"
-#  - "Access-Control-Max-Age:86400"
-#  - "Strict-Transport-Security:max-age=31536000; includeSubDomains; preload"
+server_headers:
+  - "Y-Global-Something: Something For Servers"
+client_headers:
+  - "X-Global-Something: Something For Clients"
 #authorization:
 #  type: "basic"
 #  data: "root:toor"
@@ -38,10 +35,10 @@ kubernetes:
   servers:
     - "172.16.0.11:5443" # Gets KUBERNETES_SERVICE_HOST : KUBERNETES_SERVICE_PORT_HTTPS env variables.
   services:
-    - hostname: "api-service-v2"
-      upstream: "api-service-v2"
+    - hostname: "api-service"
+      upstream: "api-service"
       path: "/"
-    - hostname: "api-service-v2"
+    - hostname: "api-service"
       upstream: "console-service"
       path: "/one"
       client_headers:
@@ -49,7 +46,7 @@ kubernetes:
         - "X-Proxy-From:Aralez"
       rate_limit: 100
       to_https: false
-    - hostname: "api-service-v2"
+    - hostname: "api-service"
       upstream: "feed-fanout-service"
       path: "/two"
     - hostname: "websocket-service"
@@ -57,65 +54,51 @@ kubernetes:
       path: "/"
   tokenpath: "/opt/Rust/Projects/asyncweb/etc/kubetoken.txt" # Defaults to /var/run/secrets/kubernetes.io/serviceaccount/token
 upstreams:
-  myip.netangels.net:
+  www.example.com:
     paths:
       "/":
-        #        rate_limit: 50
-        #        x4xx_limit: 100
-        #        to_https: false
-        #        authorization:
-        #          type: "basic"
-        #          data: "root:toor"
+        rate_limit: 50
+        x4xx_limit: 100
+        to_https: false
+        authorization:
+          type: "basic"
+          data: "root:toor"
         server_headers:
           - "Y-Proxy-Server-Some:Yaaaaaaaaaaaaaaa"
           - "Y-Proxy-Server-From:Aralez"
-          - "Y-Proxy-Server-Vers:Aralez v0.89"
+          - "Y-Proxy-Server-Vers:Aralez v-xxx"
         client_headers:
-          - "X-Proxy-From:Aralezzzzzzzzzzz"
-          - "X-Hopar-From:Hopaaaaaaaaaaaar"
-          - "X-Proxy-Some:X-Proxy-Somebody"
+          - "Access-Control-Allow-Origin:*"
+          - "Access-Control-Allow-Methods:POST, GET, OPTIONS"
+          - "Access-Control-Max-Age:86400"
+          - "Strict-Transport-Security:max-age=31536000; includeSubDomains; preload"
         servers:
           - "127.0.0.1:8000"
           - "127.0.0.2:8000"
           - "127.0.0.3:8000"
-          - "127.0.0.4:8000"
-          - "127.0.0.5:8000"
-          - "192.168.1.1:8000"
       "/ping":
-        to_https: false
+        to_https: true
         client_headers:
-          - "X-Some-Thing:Yaaaaaaaaaaaaaaa"
-          - "X-Proxy-From:Aralez"
-        servers:
-          - "127.0.0.1:8000"
-          - "127.0.0.2:8000"
-      "/pong":
-        to_https: false
-        client_headers:
-          - "X-Some-Thing:Yaaaaaaaaaaaaaaa"
-          - "X-Proxy-From:Aralez"
+          - "X-Some-Thing:Something Else"
+          - "Access-Control-Allow-Origin:*"
+          - "Access-Control-Allow-Methods:POST, GET, OPTIONS"
+          - "Access-Control-Max-Age:86400"
+          - "Strict-Transport-Security:max-age=31536000; includeSubDomains; preload"
         servers:
           - "127.0.0.1:8000"
       "/secret":
         authorization:
           type: "forward"
-          data: "http://192.168.1.1:8899/admin/login"
-          #data: "https://netangels.net/admin/login"
+          data: "http://127.0.0.1:8899/admin/login"
         servers:
-          - "192.168.1.10:8000"
-  netangels.net:
+          - "127.0.0.10:8000"
+  example.com:
     paths:
       "/":
-        redirect_to: "https://www.netangels.net:6194"
+        redirect_to: "https://www.example.com:443"
         servers:
-          - "192.168.1.1:80"
-  www.netangels.net:
-    paths:
-      "/":
-        to_https: true
-        servers:
-          - "192.168.1.1:80"
-  apt.netangels.net:
+          - "127.0.0.1:80"
+  h2.example.com:
     paths:
       "/":
         server_headers:
@@ -124,9 +107,8 @@ upstreams:
           - "Access-Control-Allow-Methods:POST, GET, OPTIONS"
         rate_limit: 60
         x4xx_limit: 30
-        #authorization:
-        #  type: "jwt"
-        #  data: "SOMETHING"
+        authorization:
+          type: "jwt"
         servers:
           - "127.0.0.1:8000"
           - "127.0.0.2:8000"
@@ -138,51 +120,12 @@ upstreams:
         rate_limit: 4
         x4xx_limit: 2
         servers:
-          - "192.168.1.1:8899"
+          - "127.0.0.1:8899"
       "/500":
         healthcheck: false
         servers:
-          - "192.168.1.1:8899"
-  #  grafanalocal:
-  #    paths:
-  #      "/":
-  #        healthcheck: false
-  #        servers:
-  #          - "95.211.203.222:443"
-  #      "/.well-known/acme-challenge":
-  #        healthcheck: false
-  #        servers:
-  #          - "127.0.0.1:8001"
-  localpost:
-    paths:
-      "/":
-        to_https: true
-        servers:
-          - "127.0.0.1:9000"
-  #  192.168.177.2:
-  #    paths:
-  #      "/":
-  #        servers:
-  #          - "127.0.0.1:8000"
-  ara.matyan.org:
-    paths:
-      "/":
-        servers:
-          - "127.0.0.1:8000"
-      "/.well-known/acme-challenge":
-        healthcheck: false
-        servers:
-          - "127.0.0.1:3000"
-  aro.matyan.org:
-    paths:
-      "/":
-        servers:
-          - "127.0.0.1:8000"
-      "/.well-known/acme-challenge":
-        healthcheck: false
-        servers:
-          - "127.0.0.1:3000"
-  DEFAUwLT:
+          - "127.0.0.1:8899"
+  DEFAULT:
     paths:
       "/":
         healthcheck: false

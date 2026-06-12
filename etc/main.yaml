@@ -1,23 +1,24 @@
 # Main configuration file, applied on startup
 threads: 12 # Number of daemon threads default setting
-#runuser: pastor # Username for running aralez after dropping root privileges, requires program to start as root
-#rungroup: pastor # Group for running aralez after dropping root privileges, requires program to start as root
-#daemon: false # Run in background
+runuser: aralez # Username for running aralez after dropping root privileges, requires program to start as root
+rungroup: aralez # Group for running aralez after dropping root privileges, requires program to start as root
 upstream_keepalive_pool_size: 500 # Pool size for upstream keepalive connections
-#pid_file: /tmp/aralez.pid # Path to PID file
-#error_log: /tmp/aralez_err.log # Path to error log
+pid_file: /tmp/aralez.pid # Path to PID file
 upgrade_sock: /tmp/aralez.sock # Path to socket file
 config_api_enabled: true # Boolean to enable/disable remote config push capability.
-config_address: 0.0.0.0+3000 # HTTP API address for pushing upstreams.yaml from remote location
-proxy_address_http: 0.0.0.0:6193 # Proxy HTTP bind address
-proxy_address_tls: 0.0.0.0:6194 # Optional, Proxy TLS bind address
-proxy_configs: /opt/Rust/Projects/asyncweb/etc # Mandatory if proxy_address_tls set, should contain a certificate and key files strictly in a format {NAME}.crt, {NAME}.key.
+config_address: 127.0.0.1:3000 # HTTP API address for pushing upstreams.yaml from remote location
+proxy_address_http: 0.0.0.0:80 # Proxy HTTP bind address
+proxy_address_tls: 0.0.0.0:443 # Optional, Proxy TLS bind address
+proxy_configs: /opt/aralez/asyncweb/etc # Mandatory if proxy_address_tls set, should contain a certificate and key files strictly in a format {NAME}.crt, {NAME}.key.
 proxy_tls_grade: high # Grade of TLS suite for proxy (high, medium, unsafe), matching grades of Qualys SSL Labs
-upstreams_conf: /opt/Rust/Projects/asyncweb/etc/upstreams.yaml # the location of upstreams file
-file_server_folder: /tmp/gazan # Optional, local folder to serve
-file_server_address: 127.0.0.1:3002 # Optional, Local address for file server. Can set as upstream for public access.
+upstreams_conf: /opt/aralez/etc/upstreams.yaml # the location of upstreams file
+file_server_folder: /opt/aralez/public # Optional, local folder to serve
+file_server_address: 0.0.0.0:3002 # Optional, Local address for file server. Can set as upstream for public access.
 log_level: info # info, warn, error, debug, trace, off
-#log_file: /tmp/aralez.log # Optional, the location of log file. If this entry does not exist logs will be emitted to stdout.
+log_file: /tmp/aralez.log # Optional, the location of log file. If this entry does not exist logs will be emitted to stdout.
 hc_method: HEAD # Healthcheck method (HEAD, GET, POST are supported) UPPERCASE
 hc_interval: 2 #Interval for health checks in seconds
-#master_key: 910517d9-f9a1-48de-8826-dbadacbd84af-cb6f830e-ab16-47ec-9d8f-0090de732774 # Mater key for working with API server and JWT Secret
+tcp_keepalive_idle: 60 # Seconds of inactivity before the kernel starts sending keepalive probes to a downstream client
+tcp_keepalive_interval: 10 # Seconds between individual keepalive probes if the client does not respond
+tcp_keepalive_count: 5 # Number of unanswered probes before the kernel declares the connection dead and closes it
+
