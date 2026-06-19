@@ -23,7 +23,7 @@ use signal_hook::{
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::Arc;
 use std::time::Duration;
-use std::{fs, process, thread};
+use std::{fs, thread};
 
 pub fn run() {
     // default_provider().install_default().expect("Failed to install rustls crypto provider");
@@ -146,8 +146,11 @@ pub fn run() {
         drop_priv(user, group, cfg.proxy_address_http.clone(), cfg.proxy_address_tls.clone());
     }
     let _ = sd_notify::notify(&[NotifyState::Ready]);
-    let _ = fs::write(cfg.pid_file.clone().unwrap_or("/tmp/aralez.pid".to_string()), process::id().to_string());
 
+    let pf = cfg.pid_file.clone().unwrap_or("/tmp/aralez.pid".to_string());
+    if let Err(e) = write_pid_file(pf.as_str()) {
+        panic!("Failed to write PID file: {} : {}", pf, e);
+    }
     let mut signals = Signals::new(&[SIGINT, SIGTERM, SIGQUIT]).unwrap();
     for sig in signals.forever() {
         match sig {

@@ -53,3 +53,4 @@ log4rs = "1.4.0"
 mimalloc = { version = "0.1.52", default-features = false }
 signal-hook = "0.4.4"
 sd-notify = "0.5.0"
+libc = "0.2.186"

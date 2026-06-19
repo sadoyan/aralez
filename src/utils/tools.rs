@@ -10,9 +10,12 @@ use sha2::{Digest, Sha256};
 use std::any::type_name;
 use std::collections::{HashMap, HashSet};
 use std::fmt::Write;
+use std::fs::OpenOptions;
+use std::io::Write as IoWrite;
 use std::net::SocketAddr;
 use std::net::TcpListener;
 use std::os::unix::fs::MetadataExt;
+use std::os::unix::fs::OpenOptionsExt;
 use std::str::FromStr;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc::{channel, Sender};
@@ -379,4 +382,15 @@ pub fn prepend(prefix: &str, val: &Option<Arc<str>>, uri: &str, port: &str) -> O
         buf.push_str(uri);
         buf
     })
+}
+
+pub fn write_pid_file(path: &str) -> std::io::Result<()> {
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .custom_flags(libc::O_NOFOLLOW) // refuse to follow symlinks
+        .open(path)?;
+    file.write_all(process::id().to_string().as_bytes())?;
+    Ok(())
 }

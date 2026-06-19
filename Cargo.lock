@@ -139,6 +139,7 @@ dependencies = [
  "futures",
  "instant-acme",
  "jsonwebtoken",
+ "libc",
  "log",
  "log4rs",
  "mimalloc",
