@@ -3,10 +3,11 @@ use crate::utils::lazylock::{LOCALHOST, RATE_LIMITER, REQUESTS_4XX, REVERSE_STOR
 use crate::utils::metrics::*;
 use crate::utils::structs::{AppConfig, Extraparams, Headers, InnerMap, UpstreamsDashMap, UpstreamsIdMap};
 use crate::web::gethosts::{GetHost, GetHostsReturHeaders};
+use crate::web::logging::access_log;
 use arc_swap::ArcSwap;
 use async_trait::async_trait;
 use axum::body::Bytes;
-use log::{debug, error, warn};
+use log::error;
 use pingora::http::{RequestHeader, ResponseHeader, StatusCode};
 use pingora::prelude::*;
 use pingora::ErrorSource::Upstream;
@@ -20,10 +21,6 @@ use std::sync::Arc;
 use tokio::time::Instant;
 
 thread_local! {static IP_BUFFER: RefCell<String> = RefCell::new(String::with_capacity(50));}
-// static REVERSE_STORE: LazyLock<DashMap<String, String>> = LazyLock::new(DashMap::new);
-// pub static RATE_LIMITER: LazyLock<Rate> = LazyLock::new(|| Rate::new(Duration::from_secs(1)));
-// pub static REQUESTS_4XX: LazyLock<Cache<IpAddr, u32>> = LazyLock::new(|| Cache::builder().time_to_live(Duration::from_secs(1)).build());
-// pub static LOCALHOST: LazyLock<Arc<str>> = LazyLock::new(|| Arc::from("localhost"));
 
 #[derive(Clone)]
 pub struct LB {
@@ -86,7 +83,6 @@ impl ProxyHttp for LB {
                         if let Some(auth) = _ctx.extraparams.authentication.as_ref().or(innermap.authorization.as_ref()) {
                             if !authenticate(&auth, session).await {
                                 let _ = session.respond_error(401).await;
-                                warn!("Forbidden: {:?}, {}", session.client_addr(), session.req_header().uri.path());
                                 return Ok(true);
                             }
                         }
@@ -99,9 +95,9 @@ impl ProxyHttp for LB {
                                     let header = ResponseHeader::build(429, None)?;
                                     session.set_keepalive(None);
                                     session.write_response_header(Box::new(header), true).await?;
-                                    if let (Some(oi), Some(oa)) = (&_ctx.hostname, rate_key) {
-                                        warn!("Limit 4XX: {}-rps exceed on {} from {} path {}", rate, oi, oa, session.req_header().uri.path());
-                                    }
+                                    // if let (Some(oi), Some(oa)) = (&_ctx.hostname, rate_key) {
+                                    //     warn!("Limit 4XX: {}-rps exceed on {} from {} path {}", rate, oi, oa, session.req_header().uri.path());
+                                    // }
                                     return Ok(true);
                                 }
                             }
@@ -113,9 +109,9 @@ impl ProxyHttp for LB {
                                 let header = ResponseHeader::build(429, None)?;
                                 session.set_keepalive(None);
                                 session.write_response_header(Box::new(header), true).await?;
-                                if let (Some(oi), Some(oa)) = (&_ctx.hostname, rate_key) {
-                                    warn!("Limit: {}-rps exceed on {} from {}", rate, oi, oa);
-                                }
+                                // if let (Some(oi), Some(oa)) = (&_ctx.hostname, rate_key) {
+                                //     warn!("Limit: {}-rps exceed on {} from {}", rate, oi, oa);
+                                // }
                                 return Ok(true);
                             }
                         }
@@ -281,14 +277,12 @@ impl ProxyHttp for LB {
                     REVERSE_STORE.insert(hh.clone(), bid.clone());
                     hh
                 };
-                // let _ = _upstream_response.insert_header("set-cookie", format!("backend_id={}; Path=/; Max-Age=600; HttpOnly; SameSite=Lax", tt));
                 let mut buf = String::with_capacity(80);
                 buf.push_str("backend_id=");
                 buf.push_str(&tt);
                 buf.push_str("; Path=/; Max-Age=");
                 buf.push_str(&val.to_string());
                 buf.push_str("; HttpOnly; SameSite=Lax");
-                // buf.push_str("; Path=/; Max-Age=86400; HttpOnly; SameSite=Lax");
                 let _ = _upstream_response.insert_header("set-cookie", buf.as_str());
             }
         }
@@ -303,7 +297,6 @@ impl ProxyHttp for LB {
 
     async fn logging(&self, session: &mut Session, _e: Option<&pingora::Error>, ctx: &mut Self::CTX) {
         let response_code = session.response_written().map_or(0, |resp| resp.status.as_u16());
-        debug!("{}, response code: {response_code}", self.request_summary(session, ctx));
         let m = &MetricTypes {
             method: session.req_header().method.clone(),
             code: session.response_written().map(|resp| resp.status),
@@ -314,13 +307,14 @@ impl ProxyHttp for LB {
         calc_metrics(m);
         ACTIVE_SESSIONS.dec();
         if let Some(_) = ctx.x4xx_limit.or(ctx.extraparams.x4xx_limit) {
-            if 400 <= response_code && response_code <= 499 {
+            if (400..=499).contains(&response_code) {
                 if let Some(ip) = session.client_addr().and_then(|a| a.as_inet()).map(|i| i.ip()) {
                     let current = REQUESTS_4XX.get(&ip).unwrap_or(0);
                     REQUESTS_4XX.insert(ip, current + 1);
                 }
             }
         }
+        access_log(response_code, &self.request_summary(session, ctx), session);
     }
 }
 

@@ -4,6 +4,7 @@ use crate::tls::load;
 use crate::tls::load::CertificateConfig;
 use crate::utils::structs::Extraparams;
 use crate::utils::tools::*;
+use crate::web::logging::init_access_log;
 use crate::web::proxyhttp::LB;
 use arc_swap::ArcSwap;
 use dashmap::DashMap;
@@ -59,6 +60,8 @@ pub fn run() {
         server_headers: sh_config,
         extraparams: ec_config,
     };
+    let al = cfg.access_log.clone().unwrap_or("none".to_string());
+    init_access_log(al.as_str());
 
     let grade = cfg.proxy_tls_grade.clone().unwrap_or("medium".to_string());
     info!("TLS grade set to: [ {} ]", grade);

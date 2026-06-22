@@ -74,6 +74,7 @@ Built on Rust, on top of **Cloudflare’s Pingora engine**, **Aralez** delivers 
 | **proxy_address_tls**            | 0.0.0.0:6194               | Aralez HTTPS bind address (Optional)                                                            |
 | **proxy_configs**                | /etc/aralez/               | Direcotry containing configuration files, must be writeable by user  `aralez`                   |
 | **upstreams_conf**               | /etc/aralez/upstreams.yaml | Location of the upstreams file                                                                  |
+| **access_log**                   | access                     | Configure access logging. Values: `access, error`                                               |
 | **log_level**                    | info                       | Log level: `info`, `warn`, `error`, `debug`, `trace`, `off`                                     |
 | **log_file**                     | /full/path/to/aralez.log   | Optional, the location of log file. If thi entry does not exist logs will be emitted to stdout. |
 | **hc_method**                    | HEAD                       | Healthcheck method: HEAD, GET, POST (UPPERCASE)                                                 |
