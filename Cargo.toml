@@ -1,6 +1,6 @@
 [package]
 name = "aralez"
-version = "0.92.10"
+version = "0.92.11"
 edition = "2021"
 license = "Apache-2.0"
 description = "Reverse proxy built on top of Cloudflare's Pingora"
@@ -16,20 +16,20 @@ strip = true
 
 [dependencies]
 tokio = { version = "1.52.3", features = ["full"] }
-pingora = { version = "0.8.0", features = ["lb", "openssl"] } # openssl, rustls, boringssl
-serde = { version = "1.0.228", features = ["derive"] }
+pingora = { version = "0.8.1", features = ["lb", "openssl"] } # openssl, rustls, boringssl
+pingora-core = "0.8.1"
+pingora-proxy = "0.8.1"
+pingora-http = "0.8.1"
+pingora-limits = "0.8.1"
 dashmap = "7.0.0-rc2"
-pingora-core = "0.8.0"
-pingora-proxy = "0.8.0"
-pingora-http = "0.8.0"
-pingora-limits = "0.8.0"
 async-trait = "0.1.89"
 log = "0.4.30"
 futures = "0.3.32"
 notify = "9.0.0-rc.4"
 axum = { version = "0.8.9" }
 reqwest = { version = "0.13.4", features = ["json", "stream", "blocking"] }
-noyalib = { version = "0.0.7", features = ["compat-serde-yaml"] }
+serde = { version = "1.0.228", features = ["derive"] }
+noyalib = { version = "0.0.8", features = ["compat-serde-yaml"] }
 rand = "0.10.1"
 base64 = "0.22.1"
 jsonwebtoken = { version = "10.4.0", default-features = false, features = ["use_pem", "rust_crypto"] }
@@ -41,7 +41,7 @@ arc-swap = "1.9.1"
 prometheus = "0.14.0"
 x509-parser = "0.18.1"
 rustls-pemfile = "2.2.0"
-tower-http = { version = "0.6.11", features = ["fs"] }
+tower-http = { version = "0.7.0", features = ["fs"] }
 privdrop = "0.5.6"
 serde_json = "1.0.150"
 subtle = "2.6.1"
@@ -53,3 +53,4 @@ log4rs = "1.4.0"
 mimalloc = { version = "0.1.52", default-features = false }
 signal-hook = "0.4.4"
 sd-notify = "0.5.0"
+libc = "0.2.186"
