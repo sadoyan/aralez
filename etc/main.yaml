@@ -16,6 +16,7 @@ file_server_folder: /opt/aralez/public # Optional, local folder to serve
 file_server_address: 0.0.0.0:3002 # Optional, Local address for file server. Can set as upstream for public access.
 log_level: info # info, warn, error, debug, trace, off
 log_file: /tmp/aralez.log # Optional, the location of log file. If this entry does not exist logs will be emitted to stdout.
+access_log: error # all, error, (Off if commented)
 hc_method: HEAD # Healthcheck method (HEAD, GET, POST are supported) UPPERCASE
 hc_interval: 2 #Interval for health checks in seconds
 tcp_keepalive_idle: 60 # Seconds of inactivity before the kernel starts sending keepalive probes to a downstream client
