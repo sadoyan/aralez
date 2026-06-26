@@ -96,7 +96,7 @@ pub async fn load_configuration(d: &str, kind: &str) -> (Option<Configuration>, 
             }
 
             info!("Reading upstreams from {}", d);
-            data
+            data // [2606:4700:2ff9::1]:443
         }
         "content" => {
             info!("Reading upstreams from API post body");
@@ -157,7 +157,7 @@ async fn populate_headers_and_auth(config: &mut Configuration, parsed: &Config) 
     let mut ch: Vec<(String, Arc<str>)> = Vec::new();
     if let Some(headers) = &parsed.client_headers {
         for header in headers {
-            if let Some((key, val)) = header.split_once(':') {
+            if let Some((key, val)) = header.rsplit_once(':') {
                 ch.push((key.to_string(), Arc::from(val)));
             }
         }
@@ -170,7 +170,7 @@ async fn populate_headers_and_auth(config: &mut Configuration, parsed: &Config) 
     let mut sh: Vec<(String, Arc<str>)> = Vec::new();
     if let Some(headers) = &parsed.server_headers {
         for header in headers {
-            if let Some((key, val)) = header.split_once(':') {
+            if let Some((key, val)) = header.rsplit_once(':') {
                 sh.push((key.to_string(), Arc::from(val.trim())));
             }
         }
@@ -225,7 +225,8 @@ async fn populate_file_upstreams(config: &mut Configuration, parsed: &Config) {
                     }
 
                     let redirect_link = path_config.redirect_to.as_ref().map(|www| Arc::from(www.as_str()));
-                    if let Some((ip, port_str)) = server.split_once(':') {
+
+                    if let Some((ip, port_str)) = server.rsplit_once(':') {
                         if let Ok(port) = port_str.parse::<u16>() {
                             server_list.push(Arc::from(InnerMap {
                                 address: Arc::from(ip),
@@ -271,18 +272,18 @@ pub fn parce_main_config(path: &str) -> AppConfig {
 
     log_builder(&cfo, &cfo.log_file);
     cfo.hc_method = cfo.hc_method.to_uppercase();
-    if let Some((ip, port_str)) = cfo.config_address.split_once(':') {
+    if let Some((ip, port_str)) = cfo.config_address.rsplit_once(':') {
         if let Ok(port) = port_str.parse::<u16>() {
             cfo.local_server = Option::from((ip.to_string(), port));
         }
     }
     if let Some(tlsport_cfg) = cfo.proxy_address_tls.clone() {
-        if let Some((_, port_str)) = tlsport_cfg.split_once(':') {
+        if let Some((_, port_str)) = tlsport_cfg.rsplit_once(':') {
             cfo.proxy_port_tls = Some(port_str.to_string());
         }
     };
 
-    if let Some((_, port_str)) = cfo.proxy_address_http.split_once(':') {
+    if let Some((_, port_str)) = cfo.proxy_address_http.rsplit_once(':') {
         cfo.proxy_port = Some(port_str.to_string());
     }
 
@@ -320,7 +321,7 @@ fn parce_tls_grades(what: Option<String>) -> Option<String> {
 pub fn build_headers(path_config: &Option<Vec<String>>, _config: &Configuration, hl: &mut Vec<(String, Arc<str>)>) {
     if let Some(headers) = &path_config {
         for header in headers {
-            if let Some((key, val)) = header.split_once(':') {
+            if let Some((key, val)) = header.rsplit_once(':') {
                 hl.push((key.trim().to_string(), Arc::from(val.trim())));
             }
         }
