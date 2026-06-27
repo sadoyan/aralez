@@ -147,11 +147,8 @@ pub fn clone_idmap_into(original: &UpstreamsDashMap, cloned: &UpstreamsIdMap) {
     cloned.clear();
     for outer_entry in original.iter() {
         let inner_map = outer_entry.value();
-        let new_inner_map = DashMap::new();
         for inner_entry in inner_map.iter() {
-            let path = inner_entry.key();
             let (vec, _) = inner_entry.value();
-            let new_vec = vec.clone();
             for x in vec.iter() {
                 let mut id = String::new();
                 write!(
@@ -175,22 +172,8 @@ pub fn clone_idmap_into(original: &UpstreamsDashMap, cloned: &UpstreamsIdMap) {
                 let hash = hasher.finalize();
                 let hex_hash = base16ct::lower::encode_string(&hash);
                 let hh = hex_hash[0..50].to_string();
-                let to_add = InnerMap {
-                    address: Arc::from("127.0.0.1"),
-                    port: 0,
-                    is_ssl: false,
-                    is_http2: false,
-                    to_https: false,
-                    rate_limit: None,
-                    x4xx_limit: None,
-                    healthcheck: None,
-                    redirect_to: None,
-                    authorization: None,
-                };
-                cloned.insert(id, Arc::from(to_add));
                 cloned.insert(hh, x.to_owned());
             }
-            new_inner_map.insert(path.clone(), new_vec);
         }
     }
     info!("Upstreams are fully populated. Ready to server requests");
