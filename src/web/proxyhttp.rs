@@ -283,7 +283,7 @@ impl ProxyHttp for LB {
                 buf.push_str("; Path=/; Max-Age=");
                 buf.push_str(&val.to_string());
                 buf.push_str("; HttpOnly; SameSite=Lax");
-                let _ = _upstream_response.insert_header("set-cookie", buf.as_str());
+                let _ = _upstream_response.append_header("set-cookie", buf.as_str());
             }
         }
 
