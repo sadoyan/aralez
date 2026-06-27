@@ -1,6 +1,6 @@
 use crate::tls::load;
 use crate::tls::load::CertificateConfig;
-use crate::utils::structs::{Extraparams, InnerMap, InnerMapForJson, UpstreamSnapshotForJson, UpstreamsDashMap, UpstreamsIdMap};
+use crate::utils::structs::{Extraparams, InnerMapForJson, UpstreamSnapshotForJson, UpstreamsDashMap, UpstreamsIdMap};
 use dashmap::DashMap;
 use log::{error, info};
 use notify::{event::ModifyKind, Config, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
