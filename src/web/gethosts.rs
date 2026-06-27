@@ -20,21 +20,22 @@ pub trait GetHost {
 #[async_trait]
 impl GetHost for LB {
     fn get_host(&self, peer: &str, path: &str, backend_id: Option<&str>) -> Option<Arc<InnerMap>> {
-        if let Some(b) = backend_id {
-            if let Some(bb) = self.ump_byid.get(b) {
-                return Some(bb.value().clone());
-            }
-        }
         let host_entry = self.ump_upst.get(peer)?;
         let mut end = path.len();
         loop {
             let slice = &path[..end];
             if let Some(entry) = host_entry.get(slice) {
                 let (servers, index) = entry.value();
-                if !servers.is_empty() {
-                    let idx = index.fetch_add(1, Ordering::Relaxed) % servers.len();
-                    return Some(servers[idx].clone());
+                if let Some(b) = backend_id {
+                    if let Some(bb) = self.ump_byid.get(b) {
+                        let target = bb.value();
+                        if servers.iter().any(|s| s.address == target.address && s.port == target.port) {
+                            return Some(target.clone());
+                        }
+                    }
                 }
+                let idx = index.fetch_add(1, Ordering::Relaxed) % servers.len();
+                return Some(servers[idx].clone());
             }
             if let Some(pos) = slice.rfind('/') {
                 end = pos;
@@ -45,10 +46,20 @@ impl GetHost for LB {
         if let Some(entry) = host_entry.get("/") {
             let (servers, index) = entry.value();
             if !servers.is_empty() {
-                let idx = index.fetch_add(1, Ordering::Relaxed) % servers.len();
-                return Some(servers[idx].clone());
+
+                if let Some(b) = backend_id {
+                    if let Some(bb) = self.ump_byid.get(b) {
+                        let target = bb.value();
+                        if servers.iter().any(|s| s.address == target.address && s.port == target.port) {
+                            return Some(target.clone());
+                            }
+                        }
+                    }
+
+                    let idx = index.fetch_add(1, Ordering::Relaxed) % servers.len();
+                    return Some(servers[idx].clone());
+                }
             }
-        }
         None
     }
 
