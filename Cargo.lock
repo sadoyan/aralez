@@ -136,7 +136,6 @@ dependencies = [
  "base16ct 1.0.0",
  "base64",
  "dashmap",
- "futures",
  "instant-acme",
  "jsonwebtoken",
  "libc",

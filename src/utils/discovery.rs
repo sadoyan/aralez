@@ -3,8 +3,8 @@ use crate::utils::kuberconsul::{ConsulDiscovery, KubernetesDiscovery, ServiceDis
 use crate::utils::structs::{Configuration, UpstreamsDashMap};
 use crate::web::webserver;
 use async_trait::async_trait;
-use futures::channel::mpsc::Sender;
 use std::sync::Arc;
+use tokio::sync::mpsc::Sender;
 
 pub struct APIUpstreamProvider {
     pub config_api_enabled: bool,
@@ -46,7 +46,7 @@ impl Discovery for APIUpstreamProvider {
 #[async_trait]
 impl Discovery for FromFileProvider {
     async fn start(&self, tx: Sender<Configuration>) {
-        tokio::spawn(filewatch::start(self.path.clone(), tx.clone()));
+        tokio::spawn(filewatch::start(self.path.clone(), tx));
     }
 }
 

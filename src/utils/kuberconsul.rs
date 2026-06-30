@@ -4,8 +4,6 @@ use crate::utils::structs::{Configuration, GlobalServiceMapping, InnerMap, Upstr
 use crate::utils::tools::{clone_dashmap_into, compare_dashmaps, print_upstreams};
 use async_trait::async_trait;
 use dashmap::DashMap;
-use futures::channel::mpsc::Sender;
-use futures::SinkExt;
 use pingora::prelude::sleep;
 use rand::RngExt;
 use serde::Deserialize;
@@ -18,6 +16,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::fs::File;
 use tokio::io::AsyncReadExt;
+use tokio::sync::mpsc::Sender;
 
 #[derive(Debug, serde::Deserialize)]
 pub struct KubeEndpoints {
@@ -95,7 +94,7 @@ pub struct ConsulDiscovery;
 
 #[async_trait]
 impl ServiceDiscovery for KubernetesDiscovery {
-    async fn fetch_upstreams(&self, config: Arc<Configuration>, mut toreturn: Sender<Configuration>) {
+    async fn fetch_upstreams(&self, config: Arc<Configuration>, toreturn: Sender<Configuration>) {
         let prev_upstreams = UpstreamsDashMap::new();
 
         if let Some(kuber) = config.kubernetes.clone() {
@@ -162,7 +161,7 @@ fn get_current_namespace() -> Option<String> {
 
 #[async_trait]
 impl ServiceDiscovery for ConsulDiscovery {
-    async fn fetch_upstreams(&self, config: Arc<Configuration>, mut toreturn: Sender<Configuration>) {
+    async fn fetch_upstreams(&self, config: Arc<Configuration>, toreturn: Sender<Configuration>) {
         let prev_upstreams = UpstreamsDashMap::new();
         loop {
             let upstreams = UpstreamsDashMap::new();

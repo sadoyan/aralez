@@ -8,18 +8,17 @@ use crate::web::logging::init_logging;
 use crate::web::proxyhttp::LB;
 use async_trait::async_trait;
 use dashmap::DashMap;
-use futures::channel::mpsc;
-use futures::{SinkExt, StreamExt};
 use log::{error, info};
 use pingora_core::server::ShutdownWatch;
 use pingora_core::services::background::BackgroundService;
 use std::sync::Arc;
+use tokio::sync::mpsc;
 
 #[async_trait]
 impl BackgroundService for LB {
     async fn start(&self, mut shutdown: ShutdownWatch) {
         info!("Starting background service"); // tx: Sender<Configuration>
-        let (mut tx, mut rx) = mpsc::channel::<Configuration>(1);
+        let (tx, mut rx) = mpsc::channel::<Configuration>(1);
         let tx_api = tx.clone();
         let config = load_configuration(self.config.upstreams_conf.clone().as_str(), "filepath")
             .await
@@ -84,7 +83,7 @@ impl BackgroundService for LB {
                 _ = shutdown.changed() => {
                     break;
                 }
-                val = rx.next() => {
+                val = rx.recv() => {
                     if let Some(ss) = val {
                         clone_dashmap_into(&ss.upstreams, &self.ump_full);
                         clone_dashmap_into(&ss.upstreams, &self.ump_upst);
