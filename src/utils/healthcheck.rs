@@ -1,3 +1,4 @@
+use crate::utils::grpc::ping_grpc;
 use crate::utils::lazylock::REVERSE_STORE;
 use crate::utils::structs::{InnerMap, UpstreamsDashMap, UpstreamsIdMap};
 use crate::utils::tools::*;
@@ -7,8 +8,9 @@ use reqwest::{Client, Version};
 use std::sync::atomic::AtomicUsize;
 use std::sync::Arc;
 use std::time::Duration;
+use tokio::net::TcpStream;
 use tokio::time::interval;
-use tonic::transport::Endpoint;
+use tokio_native_tls::native_tls::TlsConnector;
 
 pub async fn hc2(upslist: Arc<UpstreamsDashMap>, fullist: Arc<UpstreamsDashMap>, idlist: Arc<UpstreamsIdMap>, params: (&str, u64)) {
     let mut period = interval(Duration::from_secs(params.1));
@@ -27,16 +29,6 @@ pub async fn hc2(upslist: Arc<UpstreamsDashMap>, fullist: Arc<UpstreamsDashMap>,
         }
     }
 }
-
-/*
-pub async fn populate_upstreams(upslist: &Arc<UpstreamsDashMap>, fullist: &Arc<UpstreamsDashMap>, idlist: &Arc<UpstreamsIdMap>, params: (&str, u64), client: &Client) {
-    let totest = build_upstreams(fullist, params.0, client).await;
-    if !compare_dashmaps(&totest, upslist) {
-        clone_dashmap_into(&totest, upslist);
-        clone_idmap_into(&totest, idlist);
-    }
-}
-*/
 
 pub async fn initiate_upstreams(fullist: UpstreamsDashMap) -> UpstreamsDashMap {
     let client = Client::builder().timeout(Duration::from_secs(2)).danger_accept_invalid_certs(true).build().unwrap();
@@ -60,14 +52,11 @@ async fn build_upstreams(fullist: &UpstreamsDashMap, method: &str, client: &Clie
                 } else {
                     (false, None)
                 };
-
-                let is_h2 = matches!(tls.1, Some(Version::HTTP_2));
-
                 let mut scheme = InnerMap {
                     address: upstream.address.clone(),
                     port: upstream.port,
                     is_ssl: tls.0,
-                    is_http2: is_h2,
+                    is_http2: matches!(tls.1, Some(Version::HTTP_2)),
                     to_https: upstream.to_https,
                     rate_limit: upstream.rate_limit,
                     x4xx_limit: upstream.x4xx_limit,
@@ -84,9 +73,10 @@ async fn build_upstreams(fullist: &UpstreamsDashMap, method: &str, client: &Clie
                     };
 
                     let resp = http_request(&link, method, "", client).await;
+
                     if resp.0 {
                         if resp.1 {
-                            scheme.is_http2 = is_h2; // could be adjusted further
+                            scheme.is_http2 = resp.1;
                         }
                         innervec.push(Arc::from(scheme));
                     } else {
@@ -126,28 +116,33 @@ async fn http_request(url: &str, method: &str, payload: &str, client: &Client) -
     }
 }
 
-pub async fn ping_grpc(addr: &str) -> bool {
-    let endpoint = match Endpoint::from_shared(addr.to_owned()) {
-        Ok(e) => e.timeout(Duration::from_secs(2)),
-        Err(_) => return false,
+async fn detect_tls(ip: &str, port: &u16, client: &Client) -> (bool, Option<Version>) {
+    let addr = format!("{}:{}", ip, port);
+    let Ok(stream) = TcpStream::connect(&addr).await else {
+        return (false, Some(Version::HTTP_11));
     };
-    tokio::time::timeout(Duration::from_secs(3), endpoint.connect()).await.ok().and_then(Result::ok).is_some()
+
+    let connector = tokio_native_tls::TlsConnector::from(
+        TlsConnector::builder()
+            .danger_accept_invalid_certs(true)
+            .danger_accept_invalid_hostnames(true)
+            .build()
+            .unwrap(),
+    );
+
+    let tls = connector.connect(ip, stream).await.is_ok();
+    if tls {
+        let vers = detect_version(ip, *port, true, client).await;
+        return (tls, vers);
+    }
+    (tls, Some(Version::HTTP_11))
 }
 
-async fn detect_tls(ip: &str, port: &u16, client: &Client) -> (bool, Option<Version>) {
-    let https_url = format!("https://{}:{}", ip, port);
-    if let Ok(response) = client.get(&https_url).send().await {
-        return (true, Some(response.version()));
-    }
-    let http_url = format!("http://{}:{}", ip, port);
-    match client.get(&http_url).send().await {
-        Ok(response) => (false, Some(response.version())),
-        Err(_) => {
-            if ping_grpc(&http_url).await {
-                (false, Some(Version::HTTP_2))
-            } else {
-                (false, None)
-            }
-        }
+async fn detect_version(ip: &str, port: u16, is_tls: bool, client: &Client) -> Option<Version> {
+    let scheme = if is_tls { "https" } else { "http" };
+    let url = format!("{}://{}:{}", scheme, ip, port);
+    match client.get(&url).send().await.ok().map(|r| r.version()) {
+        Some(version) => Some(version),
+        None => Some(Version::HTTP_11),
     }
 }

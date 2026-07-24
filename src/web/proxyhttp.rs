@@ -190,7 +190,7 @@ impl ProxyHttp for LB {
             Some(hostname) => match ctx.upstream_peer.as_ref() {
                 Some(innermap) => {
                     let mut peer = Box::new(HttpPeer::new((&*innermap.address, innermap.port), innermap.is_ssl, hostname.to_string()));
-                    if innermap.is_http2 {
+                    if innermap.is_http2 && !session.is_upgrade_req() {
                         peer.options.alpn = ALPN::H2;
                     }
                     if innermap.is_ssl {
