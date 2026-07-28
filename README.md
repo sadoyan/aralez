@@ -6,13 +6,12 @@
 
 ### **Reverse proxy built on top of Cloudflare's Pingora**
 
-Aralez is a high-performance Rust reverse proxy with zero-configuration automatic protocol handling, TLS, and upstream management,
-featuring Consul and Kubernetes integration for dynamic pod discovery and health-checked routing, acting as a lightweight ingress-style proxy.
+Aralez is a high-performance Rust reverse proxy with zero-configuration automatic protocol handling, TLS, and upstream management, featuring Consul and Kubernetes integration for dynamic pod discovery and health-checked routing, acting as a
+lightweight ingress-style proxy.
 
 
 ---
-What Aralez means ?
-**Aralez = Արալեզ** <ins>Named after the legendary Armenian guardian spirit, winged dog-like creature, that descend upon fallen heroes to lick their wounds and resurrect them</ins>.
+What Aralez means ? **Aralez = Արալեզ** <ins>Named after the legendary Armenian guardian spirit, winged dog-like creature, that descend upon fallen heroes to lick their wounds and resurrect them</ins>.
 
 Built on Rust, on top of **Cloudflare’s Pingora engine**, **Aralez** delivers world-class performance, security and scalability — right out of the box.
 
@@ -36,6 +35,7 @@ Built on Rust, on top of **Cloudflare’s Pingora engine**, **Aralez** delivers 
 - **Let’s Encrypt Certificates** — Ordering and renewal of SSL/TLS certificates via the HTTP-01 challenge.
 - **Upstreams TLS detection** — Aralez will automatically detect if upstreams uses secure connection.
 - **Built in rate limiter** — Globar or route limit requests to upstreams.
+- **Caching Proxy** — In memory cache with configurable TTL, without external dependencies.
 - **Authentication** — Supports Basic Auth, API tokens, and JWT verification.
     - **Basic Auth**
     - **API Key** via `x-api-key` header
@@ -89,8 +89,7 @@ Built on Rust, on top of **Cloudflare’s Pingora engine**, **Aralez** delivers 
 
 ## Installation
 
-Download the prebuilt binary for your architecture from releases section of [GitHub](https://github.com/sadoyan/aralez/releases) repo
-Make the binary executable `chmod 755 ./aralez-VERSION` and run.
+Download the prebuilt binary for your architecture from releases section of [GitHub](https://github.com/sadoyan/aralez/releases) repo Make the binary executable `chmod 755 ./aralez-VERSION` and run.
 
 File names:
 
@@ -108,8 +107,7 @@ File names:
 
 **glibc** builds are in general faster, but have few, basic, Glibc dependencies:
 
-**musl** builds are 100% portable, static compiled binaries and have zero system dependencies.
-In general musl builds have a little less performance.
+**musl** builds are 100% portable, static compiled binaries and have zero system dependencies. In general musl builds have a little less performance.
 
 The most intensive tests shows 107k-110k requests per second on **Glibc** binaries against 97k-100k **Musl** ones.
 
@@ -299,8 +297,7 @@ openssl req -x509 -newkey rsa:4096 \
 
 ## Remote Config API
 
-Push new `upstreams.yaml` over HTTP to `config_address` (`:3000` by default). Useful for CI/CD automation or remote config updates.
-URL parameter. `key=MASTERKEY` is required. `MASTERKEY` is the value of `master_key` in the `main.yaml`
+Push new `upstreams.yaml` over HTTP to `config_address` (`:3000` by default). Useful for CI/CD automation or remote config updates. URL parameter. `key=MASTERKEY` is required. `MASTERKEY` is the value of `master_key` in the `main.yaml`
 
 ```bash
 curl -XPOST --data-binary @./etc/upstreams.txt 127.0.0.1:3000/conf?key=${MASTERKEY}
@@ -381,22 +378,22 @@ curl  -u username:password -H 'Host: myip.mydomain.com' http://127.0.0.1:6193/
 
 | Feature / Proxy    | **Aralez** |  **Nginx**  | **HAProxy** | **Traefik** | **Caddy**  | **Envoy** |
 |--------------------|:----------:|:-----------:|:-----------:|:-----------:|:----------:|:---------:|
-| **Reload**         |   ✅ Hot    |  ⚙️ Manual  |  ⚙️ Manual  |    ✅ Hot    |   ✅ Hot    |   ✅ Hot   |
-| **Cert load**      |   ✅ Hot    |  ❌ Reload   |  ❌ Reload   |    ✅ Yes    |   ✅ Yes    |  ⚙️ No ?  |
-| **Authentication** |   ✅ Yes    | ⚙️ Limited  | ⚙️ Limited  |    ✅ Yes    |   ✅ Yes    |   ✅ Yes   |
-| **HTTP2**          |   ✅ Yes    |  ⚙️ Manual  |  ⚙️ Manual  |    ✅ Yes    |   ✅ Yes    |   ✅ Yes   |
-| **TLS Grades**     |   ✅ Yes    |  ⚙️ Manual  |  ⚙️ Manual  |  ⚙️ Manual  |   ✅ Yes    | ⚙️ Manual |
-| **gRPC**           |   ✅ Auto   |  ⚙️ Manual  |  ⚙️ Manual  |  ⚙️ Manual  | ⚙️ Manual  | ⚙️ Manual |
-| **SSL Proxy**      |   ✅ Auto   |  ⚙️ Manual  |  ⚙️ Manual  |    ✅ Yes    |   ✅ Yes    |   ✅ Yes   |
-| **HTTP/2**         |   ✅ Auto   |  ⚙️ Manual  |  ⚙️ Manual  |    ✅ Yes    |   ✅ Yes    |   ✅ Yes   |
-| **WebSocket**      |   ✅ Auto   |  ⚙️ Manual  |  ⚙️ Manual  |    ✅ Yes    |   ✅ Yes    |   ✅ Yes   |
-| **Sticky Session** |   ✅ Yes    |    ❌ No     |   ⚙️ Yes    |    ✅ Yes    | ⚙️ Limited | ✅ Manual  |
-| **Prometheus**     |   ✅ Yes    | ⚙️ External |    ✅ Yes    |    ✅ Yes    |   ✅ Yes    |   ✅ Yes   |
-| **Consul**         |   ✅ Yes    |    ❌ No     |  ⚙️DNS API  |    ✅ Yes    |    ❌ No    |   ✅ Yes   |
-| **Kubernetes**     |   ✅ Yes    | ⚙️ Ingress  | ⚙️ External |    ✅ Yes    | ⚙️ Limited |   ✅ Yes   |
-| **Limiter**        |   ✅ Yes    |    ✅ Yes    |    ✅ Yes    |    ✅ Yes    |   ✅ Yes    |   ✅ Yes   |
-| **Static Files**   |   ✅ Yes    |    ✅ Yes    |  ⚙️ Lua ?   |    ✅ Yes    |   ✅ Yes    |   ❌ No    |
-| **Health Checks**  |   ✅ Yes    |  ⚙️ Manual  |  ⚙️ Manual  |    ✅ Yes    |   ✅ Yes    |   ✅ Yes   |
+| **Reload**         |   ✅ Hot   |  ⚙️ Manual  |  ⚙️ Manual  |   ✅ Hot    |   ✅ Hot   |  ✅ Hot   |
+| **Cert load**      |   ✅ Hot   |  ❌ Reload  |  ❌ Reload  |   ✅ Yes    |   ✅ Yes   |  ⚙️ No ?  |
+| **Authentication** |   ✅ Yes   | ⚙️ Limited  | ⚙️ Limited  |   ✅ Yes    |   ✅ Yes   |  ✅ Yes   |
+| **HTTP2**          |   ✅ Yes   |  ⚙️ Manual  |  ⚙️ Manual  |   ✅ Yes    |   ✅ Yes   |  ✅ Yes   |
+| **TLS Grades**     |   ✅ Yes   |  ⚙️ Manual  |  ⚙️ Manual  |  ⚙️ Manual  |   ✅ Yes   | ⚙️ Manual |
+| **gRPC**           |  ✅ Auto   |  ⚙️ Manual  |  ⚙️ Manual  |  ⚙️ Manual  | ⚙️ Manual  | ⚙️ Manual |
+| **SSL Proxy**      |  ✅ Auto   |  ⚙️ Manual  |  ⚙️ Manual  |   ✅ Yes    |   ✅ Yes   |  ✅ Yes   |
+| **HTTP/2**         |  ✅ Auto   |  ⚙️ Manual  |  ⚙️ Manual  |   ✅ Yes    |   ✅ Yes   |  ✅ Yes   |
+| **WebSocket**      |  ✅ Auto   |  ⚙️ Manual  |  ⚙️ Manual  |   ✅ Yes    |   ✅ Yes   |  ✅ Yes   |
+| **Sticky Session** |   ✅ Yes   |    ❌ No    |   ⚙️ Yes    |   ✅ Yes    | ⚙️ Limited | ✅ Manual |
+| **Prometheus**     |   ✅ Yes   | ⚙️ External |   ✅ Yes    |   ✅ Yes    |   ✅ Yes   |  ✅ Yes   |
+| **Consul**         |   ✅ Yes   |    ❌ No    |  ⚙️DNS API  |   ✅ Yes    |   ❌ No    |  ✅ Yes   |
+| **Kubernetes**     |   ✅ Yes   | ⚙️ Ingress  | ⚙️ External |   ✅ Yes    | ⚙️ Limited |  ✅ Yes   |
+| **Limiter**        |   ✅ Yes   |   ✅ Yes    |   ✅ Yes    |   ✅ Yes    |   ✅ Yes   |  ✅ Yes   |
+| **Static Files**   |   ✅ Yes   |   ✅ Yes    |  ⚙️ Lua ?   |   ✅ Yes    |   ✅ Yes   |   ❌ No   |
+| **Health Checks**  |   ✅ Yes   |  ⚙️ Manual  |  ⚙️ Manual  |   ✅ Yes    |   ✅ Yes   |  ✅ Yes   |
 | **Built With**     |    Rust    |      C      |      C      |     Go      |     Go     |    C++    |
 
 ---
@@ -443,7 +440,7 @@ curl  -u username:password -H 'Host: myip.mydomain.com' http://127.0.0.1:6193/
 
 ## Results reflect synthetic performance under optimal conditions.
 
-- CPU : Intel(R) Xeon(R) CPU E3-1270 v6 @ 3.80GHz
+- CPU : Intel (R) Xeon (R) CPU E3-1270 v6 @ 3.80GHz
 - 300 : simultaneous connections
 - Duration : 10 Minutes
 - Binary : aralez-x86_64-glibc
@@ -499,7 +496,7 @@ Error distribution:
 
 ![Aralez](https://netangels.net/utils/glibc10.png)
 
-- CPU : Intel(R) Xeon(R) CPU E3-1270 v6 @ 3.80GHz
+- CPU : Intel (R) Xeon (R) CPU E3-1270 v6 @ 3.80GHz
 - 300 : simultaneous connections
 - Duration : 10 Minutes
 - Binary : aralez-x86_64-musl
@@ -557,7 +554,7 @@ Error distribution:
 
 ## Aralez, Nginx, Traefik performance benchmark
 
-This benchmark is done on 4 servers. With CPU Intel(R) Xeon(R) E-2174G CPU @ 3.80GHz, 64 GB RAM.
+This benchmark is done on 4 servers. With CPU Intel (R) Xeon (R) E-2174G CPU @ 3.80GHz, 64 GB RAM.
 
 1. Sever runs Aralez, Traefik, Nginx on different ports. Tuned as much as I could .
 2. 3x Upstreams servers, running Nginx. Replying with dummy json hardcoded in config file for max performance.
