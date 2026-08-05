@@ -4,9 +4,10 @@ use pingora_cache::eviction::simple_lru::Manager;
 use pingora_cache::lock::CacheLock;
 use pingora_cache::MemCache;
 use pingora_limits::rate::Rate;
+use std::collections::HashMap;
 use std::net::IpAddr;
-use std::sync::OnceLock;
 use std::sync::{Arc, LazyLock};
+use std::sync::{OnceLock, RwLock};
 use std::time::Duration;
 
 pub static REVERSE_STORE: LazyLock<DashMap<String, String>> = LazyLock::new(DashMap::new);
@@ -17,3 +18,4 @@ pub static MEM_CACHE: LazyLock<MemCache> = LazyLock::new(MemCache::new);
 pub static CACHE_LOCK: LazyLock<CacheLock> = LazyLock::new(|| CacheLock::new(Duration::from_secs(30)));
 pub static EVICTION: OnceLock<Manager> = OnceLock::new();
 pub static CACHE_TTL: OnceLock<u64> = OnceLock::new();
+pub static CHALLENGES: LazyLock<RwLock<HashMap<String, String>>> = LazyLock::new(|| RwLock::new(HashMap::new()));

@@ -1,5 +1,6 @@
 use crate::utils::jwt::{check_jwt, JWT_TOKEN};
 use crate::utils::structs::InnerAuth;
+pub(crate) use crate::utils::tools::split_host_port;
 use axum::http::StatusCode;
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine;
@@ -224,22 +225,22 @@ pub fn get_query_param(session: &mut Session, key: &str) -> Option<String> {
     params.get(key).and_then(|v| decode(v).ok()).map(|s| s.to_string())
 }
 
-#[allow(clippy::needless_return)]
-fn split_host_port(addr: &str, tls: bool) -> Option<(&str, u16, bool, &str)> {
-    match addr.split_once(':') {
-        Some((h, p)) => match p.parse::<u16>() {
-            Ok(port) => return Some((h, port, tls, h)),
-            Err(_) => {
-                log::warn!("ForwardAuth: invalid port in {}", addr);
-                return None;
-            }
-        },
-        None => {
-            if tls {
-                return Some((addr, 443u16, tls, addr));
-            } else {
-                return Some((addr, 80u16, tls, addr));
-            }
-        }
-    };
-}
+// #[allow(clippy::needless_return)]
+// pub fn split_host_port(addr: &str, tls: bool) -> Option<(&str, u16, bool, &str)> {
+//     match addr.split_once(':') {
+//         Some((h, p)) => match p.parse::<u16>() {
+//             Ok(port) => return Some((h, port, tls, h)),
+//             Err(_) => {
+//                 log::warn!("ForwardAuth: invalid port in {}", addr);
+//                 return None;
+//             }
+//         },
+//         None => {
+//             if tls {
+//                 return Some((addr, 443u16, tls, addr));
+//             } else {
+//                 return Some((addr, 80u16, tls, addr));
+//             }
+//         }
+//     };
+// }

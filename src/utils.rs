@@ -3,6 +3,7 @@ pub mod discovery;
 mod filewatch;
 pub mod fordebug;
 pub mod grpc;
+pub mod hcclient;
 pub mod healthcheck;
 pub mod httpclient;
 pub mod jwt;

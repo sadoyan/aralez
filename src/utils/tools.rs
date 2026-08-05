@@ -377,3 +377,23 @@ pub fn write_pid_file(path: &str) -> std::io::Result<()> {
     file.write_all(process::id().to_string().as_bytes())?;
     Ok(())
 }
+
+#[allow(clippy::needless_return)]
+pub fn split_host_port(addr: &str, tls: bool) -> Option<(&str, u16, bool, &str)> {
+    match addr.split_once(':') {
+        Some((h, p)) => match p.parse::<u16>() {
+            Ok(port) => return Some((h, port, tls, h)),
+            Err(_) => {
+                log::warn!("ForwardAuth: invalid port in {}", addr);
+                return None;
+            }
+        },
+        None => {
+            if tls {
+                return Some((addr, 443u16, tls, addr));
+            } else {
+                return Some((addr, 80u16, tls, addr));
+            }
+        }
+    };
+}

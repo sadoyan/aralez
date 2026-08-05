@@ -1,5 +1,5 @@
-use crate::tls::acme::order::CHALLENGES;
 use crate::tls::acme::{account, order};
+use crate::utils::lazylock::CHALLENGES;
 use axum::body::Body;
 use axum::extract::State;
 use axum::http::{Response, StatusCode};
@@ -44,10 +44,6 @@ pub async fn acme_order(State(state): State<crate::web::webserver::AppState>, ax
 }
 pub async fn http01_challenge(axum::extract::Path(token): axum::extract::Path<String>) -> impl IntoResponse {
     if let Ok(challenges) = CHALLENGES.read() {
-        // for k in challenges.iter() {
-        //     println!("   ==> {} : {}", k.0, k.1);
-        // }
-
         if let Some(key_authorization) = challenges.get(&token) {
             return Response::builder()
                 .status(StatusCode::OK)

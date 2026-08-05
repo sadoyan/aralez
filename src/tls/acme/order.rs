@@ -1,16 +1,13 @@
 use crate::tls::acme::account::get_account;
+use crate::utils::lazylock::CHALLENGES;
 use crate::utils::parceyaml::DOMAINS;
 use instant_acme::{ChallengeType, Identifier, NewOrder, RetryPolicy};
 use log::{error, info};
 use pingora::prelude::sleep;
 use rcgen::{CertificateParams, DistinguishedName, KeyPair};
-use std::collections::HashMap;
 use std::fs;
-use std::sync::{LazyLock, RwLock};
 use std::time::Duration;
 use x509_parser::prelude::*;
-
-pub static CHALLENGES: LazyLock<RwLock<HashMap<String, String>>> = LazyLock::new(|| RwLock::new(HashMap::new()));
 
 pub async fn refresh_order(certs_dir: String, autoconf_dir: String) {
     let credsfile = autoconf_dir + "/acme_credentials.json";
