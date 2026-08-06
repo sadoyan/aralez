@@ -27,7 +27,6 @@ async-trait = "0.1.91"
 log = "0.4.33"
 notify = "9.0.0-rc.4"
 axum = { version = "0.8.9" }
-reqwest = { version = "0.13.4", features = ["json", "stream", "blocking"] }
 serde = { version = "1.0.229", features = ["derive"] }
 noyalib = { version = "0.0.18", features = ["compat-serde-yaml"] }
 rand = "0.10.2"

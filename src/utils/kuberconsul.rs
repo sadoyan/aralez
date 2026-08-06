@@ -196,7 +196,7 @@ impl ServiceDiscovery for ConsulDiscovery {
                         }
 
                         let pref = ss.clone() + &i.upstream;
-                        let list = httpclient::for_consul(pref, consul.token.clone(), &i).await;
+                        let list = httpclient::for_consul(pref.as_str(), consul.token.clone(), &i).await;
                         list_to_upstreams(list, &upstreams, &i);
                     }
                 }

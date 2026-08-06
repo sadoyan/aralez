@@ -5,6 +5,7 @@ use pingora_core::listeners::ALPN;
 use pingora_core::prelude::HttpPeer;
 use pingora_http::RequestHeader;
 use std::sync::LazyLock;
+use std::time::Duration;
 
 pub static HC_CONNECTOR: LazyLock<Connector> = LazyLock::new(|| Connector::new(None));
 
@@ -24,6 +25,7 @@ pub async fn httpclient(method: &str, tls: bool, host: &str, path: &str, address
     }
 
     let mut is_h2 = false;
+    peer.options.total_connection_timeout = Option::from(Duration::from_secs(5));
     peer.options.alpn = ALPN::H2H1;
     let (mut http_session, _) = match HC_CONNECTOR.get_http_session(&peer).await {
         Ok(s) => s,
