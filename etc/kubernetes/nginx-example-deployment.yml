@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: svc-nginx
+  labels:
+    app: svc-nginx
+spec:
+  selector:
+    matchLabels:
+      app: svc-nginx
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: svc-nginx
+    spec:
+      containers:
+      - name: svc-nginx
+        image: nginx:latest
+        ports:
+        - containerPort: 80

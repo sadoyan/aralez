@@ -1,0 +1,24 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: wss-service-v2
+  namespace: default
+  annotations:
+    # These custom annotations are parsed by Aralez
+    aralez.rs/rate_limit: "50"
+    aralez.rs/x4xx_limit: "10"
+    aralez.rs/client_headers: '["X-Some-Client:Some Custom Header", "X-Example-Client:An Example Header"]'
+    aralez.rs/server_headers: '["X-Some-Server:Some Custom Header", "X-Example-Server:An Example Header"]'
+spec:
+  ingressClassName: aralez  # Matches the IngressClass metadata
+  rules:
+    - host: wss-service-v2.blabla.com
+      http:
+        paths:
+          - path: /ws
+            pathType: Prefix
+            backend:
+              service:
+                name: svc-nginx
+                port:
+                  number: 80

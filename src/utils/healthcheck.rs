@@ -7,7 +7,7 @@ use std::sync::atomic::AtomicUsize;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::net::TcpStream;
-use tokio::time::interval;
+use tokio::time::{interval, timeout};
 use tokio_native_tls::native_tls::TlsConnector;
 
 pub async fn hc2(upslist: Arc<UpstreamsDashMap>, fullist: Arc<UpstreamsDashMap>, idlist: Arc<UpstreamsIdMap>, params: (&str, u64)) {
@@ -86,12 +86,12 @@ async fn build_upstreams(fullist: &UpstreamsDashMap, method: &str) -> UpstreamsD
 
 async fn detect_tls(ip: &str, port: &u16, sni: &str) -> bool {
     let addr = format!("{ip}:{port}");
-
-    let stream = match TcpStream::connect(&addr).await {
-        Ok(s) => s,
+    let timeout_duration = Duration::from_secs(2); // THINK !!!
+    let stream = match timeout(timeout_duration, TcpStream::connect(&addr)).await {
+        Ok(Ok(s)) => s,
+        Ok(Err(_)) => return false,
         Err(_) => return false,
     };
-
     let connector = tokio_native_tls::TlsConnector::from(
         TlsConnector::builder()
             .danger_accept_invalid_certs(true)

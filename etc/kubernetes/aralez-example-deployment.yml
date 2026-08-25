@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aralez
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: aralez
+  template:
+    metadata:
+      labels:
+        app: aralez
+    spec:
+      serviceAccountName: aralez-sa
+      containers:
+        - name: aralez
+          image: sadoyan/aralez:latest
+          ports:
+            - containerPort: 80
+            - containerPort: 443
+          volumeMounts:
+            - name: main-config
+              mountPath: /etc/aralez/main.yaml
+              subPath: main.yaml
+              readOnly: true
+            - name: upstreams-config
+              mountPath: /etc/aralez/upstreams.yml
+              subPath: upstreams.yml
+              readOnly: true
+            - name: tls-certs
+              mountPath: /etc/aralez/certificates
+              readOnly: true
+      volumes:
+        - name: main-config
+          configMap:
+            name: aralez-main-config
+        - name: upstreams-config
+          configMap:
+            name: aralez-upstreams-config
+        - name: tls-certs
+          secret:
+            secretName: aralez-tls

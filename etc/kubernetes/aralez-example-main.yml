@@ -1,0 +1,16 @@
+threads: 12
+daemon: false
+upstream_keepalive_pool_size: 500
+pid_file: /tmp/aralez.pid
+error_log: /tmp/aralez_err.log
+upgrade_sock: /tmp/aralez.sock
+config_api_enabled: false
+config_address: 127.0.0.1:3000
+proxy_address_http: 0.0.0.0:80
+proxy_address_tls: 0.0.0.0:443
+proxy_configs: /etc/aralez
+proxy_tls_grade: high
+upstreams_conf: /etc/aralez/upstreams.yml
+log_level: info
+hc_method: HEAD
+hc_interval: 2

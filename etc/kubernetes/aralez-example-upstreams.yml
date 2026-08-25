@@ -1,0 +1,14 @@
+# The file under watch and hot reload, changes are applied immediately, no need to restart or reload.
+provider: "kubernetes" # "file" "consul" "kubernetes"
+sticky_sessions: 172000
+to_https: false
+rate_limit: 500000
+x4xx_limit: 100000
+server_headers:
+  - "X-Forwarded-Proto:https"
+  - "X-Forwarded-Port:443"
+client_headers:
+  - "X-Global-Client:Yooooooo"
+kubernetes:
+  servers:
+    - "127.0.0.1:6443" # Gets KUBERNETES_SERVICE_HOST : KUBERNETES_SERVICE_PORT_HTTPS env variables.

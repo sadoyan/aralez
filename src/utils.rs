@@ -8,6 +8,7 @@ pub mod healthcheck;
 pub mod httpclient;
 pub mod jwt;
 pub mod kuberconsul;
+pub mod kubewatcher;
 pub mod lazylock;
 pub mod metrics;
 pub mod parceyaml;
