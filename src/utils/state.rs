@@ -16,14 +16,3 @@ pub fn is_first_run() -> bool {
     let state = GLOBAL_STATE.read().unwrap();
     state.first_run
 }
-
-/*
-impl SharedState {
-    pub fn mark_first_run(&mut self) {
-        self.first_run = false;
-    }
-    pub fn is_first_run(&self) -> bool {
-        self.first_run
-    }
-}
-*/

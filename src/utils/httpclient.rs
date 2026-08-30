@@ -1,33 +1,117 @@
-use crate::utils::kuberconsul::{match_path, ConsulService, KubeEndpoints};
+use crate::utils::consul::ConsulService;
+use crate::utils::kuberconsul::match_path;
+use crate::utils::kubernetes::KubeEndpoints;
 use crate::utils::structs::{GlobalServiceMapping, InnerMap};
+use ahash::HashMap;
+use base64::{engine::general_purpose, Engine as _};
 use dashmap::DashMap;
+use log::warn;
 use pingora_core::connectors::http::Connector;
 use pingora_core::listeners::ALPN;
 use pingora_core::prelude::HttpPeer;
 use pingora_http::RequestHeader;
+use serde::{Deserialize, Serialize};
 use std::sync::atomic::AtomicUsize;
 use std::sync::{Arc, LazyLock};
 use std::time::Duration;
 
 pub static CONNECTOR: LazyLock<Connector> = LazyLock::new(|| Connector::new(None));
 
+#[derive(Debug, Default, Serialize, Deserialize, Clone)]
+pub struct ConsulServicesInternal {
+    #[serde(rename = "aralez.host")]
+    pub host: String,
+    #[serde(rename = "aralez.path")]
+    pub path: String,
+    #[serde(rename = "aralez.auth")]
+    pub auth: Option<String>,
+    #[serde(rename = "aralez.redirect")]
+    pub redirect: Option<String>,
+    #[serde(rename = "aralez.rate")]
+    pub rate: Option<isize>,
+    #[serde(rename = "aralez.4xx_rate")]
+    pub xrate: Option<u32>,
+    #[serde(rename = "aralez.client_headers")]
+    pub client_headers: Option<Vec<String>>,
+    #[serde(rename = "aralez.server_headers")]
+    pub server_headers: Option<Vec<String>>,
+    #[serde(rename = "aralez.to_https")]
+    pub to_https: Option<bool>,
+}
+pub type ConsulServices = HashMap<String, ConsulServicesInternal>;
+pub async fn for_consul_list(url: &str, token: Option<String>) -> Option<ConsulServices> {
+    if let Some(data) = getfromapi(url, token, "consul").await {
+        let yo = parse_services(data);
+        if let Ok(y) = yo {
+            return Some(y);
+        }
+        return None;
+    }
+    None
+}
+
+fn parse_services(json: Vec<u8>) -> Result<ConsulServices, serde_json::Error> {
+    let raw: HashMap<String, Vec<String>> = serde_json::from_slice(&json)?;
+    Ok(raw
+        .into_iter()
+        .map(|(service, tags)| {
+            let mut internal = ConsulServicesInternal::default();
+            for tag in tags {
+                if let Some((key, value)) = tag.split_once('=') {
+                    match key {
+                        "aralez.host" => internal.host = value.to_string(),
+                        "aralez.path" => internal.path = value.to_string(),
+                        "aralez.rate" => internal.rate = value.parse::<isize>().ok(),
+                        "aralez.4xx_rate" => internal.xrate = value.parse::<u32>().ok(),
+                        "aralez.to_https" => internal.to_https = value.parse::<bool>().ok(),
+                        "aralez.auth" => internal.auth = Option::from(value.to_string()),
+                        "aralez.redirect" => internal.redirect = Option::from(value.to_string()),
+                        "aralez.client_headers" => {
+                            let decoded_bytes = general_purpose::STANDARD.decode(value).unwrap_or_default();
+                            let decoded: Result<Vec<String>, serde_json::Error> = serde_json::from_slice(&decoded_bytes);
+                            match decoded {
+                                Ok(dd) => internal.client_headers = Some(dd),
+                                Err(er) => {
+                                    warn!("Could not decode client headers: {}", er);
+                                    internal.client_headers = None
+                                }
+                            }
+                        }
+                        "aralez.server_headers" => {
+                            let decoded_bytes = general_purpose::STANDARD.decode(value).unwrap_or_default();
+                            let decoded: Result<Vec<String>, serde_json::Error> = serde_json::from_slice(&decoded_bytes);
+                            match decoded {
+                                Ok(dd) => internal.server_headers = Some(dd),
+                                Err(er) => {
+                                    warn!("Could not decode server headers: {}", er);
+                                    internal.server_headers = None
+                                }
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+            }
+
+            (service, internal)
+        })
+        .collect())
+}
 pub async fn for_consul(url: &str, token: Option<String>, conf: &GlobalServiceMapping) -> Option<DashMap<Arc<str>, (Vec<Arc<InnerMap>>, AtomicUsize)>> {
     if let Some(data) = getfromapi(url, token, "consul").await {
         let endpoints: Vec<ConsulService> = serde_json::from_slice(&data).ok()?;
         let mut inner_vec = Vec::new();
         let upstreams: DashMap<Arc<str>, (Vec<Arc<InnerMap>>, AtomicUsize)> = DashMap::new();
         for subsets in endpoints {
-            let addr = subsets.tagged_addresses.get("lan_ipv4").unwrap().address.clone();
-            let prt = subsets.tagged_addresses.get("lan_ipv4").unwrap().port;
             let to_add = Arc::from(InnerMap {
-                address: Arc::from(&*addr),
-                port: prt,
+                address: Arc::from(&*subsets.address),
+                port: subsets.port,
                 is_ssl: false,
                 is_http2: false,
                 to_https: conf.to_https.unwrap_or(false),
                 rate_limit: conf.rate_limit,
                 x4xx_limit: conf.x4xx_limit,
-                redirect_to: None,
+                redirect_to: conf.redirect_to.clone().map(Arc::<str>::from),
                 healthcheck: None,
                 authorization: None,
             });
@@ -164,3 +248,10 @@ fn parse_url(url: &str) -> Result<(&str, u16, &str, bool), &'static str> {
 
     Ok((host, port, uri, is_https))
 }
+
+// fn base64_decode(encoded: &str) -> Option<String> {
+//     let decoded_bytes = general_purpose::STANDARD.decode(encoded).unwrap_or_default();
+//     let decoded: Result<HashMap<String, String>, serde_json::Error> = serde_json::from_slice(&decoded_bytes);
+//     println!("Decoded: {:?}", decoded);
+//     None
+// }

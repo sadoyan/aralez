@@ -1,4 +1,5 @@
 pub mod auth;
+pub mod consul;
 pub mod discovery;
 mod filewatch;
 pub mod fordebug;
@@ -8,6 +9,7 @@ pub mod healthcheck;
 pub mod httpclient;
 pub mod jwt;
 pub mod kuberconsul;
+pub mod kubernetes;
 pub mod kubewatcher;
 pub mod lazylock;
 pub mod metrics;

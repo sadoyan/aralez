@@ -1,5 +1,7 @@
+use crate::utils::consul::ConsulDiscovery;
 use crate::utils::filewatch;
-use crate::utils::kuberconsul::{ConsulDiscovery, KubernetesDiscovery, ServiceDiscovery};
+use crate::utils::kuberconsul::ServiceDiscovery;
+use crate::utils::kubernetes::KubernetesDiscovery;
 use crate::utils::structs::{Configuration, UpstreamsDashMap};
 use crate::web::webserver;
 use async_trait::async_trait;
