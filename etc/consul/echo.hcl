@@ -45,11 +45,11 @@ job "echo" {
           "aralez.service=yes",
           "aralez.host=echo.blablabla.com",
           "aralez.path=/",
-          "aralez.rate=100",
-          "aralez.4xx_rate=50",
-          "aralez.to_https=false",
-          "aralez.client_headers=WyJYLUVjaG8tU2VuZDpIb29vb29vb29vb29vIiwiWC1FY2hvLVJlY3Y6WW9vb29vb29vb29vbyJdCg==",
-          "aralez.server_headers=WyJYLVByb3h5LUZyb206IEFyYWxleiIsIlgtQmFyaS1MdXlzOiBBcGVyIEphbiIsIlgtQW5rYXAtSGVhZGVyOiBCZXNhbXAgQW5rYXAgSGVhZGVyIl0K"
+          "aralez.rate=20",
+          "aralez.4xx_rate=10",
+          "aralez.to_https=true",
+          "aralez.client_header=X-Client-Header:Some simple header",
+          "aralez.server_header=X-Server-Header:Some simple header",
         ]
         check {
           type     = "http"
@@ -59,9 +59,7 @@ job "echo" {
           timeout  = "2s"
         }
       }
-
       driver = "docker"
-
       config {
         image      = "ealen/echo-server:latest"
         force_pull = true

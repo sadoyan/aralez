@@ -44,7 +44,8 @@ job "apache" {
         tags = [
           "aralez.service=yes",
           "aralez.host=apache.blablabla.com",
-          "aralez.path=/"
+          "aralez.path=/",
+          "aralez.redirect=http://checkip.amazonaws.com"
         ]
         check {
           type     = "http"
@@ -54,9 +55,7 @@ job "apache" {
           timeout  = "2s"
         }
       }
-
       driver = "docker"
-
       config {
         image      = "httpd:latest"
         force_pull = true

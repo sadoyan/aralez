@@ -310,15 +310,16 @@ impl ProxyHttp for LB {
                 let _ = _upstream_response.append_header("set-cookie", buf.as_str());
             }
         }
-
+        Ok(())
+    }
+    async fn upstream_response_filter(&self, _session: &mut Session, upstream_response: &mut ResponseHeader, ctx: &mut Self::CTX) -> Result<()> {
         if let Some(client_headers) = &ctx.client_headers {
             for (k, v) in client_headers.iter() {
-                _upstream_response.append_header(k.clone(), v.as_ref())?;
+                upstream_response.append_header(k.clone(), v.as_ref())?;
             }
         }
         Ok(())
     }
-
     async fn logging(&self, session: &mut Session, _e: Option<&pingora::Error>, ctx: &mut Self::CTX) {
         let response_code = session.response_written().map_or(0, |resp| resp.status.as_u16());
         let m = &MetricTypes {

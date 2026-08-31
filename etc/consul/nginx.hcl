@@ -45,12 +45,13 @@ job "nginx" {
           "aralez.service=yes",
           "aralez.host=nginx.blablabla.com",
           "aralez.path=/",
-          "aralez.rate=20",
+          "aralez.rate=1",
           "aralez.4xx_rate=10",
           "aralez.to_https=true",
-          "aralez.auth=basic root:toor",
-          "aralez.client_headers=WwogICAgIlgtU29tZS1IZWFkZXI6QUFBQUFBQUFBQUFBQUFBIiwKICAgICJYLUVtb3MtSGVhZGVyOlpaWlpaWlpaWlpaWlpaWiIsCiAgICAiWC1PdGhlci1oZWFkZXI6VmF5VmF5VmF5IiwKICAgICJYLVJlaHRvLWhlYWRlcjpaYXlaYXlaYXkiCl0KCg==",
-          "aralez.server_headers=WyJYLVByb3h5LUZyb206IEFyYWxleiIsIlgtQmFyaS1MdXlzOiBBcGVyIEphbiIsIlgtQW5rYXAtSGVhZGVyOiBCZXNhbXAgQW5rYXAgSGVhZGVyIl0K"
+          "aralez.client_header=X-Some:Some Random Header",
+          "aralez.client_header=X-Emos:Redaeh Modnar Emos",
+          "aralez.server_header=X-From:Aralez & Consul",
+          "aralez.server_header=X-Mrof: Lusnoc & Zelara",
         ]
         check {
           type     = "http"
@@ -60,9 +61,7 @@ job "nginx" {
           timeout  = "2s"
         }
       }
-
       driver = "docker"
-
       config {
         image      = "nginx:latest"
         force_pull = true

@@ -3,9 +3,7 @@ use crate::utils::kuberconsul::match_path;
 use crate::utils::kubernetes::KubeEndpoints;
 use crate::utils::structs::{GlobalServiceMapping, InnerMap};
 use ahash::HashMap;
-use base64::{engine::general_purpose, Engine as _};
 use dashmap::DashMap;
-use log::warn;
 use pingora_core::connectors::http::Connector;
 use pingora_core::listeners::ALPN;
 use pingora_core::prelude::HttpPeer;
@@ -66,28 +64,8 @@ fn parse_services(json: Vec<u8>) -> Result<ConsulServices, serde_json::Error> {
                         "aralez.to_https" => internal.to_https = value.parse::<bool>().ok(),
                         "aralez.auth" => internal.auth = Option::from(value.to_string()),
                         "aralez.redirect" => internal.redirect = Option::from(value.to_string()),
-                        "aralez.client_headers" => {
-                            let decoded_bytes = general_purpose::STANDARD.decode(value).unwrap_or_default();
-                            let decoded: Result<Vec<String>, serde_json::Error> = serde_json::from_slice(&decoded_bytes);
-                            match decoded {
-                                Ok(dd) => internal.client_headers = Some(dd),
-                                Err(er) => {
-                                    warn!("Could not decode client headers: {}", er);
-                                    internal.client_headers = None
-                                }
-                            }
-                        }
-                        "aralez.server_headers" => {
-                            let decoded_bytes = general_purpose::STANDARD.decode(value).unwrap_or_default();
-                            let decoded: Result<Vec<String>, serde_json::Error> = serde_json::from_slice(&decoded_bytes);
-                            match decoded {
-                                Ok(dd) => internal.server_headers = Some(dd),
-                                Err(er) => {
-                                    warn!("Could not decode server headers: {}", er);
-                                    internal.server_headers = None
-                                }
-                            }
-                        }
+                        "aralez.client_header" => internal.client_headers.get_or_insert_default().push(value.to_string()),
+                        "aralez.server_header" => internal.server_headers.get_or_insert_default().push(value.to_string()),
                         _ => {}
                     }
                 }

@@ -1,6 +1,6 @@
 [package]
 name = "aralez"
-version = "0.93.1"
+version = "0.93.2"
 edition = "2021"
 license = "Apache-2.0"
 description = "Reverse proxy built on top of Cloudflare's Pingora"
