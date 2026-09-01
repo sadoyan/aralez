@@ -43,7 +43,7 @@ job "apache" {
         port = "apache"
         tags = [
           "aralez.service=yes",
-          "aralez.host=apache.blablabla.com",
+          "aralez.host=apache.example.com",
           "aralez.path=/",
           "aralez.redirect=http://checkip.amazonaws.com"
         ]

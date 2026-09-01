@@ -43,7 +43,7 @@ job "echo" {
         port = "echo"
         tags = [
           "aralez.service=yes",
-          "aralez.host=echo.blablabla.com",
+          "aralez.host=echo.example.com",
           "aralez.path=/",
           "aralez.rate=20",
           "aralez.4xx_rate=10",

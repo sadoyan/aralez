@@ -43,7 +43,7 @@ job "nginx" {
         port = "nginx"
         tags = [
           "aralez.service=yes",
-          "aralez.host=nginx.blablabla.com",
+          "aralez.host=nginx.example.com",
           "aralez.path=/",
           "aralez.rate=1",
           "aralez.4xx_rate=10",
