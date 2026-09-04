@@ -1,6 +1,6 @@
 [package]
 name = "aralez"
-version = "0.93.2"
+version = "0.93.3"
 edition = "2021"
 license = "Apache-2.0"
 description = "Reverse proxy built on top of Cloudflare's Pingora"
@@ -23,12 +23,12 @@ pingora-http = "0.8.1"
 pingora-limits = "0.8.1"
 pingora-cache = "0.8.1"
 dashmap = "7.0.0-rc2"
-async-trait = "0.1.91"
-log = "0.4.33"
+async-trait = "0.1.92"
+log = "0.4.34"
 notify = "9.0.0-rc.4"
 axum = { version = "0.8.9" }
 serde = { version = "1.0.229", features = ["derive"] }
-noyalib = { version = "0.0.18", features = ["compat-serde-yaml"] }
+noyalib = { version = "0.0.32", features = ["compat-serde-yaml"] }
 rand = "0.10.2"
 base64 = "0.23.1"
 jsonwebtoken = { version = "11.0.0", default-features = false, features = ["use_pem", "rust_crypto"] }
@@ -39,26 +39,26 @@ arc-swap = "1.9.2"
 prometheus = "0.14.0"
 x509-parser = "0.18.1"
 rustls-pemfile = "2.2.0"
-tower-http = { version = "0.7.0", features = ["fs"] }
+tower-http = { version = "0.7.1", features = ["fs"] }
 privdrop = "0.5.6"
 serde_json = "1.0.151"
 subtle = "2.6.1"
-moka = { version = "0.12.15", features = ["sync"] }
+moka = { version = "0.12.16", features = ["sync"] }
 ahash = "0.8.12"
 instant-acme = "0.8.5"
-rcgen = "0.14.8"
+rcgen = "0.14.10"
 log4rs = { version = "1.4.0", features = ["rolling_file_appender", "compound_policy", "size_trigger", "fixed_window_roller", "gzip"] }
 mimalloc = { version = "0.1.52", default-features = false }
 signal-hook = "0.4.4"
 sd-notify = "0.5.0"
 libc = "0.2.186"
 tokio-native-tls = "0.3.1"
-hyper = "1.11.0"
+hyper = "1.11.1"
 hyper-util = "0.1.20"
-http-body-util = "0.1.4"
+http-body-util = "0.1.5"
 bytes = "1.12.1"
 
 rustls = { version = "0.23", default-features = false, features = ["ring"] }
 kube = { version = "4.2.0", features = ["runtime", "client", "derive"] }
 k8s-openapi = { version = "0.28.0", features = ["v1_32"] }
-futures = "0.3"
+futures = "0.3.34"

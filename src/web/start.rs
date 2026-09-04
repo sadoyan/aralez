@@ -1,4 +1,3 @@
-// use rustls::crypto::ring::default_provider;
 use crate::tls::grades;
 use crate::tls::load;
 use crate::tls::load::CertificateConfig;
@@ -18,6 +17,7 @@ use pingora_core::prelude::{background_service, Opt};
 use pingora_core::protocols::TcpKeepalive;
 use pingora_core::server::Server;
 use privdrop::reexports::libc::SIGQUIT;
+use rustls::crypto::ring::default_provider;
 use sd_notify::NotifyState;
 use signal_hook::{
     consts::{SIGINT, SIGTERM},
@@ -27,9 +27,8 @@ use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::Arc;
 use std::time::Duration;
 use std::{fs, thread};
-
 pub fn run() {
-    // default_provider().install_default().expect("Failed to install rustls crypto provider");
+    default_provider().install_default().expect("Failed to install RusTLS crypto provider");
     let parameters = Opt::parse_args();
     let file = parameters.conf.clone().unwrap();
     let maincfg = crate::utils::parceyaml::parce_main_config(file.as_str());

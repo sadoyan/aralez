@@ -1,5 +1,6 @@
 use crate::tls::acme::order::refresh_order;
 use crate::utils::discovery::{APIUpstreamProvider, ConsulProvider, Discovery, FromFileProvider, KubernetesProvider};
+use crate::utils::metrics::calc_cache_metrics;
 use crate::utils::parceyaml::load_configuration;
 use crate::utils::structs::Configuration;
 use crate::utils::tools::*;
@@ -76,6 +77,7 @@ impl BackgroundService for LB {
         drop(tokio::spawn(async move {
             healthcheck::hc2(uu, ff, im, (&*hc_method.to_string(), hc_interval.to_string().parse().unwrap())).await
         }));
+        drop(tokio::spawn(async move { calc_cache_metrics().await }));
         drop(tokio::spawn(async move { refresh_order(certdir, confdir).await }));
         init_logging(self.config.access_log.clone());
         loop {
