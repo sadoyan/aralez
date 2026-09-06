@@ -1,0 +1,23 @@
+---
+# See https://docs.github.com/en/github/administering-a-repository/configuration-options-for-dependency-updates
+
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    commit-message:
+      prefix: "chore:"
+    open-pull-requests-limit: 8
+    rebase-strategy: disabled
+    schedule:
+      interval: "monthly"
+      day: "monday"
+      time: "10:00"
+      timezone: "UTC"
+    cooldown:
+      default-days: 7
+    groups:
+      actions:
+        patterns:
+          - "actions/*"
+          - "helm/*"

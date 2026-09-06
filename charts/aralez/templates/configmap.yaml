@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "aralez.fullname" . }}
+  labels:
+    {{- include "aralez.labels" . | nindent 4 }}
+data:
+  aralez.yaml: |
+    daemon: false
+    upstreams_conf: /etc/aralez/upstreams.yaml
+    proxy_configs: /etc/aralez-proxy
+    proxy_address_http: "0.0.0.0:{{ .Values.hostPort.ports.http }}"
+    proxy_address_tls: "0.0.0.0:{{ .Values.hostPort.ports.https }}"
+    config_api_enabled: false
+    config_address: "0.0.0.0:3000"
+    upgrade_sock: /tmp/aralez.sock
+    pid_file: /tmp/aralez.pid
+    log_level: debug
+    hc_method: HEAD
+    hc_interval: 5
+
+  upstreams.yaml: |
+    provider: "kubernetes"
+    sticky_sessions: 172000
+    kubernetes: {}
+  {{- with .Values.upstreams }}
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
