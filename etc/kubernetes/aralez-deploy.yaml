@@ -1,0 +1,76 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aralez
+  namespace: aralez
+  labels:
+    app.kubernetes.io/name: aralez
+    app.kubernetes.io/component: ingress-controller
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: aralez
+  template:
+    metadata:
+      labels:
+        app: aralez
+    spec:
+      serviceAccountName: aralez-sa
+      containers:
+        - name: aralez
+          #image: sadoyan/aralez:latest
+          image: nginx:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: ARALEZ_SERVICE_NAME
+              value: "aralez-service"
+            - name: ARALEZ_SERVICE_NAMESPACE
+              value: "aralez"
+            - name: ARALEZ_EXTERNAL_IP # Only for bare metal deployment, remove this in Cloud.
+              value: "192.168.10.10" # Only for bare metal deployment, remove this in Cloud.
+
+          ports:
+            - name: http
+              containerPort: 80
+            - name: https
+              containerPort: 443
+          readinessProbe:
+            tcpSocket:
+              port: 80
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket:
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "1"
+              memory: "512Mi"
+          volumeMounts:
+            - name: main-config
+              mountPath: /etc/aralez/main.yaml
+              subPath: main.yaml
+              readOnly: true
+            - name: upstreams-config
+              mountPath: /etc/aralez/upstreams.yml
+              subPath: upstreams.yml
+              readOnly: true
+            - name: tls-certs
+              mountPath: /etc/aralez/certificates
+              readOnly: true
+      volumes:
+        - name: main-config
+          configMap:
+            name: aralez-main-config
+        - name: upstreams-config
+          configMap:
+            name: aralez-upstreams-config
+        - name: tls-certs
+          secret:
+            secretName: aralez-tls
