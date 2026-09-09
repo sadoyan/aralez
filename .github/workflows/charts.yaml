@@ -1,0 +1,28 @@
+name: Helm chart check
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "charts/**"
+
+jobs:
+  helm-lint:
+    name: Helm chart check
+    timeout-minutes: 5
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install chart-testing tools
+        id: lint
+        uses: helm/chart-testing-action@6ec842c01de15ebb84c8627d2744a0c2f2755c9f # v2.8.0
+
+      - name: Run helm chart linter
+        run: ct --config .github/ct.yml lint
+      - name: Run helm template
+        run: helm lint charts/aralez

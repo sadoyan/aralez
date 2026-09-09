@@ -1,0 +1,41 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "aralez.fullname" . }}
+  labels:
+    {{- include "aralez.labels" . | nindent 4 }}
+  {{- with .Values.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.service.type }}
+  {{- if eq .Values.service.type "NodePort" }}
+  externalTrafficPolicy: Local
+  {{- end }}
+  {{- with .Values.service.ipFamilies }}
+  ipFamilies:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  ipFamilyPolicy: {{ if eq (len .Values.service.ipFamilies) 2 }}PreferDualStack{{ else }}SingleStack{{ end }}
+  ports:
+    {{- if .Values.hostPort.ports.http }}
+    - port: 80
+      targetPort: http
+      protocol: TCP
+      name: http
+      {{- if .Values.hostPort.enabled }}
+      nodePort: {{ .Values.hostPort.ports.http }}
+      {{- end }}
+    {{- end }}
+    {{- if .Values.hostPort.ports.https }}
+    - port: 443
+      targetPort: https
+      protocol: TCP
+      name: https
+      {{- if .Values.hostPort.enabled }}
+      nodePort: {{ .Values.hostPort.ports.https }}
+      {{- end }}
+    {{- end }}
+  selector:
+    {{- include "aralez.selectorLabels" . | nindent 4 }}

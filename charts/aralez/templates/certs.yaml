@@ -1,0 +1,21 @@
+{{- $ca := genCA .Chart.Name 3650 }}
+{{- $server := genSignedCert "server" (list "127.0.0.1") nil 3650 $ca }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ include "aralez.fullname" . }}-tls
+  labels:
+    {{- include "aralez.labels" . | nindent 4 }}
+type: kubernetes.io/tls
+data:
+{{- $secretName := printf "%s-tls" (include "aralez.fullname" .) }}
+{{- $secretData := (lookup "v1" "Secret" .Release.Namespace $secretName).data }}
+{{- if and $secretData (hasKey $secretData "ca.crt") }}
+  ca.crt: {{ get $secretData "ca.crt" }}
+  tls.crt: {{ get $secretData "tls.crt" }}
+  tls.key: {{ get $secretData "tls.key" }}
+{{- else }}
+  ca.crt: {{ $ca.Cert | b64enc }}
+  tls.crt: {{ $server.Cert | b64enc }}
+  tls.key: {{ $server.Key | b64enc }}
+{{- end }}

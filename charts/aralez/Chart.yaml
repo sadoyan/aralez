@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=https://json.schemastore.org/chart.json
+apiVersion: v2
+name: aralez
+description: Ingress controller for Kubernetes
+type: application
+home: https://github.com/sadoyan/aralez/charts
+sources:
+  - https://github.com/sadoyan/helm-charts/tree/main/charts/aralez
+keywords:
+  - ingress-controller
+  - aralez
+maintainers: []
+#
+# Versions are expected to follow Semantic Versioning (https://semver.org/)
+version: 0.0.1
+#
+# renovate: datasource=docker depName=ghcr.io/sadoyan/aralez
+appVersion: 0.93.3

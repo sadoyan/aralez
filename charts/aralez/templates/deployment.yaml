@@ -1,0 +1,130 @@
+apiVersion: apps/v1
+{{- if .Values.useDaemonSet }}
+kind: DaemonSet
+{{- else }}
+kind: Deployment
+{{- end }}
+metadata:
+  name: {{ include "aralez.fullname" . }}
+  labels:
+    {{- include "aralez.labels" . | nindent 4 }}
+spec:
+  {{- if not (or .Values.autoscaling.enabled .Values.useDaemonSet) }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  {{- if not .Values.useDaemonSet }}
+  strategy:
+    type: {{ .Values.updateStrategy.type }}
+  {{- else }}
+  updateStrategy:
+    type: {{ .Values.updateStrategy.type }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "aralez.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "aralez.labels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      annotations:
+      {{- if .Values.upstreams }}
+        checksum/upstreams: {{ toJson .Values.upstreams | sha256sum }}
+      {{- end }}
+    spec:
+      enableServiceLinks: false
+      {{- if and .Values.hostNetwork .Values.useDaemonSet }}
+      hostNetwork: {{ .Values.hostNetwork }}
+      dnsPolicy: "ClusterFirstWithHostNet"
+      {{- end }}
+      {{- if .Values.priorityClassName }}
+      priorityClassName: {{ .Values.priorityClassName }}
+      {{- end }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "aralez.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- if .Values.terminationGracePeriodSeconds }}
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
+      {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["aralez"]
+          args:
+            - --conf=/etc/aralez/aralez.yaml
+            {{- range $value := .Values.args }}
+            - {{ $value }}
+            {{- end }}
+          env:
+          {{- with .Values.env }}
+            {{- . | toYaml | nindent 12 }}
+          {{- end }}
+          ports:
+            {{- if .Values.hostPort.ports.http }}
+            - name: http
+              containerPort: {{ .Values.hostPort.ports.http }}
+              protocol: TCP
+            {{- end }}
+            {{- if .Values.hostPort.ports.https }}
+            - name: https
+              containerPort: {{ .Values.hostPort.ports.https }}
+              protocol: TCP
+            {{- end }}
+          # readinessProbe:
+          #   httpGet:
+          #     path: /status
+          #     port: 3000
+          #   initialDelaySeconds: 30
+          #   timeoutSeconds: 5
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: config
+              mountPath: /etc/aralez
+            - name: tlscerts
+              mountPath: /etc/aralez-proxy/certificates
+          {{- with .Values.volumeMounts }}
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "aralez.fullname" . }}
+        - name: tlscerts
+          secret:
+            secretName: {{ include "aralez.fullname" . }}-tls
+            defaultMode: 256
+            items:
+              - key: tls.crt
+                path: tls.crt
+              - key: tls.key
+                path: tls.key
+      {{- with .Values.volumes }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      affinity:
+        {{- include "affinities.pods" . | nindent 8 }}
+      {{- with .Values.affinity }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

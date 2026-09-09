@@ -1,0 +1,18 @@
+ingressClass: aralez
+ingressClassResource:
+  enabled: true
+
+# hostNetwork: true
+# hostPort:
+#   ports:
+#     http: 8080
+#     https: 8443
+
+priorityClassName: system-cluster-critical
+
+env: []
+
+args: []
+
+useDaemonSet: true
+terminationGracePeriodSeconds: 120

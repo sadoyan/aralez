@@ -1,0 +1,164 @@
+# Default values for aralez.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+replicaCount: 1
+
+image:
+  repository: ghcr.io/sadoyan/aralez
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: ""
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+# -- Environment variables
+env: []
+
+# -- Aralez arguments
+args: []
+
+# -- Aralez upstreams file body
+# refs: https://aralez.rs/docs/kubernetes/
+upstreams:
+  rate_limit: 500000
+  x4xx_limit: 100000
+  to_https: true
+  server_headers:
+    - "X-Forwarded-Proto:https"
+    - "X-Forwarded-Port:443"
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+# -- Annotations for pod.
+# ref: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
+podAnnotations: {}
+  # cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
+
+# -- Extra labels for pod.
+# ref: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
+podLabels: {}
+
+# -- Pod Security Context.
+# ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 9999
+  runAsGroup: 9999
+  fsGroup: 9999
+  fsGroupChangePolicy: "OnRootMismatch"
+
+# -- Container Security Context.
+# ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
+securityContext:
+  seccompProfile:
+    type: RuntimeDefault
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+
+# -- Pod host network
+# Use it only for performance reason
+hostNetwork: false
+
+# -- Service node port
+# refs: https://kubernetes.io/docs/concepts/services-networking/service/#type-nodeport
+hostPort:
+  enabled: false
+  ports:
+    http: 8080
+    https: 8443
+
+ingressClass: aralez
+ingressClassResource:
+  enabled: true
+  controllerValue: aralez.proxy/ingress-controller
+
+# -- Bitwarden service parameters
+# ref: https://kubernetes.io/docs/user-guide/services/
+service:
+  # -- service type
+  type: ClusterIP
+
+  annotations: {}
+
+  # -- IP families for service
+  # possible values: IPv4, IPv6
+  # ref: https://kubernetes.io/docs/concepts/services-networking/dual-stack/
+  ipFamilies: [IPv4]
+
+# -- Resource requests and limits.
+# ref: https://kubernetes.io/docs/user-guide/compute-resources/
+resources:
+  limits:
+    cpu: 1
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+# -- Horizontal and Vertical pod autoscaler.
+# ref: https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
+autoscaling:
+  enabled: false
+
+  minReplicas: 1
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+
+# -- Use a daemonset instead of a deployment
+useDaemonSet: false
+
+# -- The time in seconds that is allowed for a Aralez instance to gracefully shutdown
+# ref: https://kubernetes.io/docs/concepts/containers/container-lifecycle-hooks
+terminationGracePeriodSeconds: 120
+
+## updateStrategy for PostgreSQL StatefulSet and its slaves StatefulSets
+## ref: https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#update-strategies
+updateStrategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxUnavailable: 1
+
+# -- Priority Class Name
+# ref: https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass
+priorityClassName: ""
+
+# Additional volumes on the output Deployment definition.
+volumes: []
+# - name: foo
+#   secret:
+#     secretName: mysecret
+#     optional: false
+
+# Additional volumeMounts on the output Deployment definition.
+volumeMounts: []
+# - name: foo
+#   mountPath: "/etc/foo"
+#   readOnly: true
+
+# -- Node labels for pod assignment.
+# ref: https://kubernetes.io/docs/user-guide/node-selection/
+nodeSelector: {}
+
+# -- Tolerations for pod assignment.
+# ref: https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
+tolerations: []
+
+# -- Pod Anti Affinity
+# soft/hard
+podAntiAffinityPreset: soft
+
+# -- Affinity for pod assignment.
+# ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity
+affinity: {}
