@@ -156,6 +156,7 @@ dependencies = [
  "jsonwebtoken",
  "k8s-openapi",
  "kube",
+ "lazy_static",
  "libc",
  "log",
  "log4rs",

@@ -7,8 +7,6 @@ use dashmap::DashMap;
 use log::error;
 use rand::RngExt;
 use std::env;
-use std::fs;
-use std::path::Path;
 use std::sync::Arc;
 
 use crate::utils::kuberconsul::{clone_compare, list_to_upstreams, ServiceDiscovery};
@@ -54,7 +52,7 @@ impl ServiceDiscovery for KubernetesDiscovery {
             let num = if end > 0 { rand::rng().random_range(0..end) } else { 0 };
             let server = servers.get(num).unwrap().to_string();
             let path = kuber.tokenpath.unwrap_or_else(|| "/var/run/secrets/kubernetes.io/serviceaccount/token".to_string());
-            let namespace = get_current_namespace().unwrap_or_else(|| "default".to_string());
+            // let namespace = get_current_namespace().unwrap_or_else(|| "default".to_string());
             let token = crate::utils::kuberconsul::read_token(path.as_str()).await;
 
             if CryptoProvider::get_default().is_none() {
@@ -86,7 +84,6 @@ impl ServiceDiscovery for KubernetesDiscovery {
                         to_https: None,
                         redirect_to: None,
                         authorization: None,
-                        // sticky_sessions: update.sticky_sessions,
                         rate_limit: update.rate_limit,
                         x4xx_limit: update.x4xx_limit,
                         client_headers: None,
@@ -129,7 +126,7 @@ impl ServiceDiscovery for KubernetesDiscovery {
                         sheader_list.insert(Arc::from(path_key), server_headers_list);
                         config.server_headers.insert(host_key.clone(), sheader_list);
                     }
-                    let url = format!("https://{}/api/v1/namespaces/{}/endpoints/{}", server, namespace, update.service_name);
+                    let url = format!("https://{}/api/v1/namespaces/{}/endpoints/{}", server, update.namespace, update.service_name);
                     let list = httpclient::for_kuber(&url, &token, &service).await;
 
                     if list.is_none() {
@@ -145,7 +142,7 @@ impl ServiceDiscovery for KubernetesDiscovery {
         }
     }
 }
-
+/*
 fn get_current_namespace() -> Option<String> {
     let ns_path = "/var/run/secrets/kubernetes.io/serviceaccount/namespace";
     if Path::new(ns_path).exists() {
@@ -155,3 +152,4 @@ fn get_current_namespace() -> Option<String> {
     }
     env::var("POD_NAMESPACE").ok()
 }
+*/

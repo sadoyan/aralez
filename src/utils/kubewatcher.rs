@@ -1,3 +1,4 @@
+use dashmap::DashMap;
 use futures::StreamExt;
 use hyper::Uri;
 use k8s_openapi::api::core::v1::{Node, Service};
@@ -11,17 +12,18 @@ use kube::{
 };
 use log::{error, info};
 use serde_json::json;
+use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::mpsc;
 
 pub struct AralezRouteUpdate {
     pub host: String,
     pub path: String,
+    pub namespace: String,
     pub service_name: String,
     pub is_deleted: bool,
     pub rate_limit: Option<isize>,
     pub x4xx_limit: Option<u32>,
-    pub sticky_sessions: Option<u64>,
     pub client_headers: Option<Vec<String>>,
     pub server_headers: Option<Vec<String>>,
 }
@@ -30,11 +32,14 @@ pub struct AralezRouteUpdate {
 struct AralezAnnotation {
     rate_limit: Option<isize>,
     x4xx_limit: Option<u32>,
-    sticky_sessions: Option<u64>,
-    pub client_headers: Option<Vec<String>>,
-    pub server_headers: Option<Vec<String>>,
+    namespace: String,
+    client_headers: Option<Vec<String>>,
+    server_headers: Option<Vec<String>>,
 }
 
+lazy_static::lazy_static! {
+    static ref PATCHED_INGRESSES: Arc<DashMap<String, String>> = Arc::new(DashMap::new());
+}
 pub async fn start_ingress_watcher_with_config(
     api_server: &str,
     token: &str,
@@ -82,53 +87,59 @@ async fn process_ingress_change(client: &Client, ing: &Ingress, target_class: &s
 
     if !is_deleted {
         if let (Some(name), Some(ns)) = (ing.metadata.name.as_deref(), ing.metadata.namespace.as_deref()) {
-            let svc_name = std::env::var("ARALEZ_SERVICE_NAME").unwrap_or_else(|_| "aralez-service".to_string());
-            let external_ip = match discover_controller_ip(&client, ns, &svc_name).await {
-                Some(ip) => ip,
-                None => discover_node_ip(&client)
-                    .await
-                    .unwrap_or_else(|| std::env::var("ARALEZ_EXTERNAL_IP").unwrap_or_else(|_| "127.0.0.1".to_string())),
-            };
-            let client_clone = client.clone();
-            let name_clone = name.to_string();
-            let ns_clone = ns.to_string();
-            let status = ing.status.clone();
-            tokio::spawn(async move {
-                patch_ingress_status_address(&client_clone, &ns_clone, &name_clone, status.as_ref(), &external_ip).await;
-            });
+            let key = format!("{}/{}", ns, name);
+            let external_ip = resolve_external_ip(client).await;
+            let status_already_correct = ing
+                .status
+                .as_ref()
+                .and_then(|s| s.load_balancer.as_ref())
+                .and_then(|lb| lb.ingress.as_ref())
+                .map(|list| list.iter().any(|i| i.ip.as_deref() == Some(&external_ip)))
+                .unwrap_or(false);
+
+            if status_already_correct {
+                PATCHED_INGRESSES.insert(key, external_ip);
+            } else {
+                PATCHED_INGRESSES.insert(key.clone(), external_ip.clone());
+                let client_clone = client.clone();
+                let name_clone = name.to_string();
+                let ns_clone = ns.to_string();
+                let key_clone = key.clone();
+                tokio::spawn(async move {
+                    if let Err(e) = patch_ingress_status_address(&client_clone, &ns_clone, &name_clone, &external_ip).await {
+                        error!("Failed to patch ingress status address {}/{}: {}", &ns_clone, &name_clone, e);
+                        PATCHED_INGRESSES.remove(&key_clone);
+                    }
+                });
+            }
+        }
+    } else {
+        if let (Some(name), Some(ns)) = (ing.metadata.name.as_deref(), ing.metadata.namespace.as_deref()) {
+            PATCHED_INGRESSES.remove(&format!("{}/{}", ns, name));
         }
     }
 
     if let Some(rules) = &spec.rules {
         for rule in rules {
-            let host = match &rule.host {
-                Some(h) => h.clone(),
-                None => "*".to_string(),
-            };
+            let host = rule.host.clone().unwrap_or_else(|| "*".to_string());
 
             if let Some(http) = &rule.http {
                 for path_entry in &http.paths {
                     let path = path_entry.path.clone().unwrap_or_else(|| "/".to_string());
                     if let Some(service) = &path_entry.backend.service {
                         let service_name = service.name.clone();
-                        let mut update = AralezRouteUpdate {
+                        let annot = parse_ingress_config(ing);
+                        let update = AralezRouteUpdate {
                             host: host.clone(),
                             path,
                             service_name,
                             is_deleted,
-                            rate_limit: None,
-                            x4xx_limit: None,
-                            sticky_sessions: None,
-                            client_headers: None,
-                            server_headers: None,
+                            rate_limit: annot.rate_limit,
+                            x4xx_limit: annot.x4xx_limit,
+                            client_headers: annot.client_headers,
+                            server_headers: annot.server_headers,
+                            namespace: annot.namespace,
                         };
-                        if let Some(annot) = parse_ingress_config(ing) {
-                            update.rate_limit = annot.rate_limit;
-                            update.x4xx_limit = annot.x4xx_limit;
-                            update.sticky_sessions = annot.sticky_sessions;
-                            update.client_headers = annot.client_headers;
-                            update.server_headers = annot.server_headers;
-                        }
                         if let Err(e) = tx.send(update).await {
                             error!("Failed to send route update to channel: {:?}", e);
                         }
@@ -160,54 +171,26 @@ pub async fn create_custom_k8s_client(api_server_url: &str, bearer_token: &str, 
     Ok(client)
 }
 
-fn parse_ingress_config(ing: &Ingress) -> Option<AralezAnnotation> {
-    if let Some(annotations) = &ing.metadata.annotations {
-        let mut clh: Option<Vec<String>> = None;
-        let mut srh: Option<Vec<String>> = None;
+fn parse_ingress_config(ing: &Ingress) -> AralezAnnotation {
+    let namespace = ing.metadata.namespace.clone().unwrap_or_else(|| "default".to_string());
+    let annotations = ing.metadata.annotations.as_ref();
 
-        if let Some(ch) = annotations.get("aralez.rs/client_headers") {
-            let data: Vec<String> = serde_json::from_str(ch).unwrap_or_default();
-            clh = Some(data);
-        }
-        if let Some(sh) = annotations.get("aralez.rs/server_headers") {
-            let data: Vec<String> = serde_json::from_str(sh).unwrap_or_default();
-            srh = Some(data);
-        };
+    let client_headers = annotations.and_then(|a| a.get("aralez.rs/client_headers")).and_then(|ch| serde_json::from_str(ch).ok());
 
-        let annots = AralezAnnotation {
-            rate_limit: annotations.get("aralez.rs/rate_limit").and_then(|v| v.parse().ok()),
-            x4xx_limit: annotations.get("aralez.rs/x4xx_limit").and_then(|v| v.parse().ok()),
-            sticky_sessions: annotations.get("aralez.rs/sticky_sessions").and_then(|v| v.parse().ok()),
-            client_headers: clh,
-            server_headers: srh,
-        };
-        return Some(annots);
+    let server_headers = annotations.and_then(|a| a.get("aralez.rs/server_headers")).and_then(|sh| serde_json::from_str(sh).ok());
+
+    AralezAnnotation {
+        rate_limit: annotations.and_then(|a| a.get("aralez.rs/rate_limit")).and_then(|v| v.parse().ok()),
+        x4xx_limit: annotations.and_then(|a| a.get("aralez.rs/x4xx_limit")).and_then(|v| v.parse().ok()),
+        client_headers,
+        server_headers,
+        namespace,
     }
-    None
 }
 
-pub async fn patch_ingress_status_address(
-    client: &Client,
-    namespace: &str,
-    name: &str,
-    current_status: Option<&k8s_openapi::api::networking::v1::IngressStatus>,
-    external_ip: &str,
-) {
-    if let Some(status) = current_status {
-        if let Some(lb) = &status.load_balancer {
-            if let Some(ing_list) = &lb.ingress {
-                if ing_list.iter().any(|i| i.ip.as_deref() == Some(external_ip)) {
-                    return;
-                }
-            }
-        }
-    }
-
+pub async fn patch_ingress_status_address(client: &Client, namespace: &str, name: &str, external_ip: &str) -> Result<(), kube::Error> {
     let ingresses: Api<Ingress> = Api::namespaced(client.clone(), namespace);
-
     let patch = json!({
-        "apiVersion": "networking.k8s.io/v1",
-        "kind": "Ingress",
         "status": {
             "loadBalancer": {
                 "ingress": [
@@ -218,12 +201,17 @@ pub async fn patch_ingress_status_address(
             }
         }
     });
+    let params = PatchParams::default();
 
-    let params = PatchParams::apply("aralez-ingress-controller").force();
-
-    match ingresses.patch_status(name, &params, &Patch::Apply(patch)).await {
-        Ok(_) => info!("Patched Ingress {}/{} ADDRESS to {}", namespace, name, external_ip),
-        Err(e) => error!("Failed to patch status for Ingress {}/{}: {:?}", namespace, name, e),
+    match ingresses.patch_status(name, &params, &Patch::Strategic(patch)).await {
+        Ok(_) => {
+            info!("Successfully patched Ingress {}/{} ADDRESS to {}", namespace, name, external_ip);
+            Ok(())
+        }
+        Err(e) => {
+            error!("Failed to patch status for Ingress {}/{}: {:?}", namespace, name, e);
+            Err(e)
+        }
     }
 }
 
@@ -268,4 +256,24 @@ pub async fn discover_controller_ip(client: &Client, namespace: &str, service_na
         }
     }
     None
+}
+
+pub async fn resolve_external_ip(client: &Client) -> String {
+    if let Ok(ip) = std::env::var("ARALEZ_EXTERNAL_IP") {
+        let trimmed = ip.trim();
+        if !trimmed.is_empty() {
+            return trimmed.to_string();
+        }
+    }
+    let svc_name = std::env::var("ARALEZ_SERVICE_NAME").unwrap_or_else(|_| "aralez-service".to_string());
+    let svc_ns = std::env::var("ARALEZ_SERVICE_NAMESPACE").unwrap_or_else(|_| "aralez".to_string());
+
+    if let Some(ip) = discover_controller_ip(client, &svc_ns, &svc_name).await {
+        return ip;
+    }
+    if let Some(ip) = discover_node_ip(client).await {
+        return ip;
+    }
+
+    "127.0.0.1".to_string()
 }
