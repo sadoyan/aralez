@@ -1,0 +1,40 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: aralez-sa
+  namespace: aralez
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: aralez-role
+rules:
+  # Watch Ingresses and IngressClasses across all namespaces
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses", "ingressclasses"]
+    verbs: ["get", "list", "watch"]
+  # Update Ingress status (for setting load balancer IPs)
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses/status"]
+    verbs: ["update", "patch"]
+  # Watch Services and Endpoints across all namespaces
+  - apiGroups: [""]
+    resources: ["services", "endpoints"]
+    verbs: ["get", "list", "watch"]
+  # Watch EndpointSlices across all namespaces
+  - apiGroups: ["discovery.k8s.io"]
+    resources: ["endpointslices"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: aralez-ingress
+subjects:
+  - kind: ServiceAccount
+    name: aralez-sa
+    namespace: aralez  # <--- MUST match where Aralez is deployed
+roleRef:
+  kind: ClusterRole
+  name: aralez-role
+  apiGroup: rbac.authorization.k8s.io
