@@ -41,16 +41,12 @@ pub struct KubeEndpoint {
 #[serde(rename_all = "camelCase")]
 pub struct KubeConditions {
     pub ready: Option<bool>,
-    pub serving: Option<bool>,
-    pub terminating: Option<bool>,
 }
 
 #[derive(Debug, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct KubePort {
-    pub name: Option<String>,
     pub port: Option<u16>,
-    pub protocol: Option<String>,
 }
 
 pub struct KubernetesDiscovery;

@@ -1,0 +1,16 @@
+provider: "kubernetes"
+to_https: false
+sticky_sessions: 86000
+rate_limit: 100
+x4xx_limit: 100
+headers:
+  - "Access-Control-Allow-Origin:*"
+  - "Access-Control-Allow-Methods:POST, GET, OPTIONS"
+  - "Access-Control-Max-Age:86400"
+  - "Strict-Transport-Security:max-age=31536000; includeSubDomains; preload"
+kubernetes:
+  services:
+    - hostname: "svc-nginx"
+      upstream: "svc-nginx"
+      path: "/"
+  tokenpath: "/var/run/secrets/kubernetes.io/serviceaccount/token"
