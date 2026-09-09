@@ -1,6 +1,6 @@
 use crate::utils::consul::ConsulService;
 use crate::utils::kuberconsul::match_path;
-use crate::utils::kubernetes::KubeEndpoints;
+use crate::utils::kubernetes::KubeEndpointSliceList;
 use crate::utils::structs::{GlobalServiceMapping, InnerMap};
 use ahash::HashMap;
 use dashmap::DashMap;
@@ -36,7 +36,9 @@ pub struct ConsulServicesInternal {
     #[serde(rename = "aralez.to_https")]
     pub to_https: Option<bool>,
 }
+
 pub type ConsulServices = HashMap<String, ConsulServicesInternal>;
+
 pub async fn for_consul_list(url: &str, token: Option<String>) -> Option<ConsulServices> {
     if let Some(data) = getfromapi(url, token, "consul").await {
         let yo = parse_services(data);
@@ -75,6 +77,7 @@ fn parse_services(json: Vec<u8>) -> Result<ConsulServices, serde_json::Error> {
         })
         .collect())
 }
+
 pub async fn for_consul(url: &str, token: Option<String>, conf: &GlobalServiceMapping) -> Option<DashMap<Arc<str>, (Vec<Arc<InnerMap>>, AtomicUsize)>> {
     if let Some(data) = getfromapi(url, token, "consul").await {
         let endpoints: Vec<ConsulService> = serde_json::from_slice(&data).ok()?;
@@ -103,18 +106,29 @@ pub async fn for_consul(url: &str, token: Option<String>, conf: &GlobalServiceMa
 
 pub async fn for_kuber(url: &str, token: &str, conf: &GlobalServiceMapping) -> Option<DashMap<Arc<str>, (Vec<Arc<InnerMap>>, AtomicUsize)>> {
     if let Some(data) = getfromapi(url, Some(token.to_string()), "kubernetes").await {
-        let endpoints: KubeEndpoints = serde_json::from_slice(&data).ok()?;
+        let slice_list: KubeEndpointSliceList = serde_json::from_slice(&data).ok()?;
         let upstreams: DashMap<Arc<str>, (Vec<Arc<InnerMap>>, AtomicUsize)> = DashMap::new();
         let mut inner_vec = Vec::new();
 
-        if let Some(subsets) = endpoints.subsets {
-            for subset in subsets {
-                if let (Some(addresses), Some(ports)) = (subset.addresses, subset.ports) {
-                    for addr in addresses {
-                        for port in &ports {
+        for slice in slice_list.items {
+            let ports = match &slice.ports {
+                Some(p) if !p.is_empty() => p,
+                _ => continue,
+            };
+
+            for ep in &slice.endpoints {
+                let is_ready = ep.conditions.as_ref().and_then(|c| c.ready).unwrap_or(true);
+
+                if !is_ready {
+                    continue;
+                }
+
+                for addr in &ep.addresses {
+                    for port in ports {
+                        if let Some(port_num) = port.port {
                             let to_add = Arc::from(InnerMap {
-                                address: Arc::from(addr.ip.as_str()),
-                                port: port.port,
+                                address: Arc::from(addr.as_str()),
+                                port: port_num,
                                 is_ssl: false,
                                 is_http2: false,
                                 to_https: conf.to_https.unwrap_or(false),
@@ -130,6 +144,7 @@ pub async fn for_kuber(url: &str, token: &str, conf: &GlobalServiceMapping) -> O
                 }
             }
         }
+
         if !inner_vec.is_empty() {
             match_path(conf, &upstreams, inner_vec);
             return Some(upstreams);
@@ -137,6 +152,7 @@ pub async fn for_kuber(url: &str, token: &str, conf: &GlobalServiceMapping) -> O
     }
     None
 }
+
 pub async fn getfromapi(url: &str, token: Option<String>, provider: &str) -> Option<Vec<u8>> {
     let (host, port, path, is_tls) = parse_url(&url).ok()?;
 
@@ -226,10 +242,3 @@ fn parse_url(url: &str) -> Result<(&str, u16, &str, bool), &'static str> {
 
     Ok((host, port, uri, is_https))
 }
-
-// fn base64_decode(encoded: &str) -> Option<String> {
-//     let decoded_bytes = general_purpose::STANDARD.decode(encoded).unwrap_or_default();
-//     let decoded: Result<HashMap<String, String>, serde_json::Error> = serde_json::from_slice(&decoded_bytes);
-//     println!("Decoded: {:?}", decoded);
-//     None
-// }

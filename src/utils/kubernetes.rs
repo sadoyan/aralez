@@ -15,25 +15,44 @@ use rustls::crypto::CryptoProvider;
 use tokio::sync::mpsc::Sender;
 
 #[derive(Debug, serde::Deserialize)]
-pub struct KubeEndpoints {
-    pub subsets: Option<Vec<KubeSubset>>,
+#[serde(rename_all = "camelCase")]
+pub struct KubeEndpointSliceList {
+    #[serde(default)]
+    pub items: Vec<KubeEndpointSlice>,
 }
 
 #[derive(Debug, serde::Deserialize)]
-pub struct KubeSubset {
-    pub addresses: Option<Vec<KubeAddress>>,
+#[serde(rename_all = "camelCase")]
+pub struct KubeEndpointSlice {
     pub ports: Option<Vec<KubePort>>,
+    #[serde(default)]
+    pub endpoints: Vec<KubeEndpoint>,
 }
 
 #[derive(Debug, serde::Deserialize)]
-pub struct KubeAddress {
-    pub ip: String,
+#[serde(rename_all = "camelCase")]
+pub struct KubeEndpoint {
+    #[serde(default)]
+    pub addresses: Vec<String>,
+    pub conditions: Option<KubeConditions>,
 }
 
 #[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct KubeConditions {
+    pub ready: Option<bool>,
+    pub serving: Option<bool>,
+    pub terminating: Option<bool>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct KubePort {
-    pub port: u16,
+    pub name: Option<String>,
+    pub port: Option<u16>,
+    pub protocol: Option<String>,
 }
+
 pub struct KubernetesDiscovery;
 
 #[async_trait]
@@ -52,7 +71,6 @@ impl ServiceDiscovery for KubernetesDiscovery {
             let num = if end > 0 { rand::rng().random_range(0..end) } else { 0 };
             let server = servers.get(num).unwrap().to_string();
             let path = kuber.tokenpath.unwrap_or_else(|| "/var/run/secrets/kubernetes.io/serviceaccount/token".to_string());
-            // let namespace = get_current_namespace().unwrap_or_else(|| "default".to_string());
             let token = crate::utils::kuberconsul::read_token(path.as_str()).await;
 
             if CryptoProvider::get_default().is_none() {
@@ -126,7 +144,12 @@ impl ServiceDiscovery for KubernetesDiscovery {
                         sheader_list.insert(Arc::from(path_key), server_headers_list);
                         config.server_headers.insert(host_key.clone(), sheader_list);
                     }
-                    let url = format!("https://{}/api/v1/namespaces/{}/endpoints/{}", server, update.namespace, update.service_name);
+
+                    let url = format!(
+                        "https://{}/apis/discovery.k8s.io/v1/namespaces/{}/endpointslices?labelSelector=kubernetes.io%2Fservice-name%3D{}",
+                        server, update.namespace, update.service_name
+                    );
+
                     let list = httpclient::for_kuber(&url, &token, &service).await;
 
                     if list.is_none() {
@@ -142,14 +165,3 @@ impl ServiceDiscovery for KubernetesDiscovery {
         }
     }
 }
-/*
-fn get_current_namespace() -> Option<String> {
-    let ns_path = "/var/run/secrets/kubernetes.io/serviceaccount/namespace";
-    if Path::new(ns_path).exists() {
-        if let Ok(contents) = fs::read_to_string(ns_path) {
-            return Some(contents.trim().to_string());
-        }
-    }
-    env::var("POD_NAMESPACE").ok()
-}
-*/
