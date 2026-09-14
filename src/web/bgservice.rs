@@ -13,6 +13,7 @@ use log::{error, info};
 use pingora_core::server::ShutdownWatch;
 use pingora_core::services::background::BackgroundService;
 use std::sync::Arc;
+use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::mpsc;
 
 #[async_trait]
@@ -86,6 +87,7 @@ impl BackgroundService for LB {
                     break;
                 }
                 val = rx.recv() => {
+                    let start = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
                     if let Some(ss) = val {
                         clone_dashmap_into(&ss.upstreams, &self.ump_full);
                         clone_dashmap_into(&ss.upstreams, &self.ump_upst);
@@ -132,6 +134,9 @@ impl BackgroundService for LB {
                             }
                         }
                     }
+                    let end = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
+                    let startup = end - start;
+                    info!("Loading upstreams took: {}ms", startup.as_millis());
                 }
             }
         }
