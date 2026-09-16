@@ -259,7 +259,7 @@ async fn populate_file_upstreams(config: &mut Configuration, parsed: &Config) {
     }
 }
 pub fn parce_main_config(path: &str) -> AppConfig {
-    let data = fs::read_to_string(path).unwrap();
+    let data = fs::read_to_string(path).expect("Failed to read main config file");
     let mut cfo: AppConfig = noyalib::from_str(&data).expect("Failed to parse main config file");
     if let Ok(jwt_key) = env::var("JWT_KEY") {
         cfo.master_key = Some(jwt_key);

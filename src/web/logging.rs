@@ -44,7 +44,11 @@ pub fn log_builder(conf: &AppConfig, location: &Option<String>) {
         }
     };
 
-    let pattern = "{d(%Y-%m-%d %H:%M:%S)} {l} {t} - {m}\n";
+    let mut pat: String = "{d(%Y-%m-%d %H:%M:%S)} {l} - {m} {n}".to_string();
+    if let Some(ptrn) = conf.log_pattern.clone() {
+        pat = ptrn;
+    }
+    let pattern = pat.as_str();
 
     if let Some(location) = location {
         let parts: Vec<&str> = location.splitn(4, ',').map(|s| s.trim()).collect();
