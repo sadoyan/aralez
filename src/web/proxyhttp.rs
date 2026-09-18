@@ -46,6 +46,9 @@ pub struct Context {
     x4xx_limit: Option<u32>,
 }
 
+thread_local! {
+    static KEY_BUF: RefCell<String> = RefCell::new(String::with_capacity(256));
+}
 #[async_trait]
 impl ProxyHttp for LB {
     type CTX = Context;
@@ -61,9 +64,22 @@ impl ProxyHttp for LB {
         }
     }
 
-    fn cache_key_callback(&self, session: &Session, _ctx: &mut Self::CTX) -> Result<CacheKey> {
-        Ok(CacheKey::new(_ctx.hostname.clone().unwrap_or_default().as_ref(), session.req_header().uri.to_string(), ""))
+    fn cache_key_callback(&self, session: &Session, ctx: &mut Self::CTX) -> Result<CacheKey> {
+        let host = ctx.hostname.as_deref().unwrap_or("default");
+        let path = session.req_header().uri.path();
+
+        let primary_key = KEY_BUF.with(|buf| {
+            let mut b = buf.borrow_mut();
+            b.clear();
+            b.push_str(host);
+            b.push_str(path);
+            b.clone()
+        });
+
+        let secondary_key = session.req_header().uri.path_and_query().map(|pq| pq.as_str()).unwrap_or("/");
+        Ok(CacheKey::new(primary_key, secondary_key))
     }
+
     fn request_cache_filter(&self, session: &mut Session, _ctx: &mut Self::CTX) -> Result<()> {
         if self.cache_enabled && session.req_header().method == Method::GET {
             if let Some(eviction) = EVICTION.get() {
@@ -339,13 +355,6 @@ impl ProxyHttp for LB {
                 }
             }
         }
-        // match session.cache.phase() {
-        //     CachePhase::Hit => info!("Cache Status: HIT (Served from Memory)"),
-        //     CachePhase::Miss => info!("Cache Status: MISS (Fetched from Upstream)"),
-        //     CachePhase::Expired => info!("Cache Status: EXPIRED (Revalidating)"),
-        //     _ => {}
-        // }
-
         access_log(response_code, &self.request_summary(session, ctx), session);
     }
 }

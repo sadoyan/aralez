@@ -91,7 +91,7 @@ pub async fn load_configuration(d: &str, kind: &str) -> (Option<Configuration>, 
             }
 
             info!("Reading upstreams from {}", d);
-            data // [2606:4700:2ff9::1]:443
+            data
         }
         "content" => {
             info!("Reading upstreams from API post body");

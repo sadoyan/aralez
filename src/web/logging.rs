@@ -1,10 +1,11 @@
 use crate::utils::metrics::LOGGING_ERRORS;
 use crate::utils::structs::AppConfig;
-use log::{info, LevelFilter};
+use log::{error, info, warn, LevelFilter};
 use log4rs::append::rolling_file::policy::compound::roll::fixed_window::FixedWindowRoller;
 use log4rs::append::rolling_file::policy::compound::trigger::size::SizeTrigger;
 use log4rs::append::rolling_file::policy::compound::CompoundPolicy;
 use log4rs::append::rolling_file::RollingFileAppender;
+use log4rs::config::Logger;
 use log4rs::{
     append::console::ConsoleAppender,
     config::{Appender, Config as Log4rsConfig, Root},
@@ -15,7 +16,7 @@ use pingora_http::Version;
 use pingora_proxy::Session;
 use std::net::{IpAddr, Ipv4Addr};
 use std::sync::OnceLock;
-use tokio::sync::mpsc;
+use tokio::sync::mpsc; // Add Logger import
 
 #[derive(Debug)]
 pub struct LogMessage {
@@ -74,6 +75,7 @@ pub fn log_builder(conf: &AppConfig, location: &Option<String>) {
 
         let config = Log4rsConfig::builder()
             .appender(Appender::builder().build("file", Box::new(file)))
+            .logger(Logger::builder().build("pingora_proxy", LevelFilter::Off))
             .build(Root::builder().appender("file").build(log_level))
             .unwrap();
         log4rs::init_config(config).unwrap();
@@ -83,6 +85,7 @@ pub fn log_builder(conf: &AppConfig, location: &Option<String>) {
 
         let config = Log4rsConfig::builder()
             .appender(Appender::builder().build("stdout", Box::new(stdout)))
+            .logger(Logger::builder().build("pingora_proxy", LevelFilter::Off))
             .build(Root::builder().appender("stdout").build(log_level))
             .unwrap();
         log4rs::init_config(config).unwrap();
@@ -112,13 +115,30 @@ impl LogLevel {
     }
 }
 
+#[derive(Debug)]
+pub enum MatchStatus {
+    Ok2xx,
+    Er4xx,
+    Er5xx,
+}
+impl MatchStatus {
+    #[inline]
+    pub fn from_code(code: u16) -> Self {
+        match code {
+            100..=399 => Self::Ok2xx,
+            400..=499 => Self::Er4xx,
+            _ => Self::Er5xx,
+        }
+    }
+}
 pub fn access_log(response_code: u16, summary: &str, session: &Session) {
     let level = ACCESS_LOG.get().unwrap_or(&LogLevel::None);
-
+    let status = MatchStatus::from_code(response_code);
     let should_log = match level {
         LogLevel::Access => true,
         LogLevel::None => false,
-        LogLevel::Error => !(100..=399).contains(&response_code),
+        LogLevel::Error => matches!(status, MatchStatus::Er5xx),
+        // LogLevel::Error => matches!(status, MatchStatus::Er4xx | MatchStatus::Er5xx),
     };
 
     if !should_log {
@@ -132,12 +152,6 @@ pub fn access_log(response_code: u16, summary: &str, session: &Session) {
         .unwrap_or(IpAddr::V4(Ipv4Addr::LOCALHOST));
 
     let user_agent = session.req_header().headers.get("user-agent").and_then(|v| v.to_str().ok()).unwrap_or("-");
-    // let cache_status = match session.cache.phase() {
-    //     CachePhase::Hit => "Hit",
-    //     CachePhase::Miss => "Miss",
-    //     CachePhase::Expired => "Expired",
-    //     _ => "Disabled",
-    // };
     let log = LogMessage {
         response_code,
         summary: summary.to_owned(),
@@ -167,14 +181,34 @@ pub fn init_logging(enabled: Option<String>) {
 
 pub fn log_receiver(mut receiver: mpsc::Receiver<LogMessage>) {
     while let Some(msg) = receiver.blocking_recv() {
-        info!(
-            "{}, {}, {}, client: {}, version: {:?}, useragent: {}",
-            msg.response_code,
-            msg.cache_status.as_str(),
-            msg.summary,
-            msg.client_ip,
-            msg.version,
-            msg.user_agent,
-        );
+        match MatchStatus::from_code(msg.response_code) {
+            MatchStatus::Ok2xx => info!(
+                "{}, {}, {}, client: {}, version: {:?}, useragent: {}",
+                msg.response_code,
+                msg.cache_status.as_str(),
+                msg.summary,
+                msg.client_ip,
+                msg.version,
+                msg.user_agent,
+            ),
+            MatchStatus::Er4xx => warn!(
+                "{}, {}, {}, client: {}, version: {:?}, useragent: {}",
+                msg.response_code,
+                msg.cache_status.as_str(),
+                msg.summary,
+                msg.client_ip,
+                msg.version,
+                msg.user_agent,
+            ),
+            MatchStatus::Er5xx => error!(
+                "{}, {}, {}, client: {}, version: {:?}, useragent: {}",
+                msg.response_code,
+                msg.cache_status.as_str(),
+                msg.summary,
+                msg.client_ip,
+                msg.version,
+                msg.user_agent,
+            ),
+        }
     }
 }
