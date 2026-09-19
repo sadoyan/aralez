@@ -1,0 +1,9 @@
+.git/
+.github/
+.gitignore
+.dockerignore
+/charts/
+#
+docker-compose.yml
+#
+/.cargo/

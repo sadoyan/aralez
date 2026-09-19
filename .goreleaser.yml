@@ -1,0 +1,92 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+version: 2
+project_name: aralez
+
+dist: target
+builds:
+  - id: aralez
+    builder: rust
+    flags:
+      - --release
+    targets:
+      - x86_64-unknown-linux-gnu
+      - aarch64-unknown-linux-gnu
+    env:
+      - RUSTFLAGS={{ if eq .Arch "amd64" }}-C target-cpu=x86-64-v3 -C target-feature=+aes,+ssse3{{else}}-C target-cpu=neoverse-n1 -C target-feature=+aes,+sha2,+neon,+crc{{ end }}
+
+  - id: aralez-musl
+    builder: rust
+    flags:
+      - --release
+    targets:
+      - x86_64-unknown-linux-musl
+      - aarch64-unknown-linux-musl
+    env:
+      - RUSTFLAGS={{ if eq .Arch "amd64" }}-C target-cpu=x86-64-v3 -C target-feature=+aes,+ssse3{{else}}-C target-cpu=neoverse-n1 -C target-feature=+aes,+sha2,+neon,+crc{{ end }}
+
+snapshot:
+  version_template: edge
+
+archives:
+  - id: aralez
+    ids:
+      - aralez
+    formats: [binary]
+    name_template: "{{ .ProjectName }}_{{ .Arch }}-glibc"
+
+  - id: aralez-musl
+    ids:
+      - aralez-musl
+    formats: [binary]
+    name_template: "{{ .ProjectName }}_{{ .Arch }}-musl"
+
+dockers_v2:
+  - id: aralez
+    ids:
+      - aralez
+    flags:
+      - --target=release
+    images:
+      - "ghcr.io/sadoyan/{{ .ProjectName }}"
+      # - "sadoyan/{{ .ProjectName }}"
+    tags:
+      - "{{ if not .IsSnapshot }}v{{.Version}}{{ else }}edge{{ end }}"
+    platforms:
+      - linux/amd64
+      - linux/arm64
+    annotations:
+      org.opencontainers.image.name: "{{ .ProjectName }}"
+      org.opencontainers.image.licenses: "Apache-2.0"
+      org.opencontainers.image.source: "https://github.com/sadoyan/{{ .ProjectName }}"
+      org.opencontainers.image.url: "{{ .GitURL }}"
+      org.opencontainers.image.created: "{{ .Date }}"
+      org.opencontainers.image.version: "{{ .Version }}"
+      org.opencontainers.image.revision: "{{ .FullCommit }}"
+      io.artifacthub.package.readme-url: "https://raw.githubusercontent.com/sadoyan/{{ .ProjectName }}/main/README.md"
+      io.artifacthub.package.license: "Apache-2.0"
+
+docker_signs:
+  - id: docker
+    ids:
+      - aralez
+    cmd: cosign
+    args:
+      - sign
+      - "--yes"
+      - "${artifact}"
+    output: true
+
+checksum:
+  name_template: checksums.txt
+  algorithm: sha256
+
+signs:
+  - artifacts: checksum
+    signature: "${artifact}.sigstore.json"
+    cmd: cosign
+    args:
+      - sign-blob
+      - "--yes"
+      - "--bundle=${signature}"
+      - "${artifact}"
+    output: true
