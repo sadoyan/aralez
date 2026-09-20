@@ -30,10 +30,10 @@ struct OutToken {
 }
 
 #[derive(Clone)]
-pub(crate) struct AppState {
+pub struct AppState {
     master_key: Option<String>,
-    pub(crate) cert_creds: String,
-    pub(crate) certs_dir: String,
+    pub cert_creds: String,
+    pub certs_dir: String,
     upstreams_file: String,
     config_sender: mpsc::Sender<Configuration>,
     config_api_enabled: bool,

@@ -1,6 +1,4 @@
-mod tls;
-mod utils;
-mod web;
+use aralez::web;
 
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;

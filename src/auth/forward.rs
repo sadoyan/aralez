@@ -1,31 +1,14 @@
-/*
-use crate::utils::jwt::{check_jwt, JWT_TOKEN};
-use crate::utils::structs::InnerAuth;
-pub(crate) use crate::utils::tools::split_host_port;
+use crate::auth::types::AuthValidator;
+use crate::utils::tools::split_host_port;
 use axum::http::StatusCode;
-use base64::engine::general_purpose::STANDARD;
-use base64::Engine;
-use pingora::http::RequestHeader;
 use pingora_core::connectors::http::Connector;
-use pingora_core::upstreams::peer::HttpPeer;
-use pingora_http::ResponseHeader;
+use pingora_core::prelude::HttpPeer;
+use pingora_http::{RequestHeader, ResponseHeader};
 use pingora_proxy::Session;
-use std::collections::HashMap;
 use std::sync::LazyLock;
-use subtle::ConstantTimeEq;
-use urlencoding::decode;
 
-#[async_trait::async_trait]
-trait AuthValidator {
-    async fn validate(&self, session: &mut Session) -> bool;
-}
-struct BasicAuth<'a>(&'a str);
-struct ApiKeyAuth<'a>(&'a str);
-struct JwtAuth();
-struct ForwardAuth<'a>(&'a str);
-
-pub static AUTH_CONNECTOR: LazyLock<Connector> = LazyLock::new(|| Connector::new(None));
-
+static AUTH_CONNECTOR: LazyLock<Connector> = LazyLock::new(|| Connector::new(None));
+pub struct ForwardAuth<'a>(pub(crate) &'a str);
 #[async_trait::async_trait]
 impl AuthValidator for ForwardAuth<'_> {
     async fn validate(&self, session: &mut Session) -> bool {
@@ -146,83 +129,3 @@ impl AuthValidator for ForwardAuth<'_> {
         }
     }
 }
-
-#[async_trait::async_trait]
-impl AuthValidator for BasicAuth<'_> {
-    async fn validate(&self, session: &mut Session) -> bool {
-        if let Some(header) = session.get_header("authorization") {
-            if let Ok(h) = header.to_str() {
-                if let Some((_, val)) = h.split_once(' ') {
-                    if let Ok(decoded) = STANDARD.decode(val) {
-                        if decoded.as_slice().ct_eq(self.0.as_bytes()).into() {
-                            return true;
-                        }
-                    }
-                }
-            }
-        }
-        false
-    }
-}
-
-#[async_trait::async_trait]
-impl AuthValidator for ApiKeyAuth<'_> {
-    async fn validate(&self, session: &mut Session) -> bool {
-        if let Some(header) = session.get_header("x-api-key") {
-            if let Ok(h) = header.to_str() {
-                return h.as_bytes().ct_eq(self.0.as_bytes()).into();
-            }
-        }
-        false
-    }
-}
-
-#[async_trait::async_trait]
-impl AuthValidator for JwtAuth {
-    async fn validate(&self, session: &mut Session) -> bool {
-        if let Some(jwtsecret) = JWT_TOKEN.clone() {
-            if let Some(tok) = get_query_param(session, "araleztoken") {
-                return check_jwt(tok.as_str(), jwtsecret.as_ref());
-            }
-            if let Some(auth_header) = session.get_header("authorization") {
-                if let Ok(header_str) = auth_header.to_str() {
-                    if let Some((scheme, token)) = header_str.split_once(' ') {
-                        if scheme.eq_ignore_ascii_case("bearer") {
-                            return check_jwt(token, jwtsecret.as_ref());
-                        }
-                    }
-                }
-            }
-        }
-        false
-    }
-}
-
-pub async fn authenticate(auth: &InnerAuth, session: &mut Session) -> bool {
-    match &*auth.auth_type {
-        "basic" => BasicAuth(&*auth.auth_cred).validate(session).await,
-        "apikey" => ApiKeyAuth(&*auth.auth_cred).validate(session).await,
-        "jwt" => JwtAuth().validate(session).await,
-        "forward" => ForwardAuth(&*auth.auth_cred).validate(session).await,
-        _ => {
-            log::warn!("Unsupported authentication mechanism : {}", &*auth.auth_type);
-            false
-        }
-    }
-}
-
-pub fn get_query_param(session: &mut Session, key: &str) -> Option<String> {
-    let query = session.req_header().uri.query()?;
-
-    let params: HashMap<_, _> = query
-        .split('&')
-        .filter_map(|pair| {
-            let mut parts = pair.splitn(2, '=');
-            let k = parts.next()?;
-            let v = parts.next().unwrap_or(""); // Some params might have no value
-            Some((k, v))
-        })
-        .collect();
-    params.get(key).and_then(|v| decode(v).ok()).map(|s| s.to_string())
-}
-*/

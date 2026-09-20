@@ -1,4 +1,4 @@
-use crate::utils::auth::authenticate;
+use crate::auth::authenticate;
 use crate::utils::lazylock::{CACHE_LOCK, CACHE_TTL, EVICTION, LOCALHOST, MEM_CACHE, RATE_LIMITER, REQUESTS_4XX, REVERSE_STORE};
 use crate::utils::metrics::*;
 use crate::utils::structs::{AppConfig, Extraparams, Headers, InnerMap, UpstreamsDashMap, UpstreamsIdMap};
