@@ -1,3 +1,4 @@
+use crate::core::webserver;
 use crate::tls::acme::{account, order};
 use crate::utils::lazylock::CHALLENGES;
 use axum::body::Body;
@@ -6,7 +7,7 @@ use axum::http::{Response, StatusCode};
 use axum::response::IntoResponse;
 
 #[allow(clippy::needless_return)]
-pub async fn acme_create(State(state): State<crate::web::webserver::AppState>) -> impl IntoResponse {
+pub async fn acme_create(State(state): State<webserver::AppState>) -> impl IntoResponse {
     match account::load_or_create(state.cert_creds.as_str()).await {
         Ok(txt) => {
             return Response::builder()
@@ -24,7 +25,7 @@ pub async fn acme_create(State(state): State<crate::web::webserver::AppState>) -
     };
 }
 #[allow(clippy::needless_return)]
-pub async fn acme_order(State(state): State<crate::web::webserver::AppState>, axum::extract::Path(domain): axum::extract::Path<String>) -> impl IntoResponse {
+pub async fn acme_order(State(state): State<webserver::AppState>, axum::extract::Path(domain): axum::extract::Path<String>) -> impl IntoResponse {
     let domain_clean = domain.trim_matches('/');
     match order::order(domain_clean, state.cert_creds.as_str(), state.certs_dir).await {
         Ok(txt) => {

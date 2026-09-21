@@ -1,7 +1,8 @@
+use crate::ingress::kuberconsul;
+use crate::ingress::kuberconsul::{list_to_upstreams, ServiceDiscovery};
 use crate::utils::httpclient;
-use crate::utils::kuberconsul::{list_to_upstreams, ServiceDiscovery};
 use crate::utils::parceyaml::build_headers;
-use crate::utils::structs::{Configuration, GlobalServiceMapping, UpstreamsDashMap};
+use crate::utils::types::{Configuration, GlobalServiceMapping, UpstreamsDashMap};
 use async_trait::async_trait;
 use dashmap::DashMap;
 use pingora::prelude::sleep;
@@ -81,7 +82,7 @@ impl ServiceDiscovery for ConsulDiscovery {
                 }
             }
 
-            if let Some(lt) = crate::utils::kuberconsul::clone_compare(&upstreams, &config).await {
+            if let Some(lt) = kuberconsul::clone_compare(&upstreams, &config).await {
                 let _ = toreturn.send(lt).await;
             }
 

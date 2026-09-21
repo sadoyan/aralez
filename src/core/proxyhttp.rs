@@ -1,9 +1,9 @@
 use crate::auth::authenticate;
+use crate::core::gethosts::{GetHost, GetHostsReturHeaders};
+use crate::core::logging::access_log;
 use crate::utils::lazylock::{CACHE_LOCK, CACHE_TTL, EVICTION, LOCALHOST, MEM_CACHE, RATE_LIMITER, REQUESTS_4XX, REVERSE_STORE};
 use crate::utils::metrics::*;
-use crate::utils::structs::{AppConfig, Extraparams, Headers, InnerMap, UpstreamsDashMap, UpstreamsIdMap};
-use crate::web::gethosts::{GetHost, GetHostsReturHeaders};
-use crate::web::logging::access_log;
+use crate::utils::types::{AppConfig, Extraparams, Headers, InnerMap, UpstreamsDashMap, UpstreamsIdMap};
 use arc_swap::ArcSwap;
 use async_trait::async_trait;
 use axum::body::Bytes;

@@ -1,15 +1,18 @@
+use crate::tls::CertificateConfig;
 use crate::utils::parceyaml::load_configuration;
-use crate::utils::structs::Configuration;
-use log::error;
+use crate::utils::tools::listdir;
+use crate::utils::types::Configuration;
+use log::{error, info};
 use notify::event::ModifyKind;
 use notify::{Config, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use pingora::prelude::sleep;
 use std::path::Path;
+use std::sync::mpsc::channel;
 use std::time::{Duration, Instant};
 use tokio::sync::mpsc::Sender;
 use tokio::task;
 
-pub async fn start(fp: String, toreturn: Sender<Configuration>) {
+pub async fn file_watch(fp: String, toreturn: Sender<Configuration>) {
     sleep(Duration::from_millis(50)).await; // For having nice logs :-)
     let file_path = fp.as_str();
     let parent_dir = Path::new(file_path).parent().unwrap();
@@ -47,6 +50,32 @@ pub async fn start(fp: String, toreturn: Sender<Configuration>) {
                 _ => (),
             },
             Err(e) => error!("Watch error: {:?}", e),
+        }
+    }
+}
+pub fn folder_watch(path: String, sender: std::sync::mpsc::Sender<Vec<CertificateConfig>>) -> notify::Result<()> {
+    let (tx, rx) = channel();
+    let mut watcher = RecommendedWatcher::new(tx, Config::default())?;
+    watcher.watch(path.as_ref(), RecursiveMode::Recursive)?;
+    info!("Watching for certificates in : {}", path);
+    let certificate_configs = listdir(path.clone());
+    sender.send(certificate_configs)?;
+    let mut start = Instant::now();
+    loop {
+        match rx.recv_timeout(Duration::from_secs(1)) {
+            Ok(Ok(event)) => match &event.kind {
+                EventKind::Modify(ModifyKind::Data(_)) | EventKind::Create(_) | EventKind::Remove(_) => {
+                    if start.elapsed() > Duration::from_secs(1) {
+                        start = Instant::now();
+                        let certificate_configs = listdir(path.clone());
+                        sender.send(certificate_configs)?;
+                        info!("Certificate changed: {:?}, {:?}", event.kind, event.paths);
+                    }
+                }
+                _ => {}
+            },
+            Ok(Err(e)) => error!("Watch error: {:?}", e),
+            Err(_) => {}
         }
     }
 }

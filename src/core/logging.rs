@@ -1,5 +1,5 @@
 use crate::utils::metrics::LOGGING_ERRORS;
-use crate::utils::structs::AppConfig;
+use crate::utils::types::AppConfig;
 use log::{error, info, warn, LevelFilter};
 use log4rs::append::rolling_file::policy::compound::roll::fixed_window::FixedWindowRoller;
 use log4rs::append::rolling_file::policy::compound::trigger::size::SizeTrigger;
@@ -16,7 +16,7 @@ use pingora_http::Version;
 use pingora_proxy::Session;
 use std::net::{IpAddr, Ipv4Addr};
 use std::sync::OnceLock;
-use tokio::sync::mpsc; // Add Logger import
+use tokio::sync::mpsc;
 
 #[derive(Debug)]
 pub struct LogMessage {
@@ -138,7 +138,6 @@ pub fn access_log(response_code: u16, summary: &str, session: &Session) {
         LogLevel::Access => true,
         LogLevel::None => false,
         LogLevel::Error => matches!(status, MatchStatus::Er5xx),
-        // LogLevel::Error => matches!(status, MatchStatus::Er4xx | MatchStatus::Er5xx),
     };
 
     if !should_log {

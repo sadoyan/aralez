@@ -1,7 +1,7 @@
 use crate::utils::hcclient::httpclient;
 use crate::utils::lazylock::REVERSE_STORE;
-use crate::utils::structs::{InnerMap, UpstreamsDashMap, UpstreamsIdMap};
 use crate::utils::tools::*;
+use crate::utils::types::{InnerMap, UpstreamsDashMap, UpstreamsIdMap};
 use dashmap::DashMap;
 use std::sync::atomic::AtomicUsize;
 use std::sync::Arc;

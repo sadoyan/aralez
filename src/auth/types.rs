@@ -2,7 +2,7 @@ use crate::auth::apikey::ApiKeyAuth;
 use crate::auth::basic::BasicAuth;
 use crate::auth::forward::ForwardAuth;
 use crate::auth::jwt::JwtAuth;
-use crate::utils::structs::InnerAuth;
+use crate::utils::types::InnerAuth;
 use pingora_proxy::Session;
 
 #[async_trait::async_trait]

@@ -1,9 +1,9 @@
-use crate::utils::consul::ConsulDiscovery;
-use crate::utils::filewatch;
-use crate::utils::kuberconsul::ServiceDiscovery;
-use crate::utils::kubernetes::KubernetesDiscovery;
-use crate::utils::structs::{Configuration, UpstreamsDashMap};
-use crate::web::webserver;
+use crate::core::webserver;
+use crate::ingress::consul::ConsulDiscovery;
+use crate::ingress::kuberconsul::ServiceDiscovery;
+use crate::ingress::kubernetes::KubernetesDiscovery;
+use crate::utils::types::{Configuration, UpstreamsDashMap};
+use crate::utils::watch;
 use async_trait::async_trait;
 use std::sync::Arc;
 use tokio::sync::mpsc::Sender;
@@ -48,7 +48,7 @@ impl Discovery for APIUpstreamProvider {
 #[async_trait]
 impl Discovery for FromFileProvider {
     async fn start(&self, tx: Sender<Configuration>) {
-        tokio::spawn(filewatch::start(self.path.clone(), tx));
+        tokio::spawn(watch::file_watch(self.path.clone(), tx));
     }
 }
 

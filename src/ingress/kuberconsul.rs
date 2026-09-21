@@ -1,5 +1,5 @@
-use crate::utils::structs::{Configuration, GlobalServiceMapping, InnerMap, UpstreamsDashMap};
 use crate::utils::tools::{clone_dashmap_into, compare_dashmaps, print_upstreams};
+use crate::utils::types::{Configuration, GlobalServiceMapping, InnerMap, UpstreamsDashMap};
 use async_trait::async_trait;
 use dashmap::DashMap;
 use std::sync::atomic::AtomicUsize;

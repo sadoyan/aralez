@@ -1,12 +1,12 @@
+use crate::core::logging::init_logging;
+use crate::core::proxyhttp::LB;
+use crate::ingress::{APIUpstreamProvider, ConsulProvider, Discovery, FromFileProvider, KubernetesProvider};
 use crate::tls::acme::order::refresh_order;
-use crate::utils::discovery::{APIUpstreamProvider, ConsulProvider, Discovery, FromFileProvider, KubernetesProvider};
 use crate::utils::metrics::calc_cache_metrics;
 use crate::utils::parceyaml::load_configuration;
-use crate::utils::structs::Configuration;
 use crate::utils::tools::*;
+use crate::utils::types::Configuration;
 use crate::utils::*;
-use crate::web::logging::init_logging;
-use crate::web::proxyhttp::LB;
 use async_trait::async_trait;
 use dashmap::DashMap;
 use log::{error, info};

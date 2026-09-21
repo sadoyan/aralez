@@ -1,7 +1,6 @@
 use crate::utils::httpclient;
-use crate::utils::kubewatcher::{start_ingress_watcher_with_config, AralezRouteUpdate};
 use crate::utils::parceyaml::build_headers;
-use crate::utils::structs::{Configuration, GlobalServiceMapping, UpstreamsDashMap};
+use crate::utils::types::{Configuration, GlobalServiceMapping, UpstreamsDashMap};
 use async_trait::async_trait;
 use dashmap::DashMap;
 use log::error;
@@ -9,7 +8,9 @@ use rand::RngExt;
 use std::env;
 use std::sync::Arc;
 
-use crate::utils::kuberconsul::{clone_compare, list_to_upstreams, ServiceDiscovery};
+use crate::ingress::kuberconsul;
+use crate::ingress::kuberconsul::{clone_compare, list_to_upstreams, ServiceDiscovery};
+use crate::ingress::kubewatcher::{start_ingress_watcher_with_config, AralezRouteUpdate};
 use rustls::crypto::ring::default_provider;
 use rustls::crypto::CryptoProvider;
 use tokio::sync::mpsc::Sender;
@@ -67,7 +68,7 @@ impl ServiceDiscovery for KubernetesDiscovery {
             let num = if end > 0 { rand::rng().random_range(0..end) } else { 0 };
             let server = servers.get(num).unwrap().to_string();
             let path = kuber.tokenpath.unwrap_or_else(|| "/var/run/secrets/kubernetes.io/serviceaccount/token".to_string());
-            let token = crate::utils::kuberconsul::read_token(path.as_str()).await;
+            let token = kuberconsul::read_token(path.as_str()).await;
 
             if CryptoProvider::get_default().is_none() {
                 default_provider().install_default().expect("Failed to install rustls crypto provider");

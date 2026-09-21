@@ -1,9 +1,9 @@
-use crate::utils::discovery::APIUpstreamProvider;
-use crate::utils::jwt::Claims;
+use crate::auth::jwt::Claims;
+use crate::ingress::APIUpstreamProvider;
+use crate::tls::acme::http01::{acme_create, acme_order, http01_challenge};
 use crate::utils::metrics::{get_memory_usage, get_open_files, MEMORY_USAGE, OPEN_FILES};
-use crate::utils::structs::{Config, Configuration, UpstreamsDashMap};
 use crate::utils::tools::{upstreams_liveness_json, upstreams_to_json};
-use crate::web::acme::{acme_create, acme_order, http01_challenge};
+use crate::utils::types::{Config, Configuration, UpstreamsDashMap};
 use axum::body::Body;
 use axum::extract::{Query, State};
 use axum::http::{Response, StatusCode};

@@ -23,9 +23,9 @@ unsafe impl GlobalAlloc for CountingAllocator {
 // Uncomment following lines and comment allocator in main.rs
 // #[global_allocator]
 // pub static A: CountingAllocator = CountingAllocator;
-#[allow(dead_code)]
-fn for_example() {
-    let before = crate::utils::fordebug::ALLOC_COUNT.load(Ordering::Relaxed);
-    let after = crate::utils::fordebug::ALLOC_COUNT.load(Ordering::Relaxed);
-    println!("Allocations : {}", after - before);
-}
+// #[allow(dead_code)]
+// fn for_example() {
+//     let before = crate::utils::fordebug::ALLOC_COUNT.load(Ordering::Relaxed);
+//     let after = crate::utils::fordebug::ALLOC_COUNT.load(Ordering::Relaxed);
+//     println!("Allocations : {}", after - before);
+// }

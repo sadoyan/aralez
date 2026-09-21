@@ -1,7 +1,7 @@
-use crate::utils::consul::ConsulService;
-use crate::utils::kuberconsul::match_path;
-use crate::utils::kubernetes::KubeEndpointSliceList;
-use crate::utils::structs::{GlobalServiceMapping, InnerMap};
+use crate::ingress::consul::ConsulService;
+use crate::ingress::kuberconsul::match_path;
+use crate::ingress::kubernetes::KubeEndpointSliceList;
+use crate::utils::types::{GlobalServiceMapping, InnerMap};
 use ahash::HashMap;
 use dashmap::DashMap;
 use pingora_core::connectors::http::Connector;

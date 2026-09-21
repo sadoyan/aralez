@@ -1,9 +1,9 @@
+use crate::core::logging::log_builder;
 use crate::utils::healthcheck;
 use crate::utils::lazylock::REVERSE_STORE;
 use crate::utils::state::{is_first_run, mark_not_first_run};
-use crate::utils::structs::*;
 use crate::utils::tools::{clone_dashmap, clone_dashmap_into, print_upstreams};
-use crate::web::logging::log_builder;
+use crate::utils::types::*;
 use dashmap::DashMap;
 use log::{error, info, warn};
 use std::collections::HashMap;

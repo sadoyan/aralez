@@ -1,11 +1,12 @@
+use crate::core::logging::init_access_log;
+use crate::core::proxyhttp::LB;
 use crate::tls::grades;
 use crate::tls::load;
 use crate::tls::load::CertificateConfig;
+use crate::utils::folder_watch;
 use crate::utils::lazylock::{CACHE_TTL, EVICTION};
-use crate::utils::structs::Extraparams;
 use crate::utils::tools::*;
-use crate::web::logging::init_access_log;
-use crate::web::proxyhttp::LB;
+use crate::utils::types::Extraparams;
 use arc_swap::ArcSwap;
 use dashmap::DashMap;
 use log::info;
@@ -27,6 +28,7 @@ use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::Arc;
 use std::time::Duration;
 use std::{fs, thread};
+
 pub fn run() {
     default_provider().install_default().expect("Failed to install RusTLS crypto provider");
     let parameters = Opt::parse_args();
@@ -113,7 +115,7 @@ pub fn run() {
             fs::create_dir_all(certs_path.clone()).unwrap();
         }
         thread::spawn(move || {
-            watch_folder(certs_path, tx).unwrap();
+            folder_watch(certs_path, tx).unwrap();
         });
         let certificate_configs = rx.recv().unwrap();
         let first_set = load::Certificates::new(&certificate_configs, grade.as_str()).unwrap_or_else(|| panic!("Unable to load initial certificate info"));

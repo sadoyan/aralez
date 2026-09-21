@@ -1,4 +1,4 @@
-use aralez::web;
+use aralez::core;
 
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
@@ -10,5 +10,5 @@ fn main() {
         std::process::exit(0);
     }
 
-    web::start::run();
+    core::start::run();
 }

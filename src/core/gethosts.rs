@@ -1,5 +1,5 @@
-use crate::utils::structs::InnerMap;
-use crate::web::proxyhttp::LB;
+use crate::core::proxyhttp::LB;
+use crate::utils::types::InnerMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 

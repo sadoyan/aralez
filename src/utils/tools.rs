@@ -1,13 +1,11 @@
 use crate::tls::load;
 use crate::tls::load::CertificateConfig;
-use crate::utils::structs::{Extraparams, InnerMapForJson, UpstreamSnapshotForJson, UpstreamsDashMap, UpstreamsIdMap};
+use crate::utils::types::{Extraparams, InnerMapForJson, UpstreamSnapshotForJson, UpstreamsDashMap, UpstreamsIdMap};
 use dashmap::DashMap;
 use log::{error, info};
-use notify::{event::ModifyKind, Config, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use privdrop::PrivDrop;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
-use std::any::type_name;
 use std::collections::{HashMap, HashSet};
 use std::fmt::Write;
 use std::fs::OpenOptions;
@@ -18,9 +16,7 @@ use std::os::unix::fs::MetadataExt;
 use std::os::unix::fs::OpenOptionsExt;
 use std::str::FromStr;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::mpsc::{channel, Sender};
 use std::sync::Arc;
-use std::time::{Duration, Instant};
 use std::{fs, process, thread, time};
 
 pub fn print_upstreams(upstreams: &UpstreamsDashMap, extraparams: &Extraparams) {
@@ -47,24 +43,6 @@ pub fn print_upstreams(upstreams: &UpstreamsDashMap, extraparams: &Extraparams) 
     }
     info!("\n{}", out.trim_end());
 }
-#[allow(dead_code)]
-pub fn typeoff<T>(_: T) {
-    let to = type_name::<T>();
-    println!("{:?}", to);
-}
-
-#[allow(dead_code)]
-pub fn string_to_bool(val: Option<&str>) -> Option<bool> {
-    match val {
-        Some(v) => match v {
-            "yes" => Some(true),
-            "true" => Some(true),
-            _ => Some(false),
-        },
-        None => Some(false),
-    }
-}
-
 pub fn clone_dashmap(original: &UpstreamsDashMap) -> UpstreamsDashMap {
     let new_map: UpstreamsDashMap = DashMap::new();
 
@@ -207,33 +185,6 @@ pub fn listdir(dir: String) -> Vec<load::CertificateConfig> {
     //     certificate_configs.push(y);
     // }
     certificate_configs
-}
-
-pub fn watch_folder(path: String, sender: Sender<Vec<CertificateConfig>>) -> notify::Result<()> {
-    let (tx, rx) = channel();
-    let mut watcher = RecommendedWatcher::new(tx, Config::default())?;
-    watcher.watch(path.as_ref(), RecursiveMode::Recursive)?;
-    info!("Watching for certificates in : {}", path);
-    let certificate_configs = listdir(path.clone());
-    sender.send(certificate_configs)?;
-    let mut start = Instant::now();
-    loop {
-        match rx.recv_timeout(Duration::from_secs(1)) {
-            Ok(Ok(event)) => match &event.kind {
-                EventKind::Modify(ModifyKind::Data(_)) | EventKind::Create(_) | EventKind::Remove(_) => {
-                    if start.elapsed() > Duration::from_secs(1) {
-                        start = Instant::now();
-                        let certificate_configs = listdir(path.clone());
-                        sender.send(certificate_configs)?;
-                        info!("Certificate changed: {:?}, {:?}", event.kind, event.paths);
-                    }
-                }
-                _ => {}
-            },
-            Ok(Err(e)) => error!("Watch error: {:?}", e),
-            Err(_) => {}
-        }
-    }
 }
 
 pub fn drop_priv(user: String, group: String, http_addr: String, tls_addr: Option<String>) {

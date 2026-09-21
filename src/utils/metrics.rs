@@ -117,13 +117,6 @@ pub fn calc_metrics(metric_types: &MetricTypes) {
 
     REQUESTS_BY_UPSTREAM.with_label_values(&[metric_types.upstream.as_ref()]).inc();
     RESPONSE_LATENCY.observe(metric_types.latency.as_secs_f64());
-
-    // if let Some(eviction) = EVICTION.get() {
-    //     CACHE_SIZE_BYTES.set(eviction.total_size() as i64);
-    //     CACHE_ITEMS.set(eviction.total_items() as i64);
-    //     CACHE_EVICTED_BYTES.set(eviction.evicted_size() as i64);
-    //     CACHE_EVICTED_ITEMS.set(eviction.evicted_items() as i64);
-    // }
 }
 
 pub(crate) fn get_memory_usage() -> usize {
