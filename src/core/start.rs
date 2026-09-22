@@ -1,5 +1,5 @@
-use crate::core::logging::init_access_log;
 use crate::core::proxyhttp::LB;
+use crate::logging::core::init_access_log;
 use crate::tls::grades;
 use crate::tls::load;
 use crate::tls::load::CertificateConfig;

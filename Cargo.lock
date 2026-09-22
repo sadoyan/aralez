@@ -133,6 +133,7 @@ name = "aralez"
 version = "0.93.5"
 dependencies = [
  "ahash",
+ "anyhow",
  "arc-swap",
  "async-trait",
  "axum",

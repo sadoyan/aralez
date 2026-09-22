@@ -1,10 +1,13 @@
+use crate::logging::types::sendlog;
 use crate::utils::metrics::LOGGING_ERRORS;
 use crate::utils::types::AppConfig;
-use log::{error, info, warn, LevelFilter};
+use anyhow::Result;
+use log::{error, info, warn, LevelFilter, Record};
 use log4rs::append::rolling_file::policy::compound::roll::fixed_window::FixedWindowRoller;
 use log4rs::append::rolling_file::policy::compound::trigger::size::SizeTrigger;
 use log4rs::append::rolling_file::policy::compound::CompoundPolicy;
 use log4rs::append::rolling_file::RollingFileAppender;
+use log4rs::append::Append;
 use log4rs::config::Logger;
 use log4rs::{
     append::console::ConsoleAppender,
@@ -14,6 +17,7 @@ use log4rs::{
 use pingora_cache::CachePhase;
 use pingora_http::Version;
 use pingora_proxy::Session;
+use serde::Serialize;
 use std::net::{IpAddr, Ipv4Addr};
 use std::sync::OnceLock;
 use tokio::sync::mpsc;
@@ -27,10 +31,53 @@ pub struct LogMessage {
     pub user_agent: String,
     pub cache_status: CachePhase,
 }
+
+#[derive(Debug, Serialize)]
+pub struct StructuredSystemLog {
+    pub target: String,
+    pub level: log::Level,
+    pub message: String,
+}
+
 static LOG_SENDER: OnceLock<mpsc::Sender<LogMessage>> = OnceLock::new();
+pub(crate) static PINGORA_LOG_SENDER: OnceLock<mpsc::Sender<StructuredSystemLog>> = OnceLock::new();
 static ACCESS_LOG: OnceLock<LogLevel> = OnceLock::new();
 const LOG_BUFFER: usize = 16384;
 
+static LOG_BACKEND: OnceLock<&'static str> = OnceLock::new();
+pub fn set_backend(key: String) -> Result<(), &'static str> {
+    let static_key: &'static str = Box::leak(key.into_boxed_str());
+    LOG_BACKEND.set(static_key).map_err(|_| "LOG_BACKEND was already initialized!")
+}
+
+pub fn get_backend() -> &'static str {
+    LOG_BACKEND.get().copied().unwrap_or("system")
+}
+
+#[derive(Debug)]
+pub struct StructiredChannelAppender {
+    sender: mpsc::Sender<StructuredSystemLog>,
+}
+
+impl StructiredChannelAppender {
+    pub fn new(sender: mpsc::Sender<StructuredSystemLog>) -> Self {
+        Self { sender }
+    }
+}
+
+impl Append for StructiredChannelAppender {
+    fn append(&self, record: &Record) -> Result<()> {
+        let msg = StructuredSystemLog {
+            target: record.target().to_string(),
+            level: record.level(),
+            message: format!("{}", record.args()),
+        };
+        let _ = self.sender.try_send(msg);
+        Ok(())
+    }
+
+    fn flush(&self) {}
+}
 pub fn log_builder(conf: &AppConfig, location: &Option<String>) {
     let log_level = match conf.log_level.as_str() {
         "info" => LevelFilter::Info,
@@ -46,11 +93,53 @@ pub fn log_builder(conf: &AppConfig, location: &Option<String>) {
     };
 
     let mut pat: String = "{d(%Y-%m-%d %H:%M:%S)} {l} - {m} {n}".to_string();
+
     if let Some(ptrn) = conf.log_pattern.clone() {
         pat = ptrn;
     }
     let pattern = pat.as_str();
 
+    if let Some(backend) = conf.log_structired.clone() {
+        let b = backend.split_whitespace().collect::<Vec<&str>>();
+        let s = b[0].to_string();
+        let _ = set_backend(s);
+        init_pingora_syslog();
+
+        let pingora_appender: Option<Box<dyn Append>> = PINGORA_LOG_SENDER
+            .get()
+            .cloned()
+            .map(|sender| Box::new(StructiredChannelAppender::new(sender)) as Box<dyn Append>);
+
+        let stdout = ConsoleAppender::builder().encoder(Box::new(PatternEncoder::new(pattern))).build();
+
+        let mut config_builder = Log4rsConfig::builder().appender(Appender::builder().build("stdout", Box::new(stdout)));
+
+        if let Some(appender) = pingora_appender {
+            config_builder = config_builder
+                .appender(Appender::builder().build("pingora_channel", appender))
+                .logger(Logger::builder().appender("pingora_channel").additive(false).build("pingora_proxy", log_level))
+                .logger(Logger::builder().appender("pingora_channel").additive(false).build("pingora_core", log_level))
+                .logger(Logger::builder().appender("pingora_channel").additive(false).build("pingora_pool", log_level))
+                .logger(Logger::builder().appender("pingora_channel").additive(false).build("pingora_cache", log_level))
+                .logger(Logger::builder().appender("pingora_channel").additive(false).build("hyper_util", log_level))
+                .logger(Logger::builder().appender("pingora_channel").additive(false).build("aralez", log_level))
+                .logger(Logger::builder().appender("pingora_channel").additive(false).build("h2", log_level));
+        } else {
+            config_builder = config_builder
+                .logger(Logger::builder().build("pingora_core", LevelFilter::Off))
+                .logger(Logger::builder().build("pingora_pool", LevelFilter::Off))
+                .logger(Logger::builder().build("pingora_cache", LevelFilter::Off))
+                .logger(Logger::builder().build("hyper_util", LevelFilter::Off))
+                .logger(Logger::builder().build("aralez", LevelFilter::Off))
+                .logger(Logger::builder().build("h2", LevelFilter::Off));
+        }
+
+        let config = config_builder.build(Root::builder().appender("stdout").build(log_level)).unwrap();
+
+        log4rs::init_config(config).unwrap();
+        info!("Enabling structured logging with backend : {}", backend);
+        return;
+    }
     if let Some(location) = location {
         let parts: Vec<&str> = location.splitn(4, ',').map(|s| s.trim()).collect();
 
@@ -82,7 +171,6 @@ pub fn log_builder(conf: &AppConfig, location: &Option<String>) {
         info!("Logging to: {}, Max file size: {}mb, Files to keep: {}, compression: {} ", path, size_mb, keep, compress);
     } else {
         let stdout = ConsoleAppender::builder().encoder(Box::new(PatternEncoder::new(pattern))).build();
-
         let config = Log4rsConfig::builder()
             .appender(Appender::builder().build("stdout", Box::new(stdout)))
             .logger(Logger::builder().build("pingora_proxy", LevelFilter::Off))
@@ -121,6 +209,7 @@ pub enum MatchStatus {
     Er4xx,
     Er5xx,
 }
+
 impl MatchStatus {
     #[inline]
     pub fn from_code(code: u16) -> Self {
@@ -131,12 +220,15 @@ impl MatchStatus {
         }
     }
 }
+
 pub fn access_log(response_code: u16, summary: &str, session: &Session) {
     let level = ACCESS_LOG.get().unwrap_or(&LogLevel::None);
     let status = MatchStatus::from_code(response_code);
+
     let should_log = match level {
         LogLevel::Access => true,
         LogLevel::None => false,
+        // Captures all 4xx and 5xx errors when level is set to Error
         LogLevel::Error => matches!(status, MatchStatus::Er5xx),
     };
 
@@ -151,6 +243,7 @@ pub fn access_log(response_code: u16, summary: &str, session: &Session) {
         .unwrap_or(IpAddr::V4(Ipv4Addr::LOCALHOST));
 
     let user_agent = session.req_header().headers.get("user-agent").and_then(|v| v.to_str().ok()).unwrap_or("-");
+
     let log = LogMessage {
         response_code,
         summary: summary.to_owned(),
@@ -161,7 +254,6 @@ pub fn access_log(response_code: u16, summary: &str, session: &Session) {
     };
 
     if let Some(sender) = LOG_SENDER.get() {
-        let sender = sender;
         if let Err(_) = sender.try_send(log) {
             LOGGING_ERRORS.inc();
         }
@@ -169,13 +261,27 @@ pub fn access_log(response_code: u16, summary: &str, session: &Session) {
 }
 
 pub fn init_logging(enabled: Option<String>) {
-    if let Some(_) = enabled {
+    if enabled.is_some() {
         LOGGING_ERRORS.set(0);
         info!("Enabling {:?} log, with buffer of {} messages", ACCESS_LOG.get().unwrap_or(&LogLevel::None), LOG_BUFFER);
         let (ltx, lrx) = mpsc::channel(LOG_BUFFER);
         LOG_SENDER.set(ltx).unwrap();
         std::thread::spawn(move || log_receiver(lrx));
     }
+}
+
+pub fn init_pingora_syslog() {
+    let (tx, mut rx) = mpsc::channel::<StructuredSystemLog>(LOG_BUFFER);
+    let _ = PINGORA_LOG_SENDER.set(tx);
+    let backend = get_backend();
+    std::thread::Builder::new()
+        .name("structured-log-receiver".to_string())
+        .spawn(move || {
+            while let Some(syslog) = rx.blocking_recv() {
+                sendlog(backend, &syslog);
+            }
+        })
+        .expect("Failed to spawn log thread");
 }
 
 pub fn log_receiver(mut receiver: mpsc::Receiver<LogMessage>) {

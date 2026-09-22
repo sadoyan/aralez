@@ -1,6 +1,6 @@
 use crate::auth::authenticate;
 use crate::core::gethosts::{GetHost, GetHostsReturHeaders};
-use crate::core::logging::access_log;
+use crate::logging::core::access_log;
 use crate::utils::lazylock::{CACHE_LOCK, CACHE_TTL, EVICTION, LOCALHOST, MEM_CACHE, RATE_LIMITER, REQUESTS_4XX, REVERSE_STORE};
 use crate::utils::metrics::*;
 use crate::utils::types::{AppConfig, Extraparams, Headers, InnerMap, UpstreamsDashMap, UpstreamsIdMap};

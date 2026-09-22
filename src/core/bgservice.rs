@@ -1,6 +1,6 @@
-use crate::core::logging::init_logging;
 use crate::core::proxyhttp::LB;
 use crate::ingress::{APIUpstreamProvider, ConsulProvider, Discovery, FromFileProvider, KubernetesProvider};
+use crate::logging::core::init_logging;
 use crate::tls::acme::order::refresh_order;
 use crate::utils::metrics::calc_cache_metrics;
 use crate::utils::parceyaml::load_configuration;
