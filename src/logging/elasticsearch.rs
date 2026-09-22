@@ -1,5 +1,5 @@
 use crate::logging::core::StructuredSystemLog;
-use crate::logging::types::WriteLog;
+use crate::logging::types::{LogBackendPlugin, WriteLog};
 use std::env;
 use std::sync::LazyLock;
 
@@ -28,7 +28,15 @@ pub struct ElasticSearch;
 impl WriteLog for ElasticSearch {
     fn writelog(&self, msg: &StructuredSystemLog) {
         if let Ok(jsonmsg) = serde_json::to_string(&msg) {
-            println!("Connecting to {} - {}:{} => {}", ELASTIC.hosts, ELASTIC.user, ELASTIC.password, jsonmsg);
+            // ElasticSearch logic is not yet implemented.
+            println!("{} - {}:{} => {}", ELASTIC.hosts, ELASTIC.user, ELASTIC.password, jsonmsg);
         }
+    }
+}
+
+inventory::submit! {
+    LogBackendPlugin {
+        name: "elasticsearch",
+        factory: || Box::new(ElasticSearch),
     }
 }
