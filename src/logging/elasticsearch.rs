@@ -30,6 +30,7 @@ impl WriteLog for ElasticSearch {
         if let Ok(jsonmsg) = serde_json::to_string(&msg) {
             // ElasticSearch logic is not yet implemented.
             println!("{} - {}:{} => {}", ELASTIC.hosts, ELASTIC.user, ELASTIC.password, jsonmsg);
+            // let resp = httpclient(method, tls, host, path, upstream.address.as_ref(), upstream.port, link).await;
         }
     }
 }

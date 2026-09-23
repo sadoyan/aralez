@@ -1,6 +1,6 @@
 use crate::core::proxyhttp::LB;
 use crate::ingress::{APIUpstreamProvider, ConsulProvider, Discovery, FromFileProvider, KubernetesProvider};
-use crate::logging::core::init_logging;
+use crate::logging::core::init_access_logging;
 use crate::tls::acme::order::refresh_order;
 use crate::utils::metrics::calc_cache_metrics;
 use crate::utils::parceyaml::load_configuration;
@@ -80,7 +80,7 @@ impl BackgroundService for LB {
         }));
         drop(tokio::spawn(async move { calc_cache_metrics().await }));
         drop(tokio::spawn(async move { refresh_order(certdir, confdir).await }));
-        init_logging(self.config.access_log.clone());
+        init_access_logging(self.config.access_log.clone());
         loop {
             tokio::select! {
                 _ = shutdown.changed() => {

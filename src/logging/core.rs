@@ -18,6 +18,8 @@ use pingora_cache::CachePhase;
 use pingora_http::Version;
 use pingora_proxy::Session;
 use serde::Serialize;
+use std::cell::RefCell;
+use std::fmt::Write;
 use std::net::{IpAddr, Ipv4Addr};
 use std::sync::OnceLock;
 use tokio::sync::mpsc;
@@ -34,17 +36,21 @@ pub struct LogMessage {
 
 #[derive(Debug, Serialize)]
 pub struct StructuredSystemLog {
-    pub target: String,
+    pub target: &'static str,
     pub level: log::Level,
     pub message: String,
+}
+thread_local! {
+    static LOG_BUF: RefCell<String> = RefCell::new(String::with_capacity(512));
 }
 
 static LOG_SENDER: OnceLock<mpsc::Sender<LogMessage>> = OnceLock::new();
 pub(crate) static PINGORA_LOG_SENDER: OnceLock<mpsc::Sender<StructuredSystemLog>> = OnceLock::new();
 static ACCESS_LOG: OnceLock<LogLevel> = OnceLock::new();
 const LOG_BUFFER: usize = 16384;
-
+static IS_STRUCTURED: OnceLock<bool> = OnceLock::new();
 static LOG_BACKEND: OnceLock<&'static str> = OnceLock::new();
+
 pub fn set_backend(key: String) -> Result<(), &'static str> {
     let static_key: &'static str = Box::leak(key.into_boxed_str());
     LOG_BACKEND.set(static_key).map_err(|_| "LOG_BACKEND was already initialized!")
@@ -55,23 +61,33 @@ pub fn get_backend() -> &'static str {
 }
 
 #[derive(Debug)]
-pub struct StructiredChannelAppender {
+pub struct StructuredChannelAppender {
     sender: mpsc::Sender<StructuredSystemLog>,
 }
 
-impl StructiredChannelAppender {
+impl StructuredChannelAppender {
     pub fn new(sender: mpsc::Sender<StructuredSystemLog>) -> Self {
         Self { sender }
     }
 }
 
-impl Append for StructiredChannelAppender {
+impl Append for StructuredChannelAppender {
     fn append(&self, record: &Record) -> Result<()> {
+        let message = LOG_BUF.with(|buf| {
+            let mut b = buf.borrow_mut();
+            b.clear();
+            let _ = write!(&mut *b, "{}", record.args());
+            b.clone()
+        });
+
+        let target: &'static str = unsafe { std::mem::transmute(record.target()) };
+
         let msg = StructuredSystemLog {
-            target: record.target().to_string(),
+            target,
             level: record.level(),
-            message: format!("{}", record.args()),
+            message,
         };
+
         let _ = self.sender.try_send(msg);
         Ok(())
     }
@@ -99,16 +115,15 @@ pub fn log_builder(conf: &AppConfig, location: &Option<String>) {
     }
     let pattern = pat.as_str();
 
-    if let Some(backend) = conf.log_structired.clone() {
-        let b = backend.split_whitespace().collect::<Vec<&str>>();
-        let s = b[0].to_string();
-        let _ = set_backend(s);
-        init_pingora_syslog();
-
+    if let Some(backend) = conf.log_structured.as_deref() {
+        if let Some(backend_name) = backend.split_whitespace().next() {
+            let _ = set_backend(backend_name.to_string());
+            init_structured_log();
+        }
         let pingora_appender: Option<Box<dyn Append>> = PINGORA_LOG_SENDER
             .get()
             .cloned()
-            .map(|sender| Box::new(StructiredChannelAppender::new(sender)) as Box<dyn Append>);
+            .map(|sender| Box::new(StructuredChannelAppender::new(sender)) as Box<dyn Append>);
 
         let stdout = ConsoleAppender::builder().encoder(Box::new(PatternEncoder::new(pattern))).build();
 
@@ -136,14 +151,26 @@ pub fn log_builder(conf: &AppConfig, location: &Option<String>) {
 
         let config = config_builder.build(Root::builder().appender("stdout").build(log_level)).unwrap();
 
-        log4rs::init_config(config).unwrap();
+        if let Err(e) = log4rs::init_config(config) {
+            eprintln!("Warning: log4rs logger already initialized: {:?}", e);
+        }
         info!("Enabling structured logging with backend : {}", backend);
+        let _ = IS_STRUCTURED.set(true);
         return;
     }
     if let Some(location) = location {
-        let parts: Vec<&str> = location.splitn(4, ',').map(|s| s.trim()).collect();
+        // let parts: Vec<&str> = location.splitn(4, ',').map(|s| s.trim()).collect();
+        // let path = parts.get(0).expect("Syntax error, could not get path for log files");
 
-        let path = parts.get(0).expect("Syntax error, could not get path for log files");
+        let parts: Vec<&str> = location.split(',').map(|s| s.trim()).collect();
+        let path = match parts.get(0).filter(|s| !s.is_empty()) {
+            Some(p) => p,
+            None => {
+                error!("Invalid log location string provided; falling back to stdout");
+                return;
+            }
+        };
+
         let compress = parts.get(3).unwrap_or(&"No");
         let size_mb: u64 = parts.get(1).and_then(|s| s.parse().ok()).unwrap_or(100);
         let keep: u32 = parts.get(2).and_then(|s| s.parse().ok()).unwrap_or(5);
@@ -157,17 +184,22 @@ pub fn log_builder(conf: &AppConfig, location: &Option<String>) {
         let trigger = SizeTrigger::new(size_mb * 1024 * 1024);
         let policy = CompoundPolicy::new(Box::new(trigger), Box::new(roller));
 
-        let file = RollingFileAppender::builder()
-            .encoder(Box::new(PatternEncoder::new(pattern)))
-            .build(path, Box::new(policy))
-            .unwrap();
+        let file = match RollingFileAppender::builder().encoder(Box::new(PatternEncoder::new(pattern))).build(path, Box::new(policy)) {
+            Ok(f) => f,
+            Err(e) => {
+                error!("Failed to create log file at {}: {}. Falling back to stdout.", path, e);
+                return;
+            }
+        };
 
         let config = Log4rsConfig::builder()
             .appender(Appender::builder().build("file", Box::new(file)))
             .logger(Logger::builder().build("pingora_proxy", LevelFilter::Off))
             .build(Root::builder().appender("file").build(log_level))
             .unwrap();
-        log4rs::init_config(config).unwrap();
+        if let Err(e) = log4rs::init_config(config) {
+            eprintln!("Warning: log4rs logger already initialized: {:?}", e);
+        }
         info!("Logging to: {}, Max file size: {}mb, Files to keep: {}, compression: {} ", path, size_mb, keep, compress);
     } else {
         let stdout = ConsoleAppender::builder().encoder(Box::new(PatternEncoder::new(pattern))).build();
@@ -176,7 +208,9 @@ pub fn log_builder(conf: &AppConfig, location: &Option<String>) {
             .logger(Logger::builder().build("pingora_proxy", LevelFilter::Off))
             .build(Root::builder().appender("stdout").build(log_level))
             .unwrap();
-        log4rs::init_config(config).unwrap();
+        if let Err(e) = log4rs::init_config(config) {
+            eprintln!("Warning: log4rs logger already initialized: {:?}", e);
+        }
         info!("No files are configured, logging to stdout");
     }
 }
@@ -228,7 +262,6 @@ pub fn access_log(response_code: u16, summary: &str, session: &Session) {
     let should_log = match level {
         LogLevel::Access => true,
         LogLevel::None => false,
-        // Captures all 4xx and 5xx errors when level is set to Error
         LogLevel::Error => matches!(status, MatchStatus::Er5xx),
     };
 
@@ -244,7 +277,7 @@ pub fn access_log(response_code: u16, summary: &str, session: &Session) {
 
     let user_agent = session.req_header().headers.get("user-agent").and_then(|v| v.to_str().ok()).unwrap_or("-");
 
-    let log = LogMessage {
+    let msg = LogMessage {
         response_code,
         summary: summary.to_owned(),
         client_ip: ip,
@@ -253,24 +286,28 @@ pub fn access_log(response_code: u16, summary: &str, session: &Session) {
         cache_status: session.cache.phase(),
     };
 
+    if IS_STRUCTURED.get().is_some() {
+        write_access_log(&msg);
+        return;
+    }
     if let Some(sender) = LOG_SENDER.get() {
-        if let Err(_) = sender.try_send(log) {
+        if let Err(_) = sender.try_send(msg) {
             LOGGING_ERRORS.inc();
         }
     }
 }
 
-pub fn init_logging(enabled: Option<String>) {
+pub fn init_access_logging(enabled: Option<String>) {
     if enabled.is_some() {
         LOGGING_ERRORS.set(0);
         info!("Enabling {:?} log, with buffer of {} messages", ACCESS_LOG.get().unwrap_or(&LogLevel::None), LOG_BUFFER);
         let (ltx, lrx) = mpsc::channel(LOG_BUFFER);
-        LOG_SENDER.set(ltx).unwrap();
-        std::thread::spawn(move || log_receiver(lrx));
+        let _ = LOG_SENDER.set(ltx);
+        std::thread::spawn(move || access_log_receiver(lrx));
     }
 }
 
-pub fn init_pingora_syslog() {
+pub fn init_structured_log() {
     let (tx, mut rx) = mpsc::channel::<StructuredSystemLog>(LOG_BUFFER);
     let _ = PINGORA_LOG_SENDER.set(tx);
     let backend = get_backend();
@@ -284,36 +321,40 @@ pub fn init_pingora_syslog() {
         .expect("Failed to spawn log thread");
 }
 
-pub fn log_receiver(mut receiver: mpsc::Receiver<LogMessage>) {
+pub fn access_log_receiver(mut receiver: mpsc::Receiver<LogMessage>) {
     while let Some(msg) = receiver.blocking_recv() {
-        match MatchStatus::from_code(msg.response_code) {
-            MatchStatus::Ok2xx => info!(
-                "{}, {}, {}, client: {}, version: {:?}, useragent: {}",
-                msg.response_code,
-                msg.cache_status.as_str(),
-                msg.summary,
-                msg.client_ip,
-                msg.version,
-                msg.user_agent,
-            ),
-            MatchStatus::Er4xx => warn!(
-                "{}, {}, {}, client: {}, version: {:?}, useragent: {}",
-                msg.response_code,
-                msg.cache_status.as_str(),
-                msg.summary,
-                msg.client_ip,
-                msg.version,
-                msg.user_agent,
-            ),
-            MatchStatus::Er5xx => error!(
-                "{}, {}, {}, client: {}, version: {:?}, useragent: {}",
-                msg.response_code,
-                msg.cache_status.as_str(),
-                msg.summary,
-                msg.client_ip,
-                msg.version,
-                msg.user_agent,
-            ),
-        }
+        write_access_log(&msg);
+    }
+}
+
+fn write_access_log(msg: &LogMessage) {
+    match MatchStatus::from_code(msg.response_code) {
+        MatchStatus::Ok2xx => info!(
+            "{}, {}, {}, client: {}, version: {:?}, useragent: {}",
+            msg.response_code,
+            msg.cache_status.as_str(),
+            msg.summary,
+            msg.client_ip,
+            msg.version,
+            msg.user_agent,
+        ),
+        MatchStatus::Er4xx => warn!(
+            "{}, {}, {}, client: {}, version: {:?}, useragent: {}",
+            msg.response_code,
+            msg.cache_status.as_str(),
+            msg.summary,
+            msg.client_ip,
+            msg.version,
+            msg.user_agent,
+        ),
+        MatchStatus::Er5xx => error!(
+            "{}, {}, {}, client: {}, version: {:?}, useragent: {}",
+            msg.response_code,
+            msg.cache_status.as_str(),
+            msg.summary,
+            msg.client_ip,
+            msg.version,
+            msg.user_agent,
+        ),
     }
 }
