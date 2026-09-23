@@ -1,6 +1,6 @@
 use crate::core::proxyhttp::LB;
 use crate::ingress::{APIUpstreamProvider, ConsulProvider, Discovery, FromFileProvider, KubernetesProvider};
-use crate::logging::core::init_access_logging;
+use crate::logging::core::{init_access_log, init_access_logging, log_builder};
 use crate::tls::acme::order::refresh_order;
 use crate::utils::metrics::calc_cache_metrics;
 use crate::utils::parceyaml::load_configuration;
@@ -19,6 +19,10 @@ use tokio::sync::mpsc;
 #[async_trait]
 impl BackgroundService for LB {
     async fn start(&self, mut shutdown: ShutdownWatch) {
+        log_builder(&self.config, &self.config.log_file).await;
+        let al = &self.config.access_log.clone().unwrap_or("none".to_string());
+        let _ = init_access_log(al.as_str()).await;
+
         info!("Starting background service"); // tx: Sender<Configuration>
         let (tx, mut rx) = mpsc::channel::<Configuration>(1);
         let tx_api = tx.clone();
@@ -80,7 +84,8 @@ impl BackgroundService for LB {
         }));
         drop(tokio::spawn(async move { calc_cache_metrics().await }));
         drop(tokio::spawn(async move { refresh_order(certdir, confdir).await }));
-        init_access_logging(self.config.access_log.clone());
+
+        init_access_logging(self.config.access_log.clone()).await;
         loop {
             tokio::select! {
                 _ = shutdown.changed() => {

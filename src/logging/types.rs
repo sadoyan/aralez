@@ -1,9 +1,11 @@
 use crate::logging::core::StructuredSystemLog;
+use async_trait::async_trait;
 use std::collections::HashMap;
 use std::sync::LazyLock;
 
+#[async_trait]
 pub trait WriteLog: Send + Sync {
-    fn writelog(&self, msg: &StructuredSystemLog);
+    async fn writelog(&self, msg: &StructuredSystemLog);
 }
 
 pub struct LogBackendPlugin {
@@ -21,9 +23,9 @@ static BACKENDS: LazyLock<HashMap<&'static str, Box<dyn WriteLog>>> = LazyLock::
     map
 });
 
-pub fn sendlog(backend: &str, msg: &StructuredSystemLog) {
+pub async fn sendlog(backend: &str, msg: &StructuredSystemLog) {
     if let Some(logger) = BACKENDS.get(backend) {
-        logger.writelog(msg);
+        logger.writelog(msg).await;
     } else {
         log::warn!("Unsupported logging mechanism: {}", backend);
     }

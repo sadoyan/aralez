@@ -1,5 +1,4 @@
 use crate::core::proxyhttp::LB;
-use crate::logging::core::init_access_log;
 use crate::tls::grades;
 use crate::tls::load;
 use crate::tls::load::CertificateConfig;
@@ -71,8 +70,8 @@ pub fn run() {
         extraparams: ec_config,
         cache_enabled: cache_enabled,
     };
-    let al = cfg.access_log.clone().unwrap_or("none".to_string());
-    init_access_log(al.as_str());
+    // let al = cfg.access_log.clone().unwrap_or("none".to_string());
+    // init_access_log(al.as_str());
 
     let grade = cfg.proxy_tls_grade.clone().unwrap_or("medium".to_string());
     info!("TLS grade set to: [ {} ]", grade);

@@ -2,6 +2,7 @@ use crate::utils::hcclient::httpclient;
 use crate::utils::lazylock::REVERSE_STORE;
 use crate::utils::tools::*;
 use crate::utils::types::{InnerMap, UpstreamsDashMap, UpstreamsIdMap};
+use bytes::Bytes;
 use dashmap::DashMap;
 use std::sync::atomic::AtomicUsize;
 use std::sync::Arc;
@@ -9,6 +10,7 @@ use std::time::Duration;
 use tokio::net::TcpStream;
 use tokio::time::{interval, timeout};
 use tokio_native_tls::native_tls::TlsConnector;
+const EMPTY_PAYLOAD: Bytes = Bytes::from_static(b"");
 
 pub async fn hc2(upslist: Arc<UpstreamsDashMap>, fullist: Arc<UpstreamsDashMap>, idlist: Arc<UpstreamsIdMap>, params: (&str, u64)) {
     let mut period = interval(Duration::from_secs(params.1));
@@ -66,7 +68,7 @@ async fn build_upstreams(fullist: &UpstreamsDashMap, method: &str) -> UpstreamsD
                     } else {
                         format!("http://{}:{}{}", upstream.address, upstream.port, path)
                     };
-                    let resp = httpclient(method, tls, host, path, upstream.address.as_ref(), upstream.port, link).await;
+                    let resp = httpclient(method, tls, host, path, upstream.address.as_ref(), upstream.port, link, EMPTY_PAYLOAD).await;
                     if resp.0 {
                         if resp.1 {
                             scheme.is_http2 = resp.1;

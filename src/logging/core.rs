@@ -94,7 +94,7 @@ impl Append for StructuredChannelAppender {
 
     fn flush(&self) {}
 }
-pub fn log_builder(conf: &AppConfig, location: &Option<String>) {
+pub async fn log_builder(conf: &AppConfig, location: &Option<String>) {
     let log_level = match conf.log_level.as_str() {
         "info" => LevelFilter::Info,
         "error" => LevelFilter::Error,
@@ -118,7 +118,7 @@ pub fn log_builder(conf: &AppConfig, location: &Option<String>) {
     if let Some(backend) = conf.log_structured.as_deref() {
         if let Some(backend_name) = backend.split_whitespace().next() {
             let _ = set_backend(backend_name.to_string());
-            init_structured_log();
+            init_structured_log().await;
         }
         let pingora_appender: Option<Box<dyn Append>> = PINGORA_LOG_SENDER
             .get()
@@ -215,7 +215,7 @@ pub fn log_builder(conf: &AppConfig, location: &Option<String>) {
     }
 }
 
-pub fn init_access_log(level_str: &str) {
+pub async fn init_access_log(level_str: &str) {
     let level = LogLevel::from_str(level_str);
     let _ = ACCESS_LOG.set(level);
 }
@@ -255,7 +255,7 @@ impl MatchStatus {
     }
 }
 
-pub fn access_log(response_code: u16, summary: &str, session: &Session) {
+pub async fn access_log(response_code: u16, summary: &str, session: &Session) {
     let level = ACCESS_LOG.get().unwrap_or(&LogLevel::None);
     let status = MatchStatus::from_code(response_code);
 
@@ -287,7 +287,7 @@ pub fn access_log(response_code: u16, summary: &str, session: &Session) {
     };
 
     if IS_STRUCTURED.get().is_some() {
-        write_access_log(&msg);
+        write_access_log(&msg).await;
         return;
     }
     if let Some(sender) = LOG_SENDER.get() {
@@ -297,37 +297,44 @@ pub fn access_log(response_code: u16, summary: &str, session: &Session) {
     }
 }
 
-pub fn init_access_logging(enabled: Option<String>) {
+pub async fn init_access_logging(enabled: Option<String>) {
     if enabled.is_some() {
         LOGGING_ERRORS.set(0);
         info!("Enabling {:?} log, with buffer of {} messages", ACCESS_LOG.get().unwrap_or(&LogLevel::None), LOG_BUFFER);
         let (ltx, lrx) = mpsc::channel(LOG_BUFFER);
         let _ = LOG_SENDER.set(ltx);
-        std::thread::spawn(move || access_log_receiver(lrx));
+        drop(tokio::spawn(async move { access_log_receiver(lrx).await }));
     }
 }
 
-pub fn init_structured_log() {
+pub async fn init_structured_log() {
     let (tx, mut rx) = mpsc::channel::<StructuredSystemLog>(LOG_BUFFER);
     let _ = PINGORA_LOG_SENDER.set(tx);
     let backend = get_backend();
-    std::thread::Builder::new()
-        .name("structured-log-receiver".to_string())
-        .spawn(move || {
-            while let Some(syslog) = rx.blocking_recv() {
-                sendlog(backend, &syslog);
-            }
-        })
-        .expect("Failed to spawn log thread");
+
+    drop(tokio::spawn(async move {
+        while let Some(syslog) = rx.recv().await {
+            sendlog(backend, &syslog).await;
+        }
+    }));
+
+    // std::thread::Builder::new()
+    //     .name("structured-log-receiver".to_string())
+    //     .spawn(move || {
+    //         while let Some(syslog) = rx.blocking_recv() {
+    //             sendlog(backend, &syslog);
+    //         }
+    //     })
+    //     .expect("Failed to spawn log thread");
 }
 
-pub fn access_log_receiver(mut receiver: mpsc::Receiver<LogMessage>) {
-    while let Some(msg) = receiver.blocking_recv() {
-        write_access_log(&msg);
+pub async fn access_log_receiver(mut receiver: mpsc::Receiver<LogMessage>) {
+    while let Some(msg) = receiver.recv().await {
+        write_access_log(&msg).await;
     }
 }
 
-fn write_access_log(msg: &LogMessage) {
+async fn write_access_log(msg: &LogMessage) {
     match MatchStatus::from_code(msg.response_code) {
         MatchStatus::Ok2xx => info!(
             "{}, {}, {}, client: {}, version: {:?}, useragent: {}",

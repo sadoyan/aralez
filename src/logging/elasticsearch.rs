@@ -1,22 +1,30 @@
 use crate::logging::core::StructuredSystemLog;
 use crate::logging::types::{LogBackendPlugin, WriteLog};
+use crate::utils::hcclient::httpclient;
+use async_trait::async_trait;
+use bytes::Bytes;
 use std::env;
 use std::sync::LazyLock;
 
 pub struct ElasticSearchConfig {
-    pub hosts: &'static str,
+    pub hosts: &'static [&'static str],
     pub user: &'static str,
     pub password: &'static str,
 }
 
 impl ElasticSearchConfig {
     pub fn load_from_env() -> Self {
-        let host = env::var("LOG_ELASTIC_HOSTS").unwrap_or_else(|_| "127.0.0.1".to_string());
+        let hosts: Vec<&'static str> = env::var("LOG_ELASTIC_HOSTS")
+            .unwrap_or_else(|_| "127.0.0.1".to_string())
+            .split(',')
+            .map(|s| -> &'static str { Box::leak(s.trim().to_string().into_boxed_str()) })
+            .collect();
+
         let user = env::var("LOG_ELASTIC_USER").unwrap_or_else(|_| "elastic".to_string());
         let password = env::var("LOG_ELASTIC_PASSWORD").unwrap_or_else(|_| "elastic".to_string());
 
         Self {
-            hosts: Box::leak(host.into_boxed_str()),
+            hosts: Box::leak(hosts.into_boxed_slice()),
             user: Box::leak(user.into_boxed_str()),
             password: Box::leak(password.into_boxed_str()),
         }
@@ -25,13 +33,18 @@ impl ElasticSearchConfig {
 pub static ELASTIC: LazyLock<ElasticSearchConfig> = LazyLock::new(ElasticSearchConfig::load_from_env);
 pub struct ElasticSearch;
 
+#[async_trait]
 impl WriteLog for ElasticSearch {
-    fn writelog(&self, msg: &StructuredSystemLog) {
-        if let Ok(jsonmsg) = serde_json::to_string(&msg) {
-            // ElasticSearch logic is not yet implemented.
-            println!("{} - {}:{} => {}", ELASTIC.hosts, ELASTIC.user, ELASTIC.password, jsonmsg);
-            // let resp = httpclient(method, tls, host, path, upstream.address.as_ref(), upstream.port, link).await;
-        }
+    async fn writelog(&self, msg: &StructuredSystemLog) {
+        let payload = match serde_json::to_vec(&msg) {
+            Ok(vec) => Bytes::from(vec),
+            Err(e) => {
+                log::warn!("Failed to serialize structured system log to JSON bytes: {}", e);
+                return;
+            }
+        };
+        println!("{} => {} => {}:{:?}", ELASTIC.hosts[0], ELASTIC.hosts[1], ELASTIC.user, ELASTIC.password);
+        let _ = httpclient("POST", false, "127.0.0.1", "/i", "localhost", 8000, "http://127.0.0.1:8000/d".to_string(), payload).await;
     }
 }
 

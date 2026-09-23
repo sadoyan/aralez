@@ -1,10 +1,11 @@
 use crate::logging::core::StructuredSystemLog;
 use crate::logging::types::{LogBackendPlugin, WriteLog};
+use async_trait::async_trait;
 
 pub struct Example;
-
+#[async_trait]
 impl WriteLog for Example {
-    fn writelog(&self, msg: &StructuredSystemLog) {
+    async fn writelog(&self, msg: &StructuredSystemLog) {
         // Here comes the backend logic
         println!("Sending log Example : {:?}", msg);
     }

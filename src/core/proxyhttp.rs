@@ -355,7 +355,7 @@ impl ProxyHttp for LB {
                 }
             }
         }
-        access_log(response_code, &self.request_summary(session, ctx), session);
+        access_log(response_code, &self.request_summary(session, ctx), session).await;
     }
 }
 

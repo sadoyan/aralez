@@ -1,4 +1,3 @@
-use crate::logging::core::log_builder;
 use crate::utils::healthcheck;
 use crate::utils::lazylock::REVERSE_STORE;
 use crate::utils::state::{is_first_run, mark_not_first_run};
@@ -264,8 +263,7 @@ pub fn parce_main_config(path: &str) -> AppConfig {
     if let Ok(jwt_key) = env::var("JWT_KEY") {
         cfo.master_key = Some(jwt_key);
     };
-
-    log_builder(&cfo, &cfo.log_file);
+    // log_builder(&cfo, &cfo.log_file);
     cfo.hc_method = cfo.hc_method.to_uppercase();
     if let Some((ip, port_str)) = cfo.config_address.rsplit_once(':') {
         if let Ok(port) = port_str.parse::<u16>() {
