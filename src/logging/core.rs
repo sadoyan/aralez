@@ -2,7 +2,7 @@ use crate::logging::types::sendlog;
 use crate::utils::metrics::LOGGING_ERRORS;
 use crate::utils::types::AppConfig;
 use anyhow::Result;
-use log::{error, info, warn, LevelFilter, Record};
+use log::{error, info, log, Level, LevelFilter, Record};
 use log4rs::append::rolling_file::policy::compound::roll::fixed_window::FixedWindowRoller;
 use log4rs::append::rolling_file::policy::compound::trigger::size::SizeTrigger;
 use log4rs::append::rolling_file::policy::compound::CompoundPolicy;
@@ -335,33 +335,19 @@ pub async fn access_log_receiver(mut receiver: mpsc::Receiver<LogMessage>) {
 }
 
 async fn write_access_log(msg: &LogMessage) {
-    match MatchStatus::from_code(msg.response_code) {
-        MatchStatus::Ok2xx => info!(
-            "{}, {}, {}, client: {}, version: {:?}, useragent: {}",
-            msg.response_code,
-            msg.cache_status.as_str(),
-            msg.summary,
-            msg.client_ip,
-            msg.version,
-            msg.user_agent,
-        ),
-        MatchStatus::Er4xx => warn!(
-            "{}, {}, {}, client: {}, version: {:?}, useragent: {}",
-            msg.response_code,
-            msg.cache_status.as_str(),
-            msg.summary,
-            msg.client_ip,
-            msg.version,
-            msg.user_agent,
-        ),
-        MatchStatus::Er5xx => error!(
-            "{}, {}, {}, client: {}, version: {:?}, useragent: {}",
-            msg.response_code,
-            msg.cache_status.as_str(),
-            msg.summary,
-            msg.client_ip,
-            msg.version,
-            msg.user_agent,
-        ),
-    }
+    let level = match MatchStatus::from_code(msg.response_code) {
+        MatchStatus::Ok2xx => Level::Info,
+        MatchStatus::Er4xx => Level::Warn,
+        MatchStatus::Er5xx => Level::Error,
+    };
+    log!(
+        level,
+        "{}, {}, {}, client: {}, version: {:?}, useragent: {}",
+        msg.response_code,
+        msg.cache_status.as_str(),
+        msg.summary,
+        msg.client_ip,
+        msg.version,
+        msg.user_agent,
+    );
 }

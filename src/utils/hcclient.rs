@@ -9,7 +9,7 @@ use std::time::Duration;
 
 pub static HC_CONNECTOR: LazyLock<Connector> = LazyLock::new(|| Connector::new(None));
 
-pub async fn httpclient(method: &str, tls: bool, host: &str, path: &str, address: &str, port: u16, url: String, payload: Bytes) -> (bool, bool) {
+pub async fn httpclient(method: &str, tls: bool, host: &str, path: &str, address: &str, port: u16, url: &str, payload: Bytes) -> (bool, bool) {
     let method = match method {
         "HEAD" => "HEAD",
         "GET" => "GET",
@@ -46,7 +46,7 @@ pub async fn httpclient(method: &str, tls: bool, host: &str, path: &str, address
             is_h2 = true;
         }
         None => {
-            if ping_grpc(url.as_str()).await {
+            if ping_grpc(url).await {
                 return (true, true);
             }
         }
@@ -79,7 +79,7 @@ pub async fn httpclient(method: &str, tls: bool, host: &str, path: &str, address
     let status = match http_session.read_response_header().await {
         Ok(_) => http_session.response_header().map(|r| r.status.as_u16()).unwrap_or(500),
         Err(e) => {
-            if !is_h2 && ping_grpc(url.as_str()).await {
+            if !is_h2 && ping_grpc(url).await {
                 return (true, true);
             }
             log::warn!("Health Check read failed ({}) : {} - {}", if is_h2 { "H2" } else { "H1" }, host, e);
