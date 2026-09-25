@@ -67,4 +67,5 @@ lazy_static = "1.5.0"
 anyhow = "1.0.103"
 inventory = "0.3.24"
 elasticsearch = "9.1.0-alpha.1"
+humantime = "2.4.0"
 

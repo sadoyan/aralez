@@ -144,6 +144,7 @@ dependencies = [
  "elasticsearch",
  "futures",
  "http-body-util",
+ "humantime",
  "hyper",
  "hyper-util",
  "instant-acme",

@@ -34,7 +34,7 @@ pub struct LogMessage {
     pub cache_status: CachePhase,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 pub struct StructuredSystemLog {
     pub target: &'static str,
     pub level: Level,

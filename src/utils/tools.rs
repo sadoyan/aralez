@@ -14,10 +14,11 @@ use std::net::SocketAddr;
 use std::net::TcpListener;
 use std::os::unix::fs::MetadataExt;
 use std::os::unix::fs::OpenOptionsExt;
+use std::process::Command;
 use std::str::FromStr;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
-use std::{fs, process, thread, time};
+use std::{env, fs, process, thread, time};
 
 pub fn print_upstreams(upstreams: &UpstreamsDashMap, extraparams: &Extraparams) {
     let mut out = String::new();
@@ -347,4 +348,19 @@ pub fn split_host_port(addr: &str, tls: bool) -> Option<(&str, u16, bool, &str)>
             }
         }
     };
+}
+
+pub fn get_hostname() -> String {
+    if let Ok(host) = env::var("HOSTNAME").or_else(|_| env::var("COMPUTERNAME")) {
+        if !host.trim().is_empty() {
+            return host;
+        }
+    }
+    Command::new("hostname")
+        .output()
+        .ok()
+        .and_then(|output| String::from_utf8(output.stdout).ok())
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| "unknown".to_string())
 }
