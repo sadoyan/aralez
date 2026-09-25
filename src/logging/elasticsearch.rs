@@ -1,15 +1,12 @@
 use crate::logging::core::StructuredSystemLog;
 use crate::logging::types::{LogBackendPlugin, WriteLog};
 use async_trait::async_trait;
-use bytes::Bytes;
+use elasticsearch::auth::Credentials;
+use elasticsearch::http::transport::Transport;
+use elasticsearch::{Elasticsearch, IndexParts};
 use std::env;
 use std::sync::LazyLock;
-
-use elasticsearch::http::headers::HeaderMap;
-use elasticsearch::http::transport::{SingleNodeConnectionPool, TransportBuilder};
-use elasticsearch::http::{Method, Url};
-use elasticsearch::{Elasticsearch, SearchParts};
-use serde_json::Value;
+use std::time::Duration;
 use tokio::sync::OnceCell;
 
 static ELASTIC: LazyLock<ElasticSearchConfig> = LazyLock::new(ElasticSearchConfig::load_from_env);
@@ -17,9 +14,6 @@ static CLIENT: OnceCell<Elasticsearch> = OnceCell::const_new();
 
 #[derive(Debug)]
 struct ElasticHost {
-    address: &'static str,
-    port: u16,
-    tls: bool,
     url: &'static str,
 }
 
@@ -57,14 +51,10 @@ impl ElasticSearchConfig {
                 None => (rest, 9200),
             };
 
-            let tls = scheme == "https";
             let full_url = format!("{}://{}:{}", scheme, address, port);
 
             hosts_struct.push(ElasticHost {
-                address: Box::leak(address.to_string().into_boxed_str()),
-                port,
-                tls,
-                url: Box::leak(full_url.into_boxed_str()), // Clean static URL
+                url: Box::leak(full_url.into_boxed_str()),
             });
         }
 
@@ -80,46 +70,45 @@ impl ElasticSearchConfig {
 }
 
 async fn make_es_pool() -> Elasticsearch {
-    for target in ELASTIC.hosts {
-        if let Ok(url) = Url::parse(target.url) {
-            let conn_pool = SingleNodeConnectionPool::new(url);
-            if let Ok(trsp) = TransportBuilder::new(conn_pool).disable_proxy().build() {
-                let client = Elasticsearch::new(trsp);
-                if let Some(response) = client.ping().send().await.ok() {
-                    return client;
-                }
-            }
+    let valid_urls: Vec<&str> = ELASTIC.hosts.iter().map(|target| target.url).collect();
+    if valid_urls.is_empty() {
+        log::error!("No valid Elasticsearch host URLs found in configuration");
+        return Elasticsearch::default();
+    }
+    let transport = match Transport::sniffing_node_list(valid_urls, Duration::from_secs(180)) {
+        Ok(t) => t,
+        Err(e) => {
+            log::error!("Failed to create sniffing transport: {}", e);
+            return Elasticsearch::default();
+        }
+    };
+    let credentials = Credentials::Basic(ELASTIC.user.to_string(), ELASTIC.password.to_string());
+    transport.set_auth(credentials);
+    let client = Elasticsearch::new(transport);
+    if let Ok(res) = client.ping().send().await {
+        if res.status_code().is_success() {
+            log::info!("Elasticsearch sniffing pool initialized successfully");
+            return client;
         }
     }
-    Elasticsearch::default()
+    log::warn!("Elasticsearch pool initialized, but clustser ping returned non-200");
+    client
 }
-
 struct ElasticSearch;
-
+/*
+#[derive(Debug, Serialize)]
+pub struct StructuredSystemLog {
+    pub target: &'static str,
+    pub level: Level,
+    pub message: String,
+}
+*/
 #[async_trait]
 impl WriteLog for ElasticSearch {
     async fn writelog(&self, msg: &StructuredSystemLog) {
-        let payload = match serde_json::to_vec(&msg) {
-            Ok(vec) => Bytes::from(vec),
-            Err(e) => {
-                log::warn!("Failed to serialize structured system log to JSON bytes: {}", e);
-                return;
-            }
-        };
-
-        let response = CLIENT
-            .get_or_init(make_es_pool)
-            .await
-            .send(
-                Method::Post,
-                SearchParts::Index(&["tweets"]).url().as_ref(),
-                HeaderMap::new(),
-                Option::<&Value>::None,
-                Some(payload.as_ref()),
-                None,
-            )
-            .await;
-        println!("{:?}", response.ok().is_some());
+        let index_name = "logs";
+        let response = CLIENT.get_or_init(make_es_pool).await.index(IndexParts::Index(index_name)).body(msg).send().await;
+        println!("{:?}", response);
     }
 }
 

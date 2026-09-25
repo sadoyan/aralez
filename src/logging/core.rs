@@ -37,7 +37,7 @@ pub struct LogMessage {
 #[derive(Debug, Serialize)]
 pub struct StructuredSystemLog {
     pub target: &'static str,
-    pub level: log::Level,
+    pub level: Level,
     pub message: String,
 }
 thread_local! {
