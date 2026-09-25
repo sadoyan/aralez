@@ -1,12 +1,19 @@
 use crate::logging::core::StructuredSystemLog;
 use crate::logging::types::{LogBackendPlugin, WriteLog};
-use crate::utils::hcclient::httpclient;
 use async_trait::async_trait;
 use bytes::Bytes;
 use std::env;
 use std::sync::LazyLock;
 
+use elasticsearch::http::headers::HeaderMap;
+use elasticsearch::http::transport::{SingleNodeConnectionPool, TransportBuilder};
+use elasticsearch::http::{Method, Url};
+use elasticsearch::{Elasticsearch, SearchParts};
+use serde_json::Value;
+use tokio::sync::OnceCell;
+
 static ELASTIC: LazyLock<ElasticSearchConfig> = LazyLock::new(ElasticSearchConfig::load_from_env);
+static CLIENT: OnceCell<Elasticsearch> = OnceCell::const_new();
 
 #[derive(Debug)]
 struct ElasticHost {
@@ -72,6 +79,21 @@ impl ElasticSearchConfig {
     }
 }
 
+async fn make_es_pool() -> Elasticsearch {
+    for target in ELASTIC.hosts {
+        if let Ok(url) = Url::parse(target.url) {
+            let conn_pool = SingleNodeConnectionPool::new(url);
+            if let Ok(trsp) = TransportBuilder::new(conn_pool).disable_proxy().build() {
+                let client = Elasticsearch::new(trsp);
+                if let Some(response) = client.ping().send().await.ok() {
+                    return client;
+                }
+            }
+        }
+    }
+    Elasticsearch::default()
+}
+
 struct ElasticSearch;
 
 #[async_trait]
@@ -85,9 +107,19 @@ impl WriteLog for ElasticSearch {
             }
         };
 
-        if let Some(target) = ELASTIC.hosts.first() {
-            let _ = httpclient("POST", target.tls, target.address, "/i", target.address, target.port, target.url, payload).await;
-        }
+        let response = CLIENT
+            .get_or_init(make_es_pool)
+            .await
+            .send(
+                Method::Post,
+                SearchParts::Index(&["tweets"]).url().as_ref(),
+                HeaderMap::new(),
+                Option::<&Value>::None,
+                Some(payload.as_ref()),
+                None,
+            )
+            .await;
+        println!("{:?}", response.ok().is_some());
     }
 }
 
