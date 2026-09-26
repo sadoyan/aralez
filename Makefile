@@ -1,5 +1,6 @@
 ########################################################
 
+USERNAME ?= aralez
 TARGET ?=  --all-targets
 FEATURES ?= --all-features
 
@@ -60,3 +61,8 @@ fix-all:
 	cargo clippy --workspace $(TARGET) $(FEATURES) --fix
 
 ########################################################
+
+.PHONY: docker-build
+docker-build: ## Build project in Docker
+	docker build --target=builder -t builder .
+	docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v ${PWD}:/src -e USERNAME=${USERNAME} -w /src -ti builder:latest
