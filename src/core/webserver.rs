@@ -78,10 +78,6 @@ pub async fn run_server(config: &APIUpstreamProvider, mut to_return: mpsc::Sende
                 Err(e) => error!("File server exited: {}", e),
             }
         }))
-
-        // let a = config.file_server_address.to_owned();
-        // let f = config.file_server_folder.to_owned();
-        // drop(tokio::spawn(async move { run_file_server(a, f).await }));
     }
 
     let listener = port_is_available("Config API", &config.address).await;
@@ -114,9 +110,9 @@ async fn conf(State(st): State<AppState>, Query(params): Query<HashMap<String, S
     match parsed {
         Ok(_) => {
             if let Some(_) = params.get("save") {
-                drop(tokio::spawn(async move { apply_config(content.as_str(), st, true).await }));
+                tokio::spawn(async move { apply_config(content.as_str(), st, true).await });
             } else {
-                drop(tokio::spawn(async move { apply_config(content.as_str(), st, false).await }));
+                tokio::spawn(async move { apply_config(content.as_str(), st, false).await });
             }
             Response::builder().status(StatusCode::OK).body(Body::from("Accepted! Applying in background\n")).unwrap()
         }

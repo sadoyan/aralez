@@ -73,17 +73,14 @@ impl BackgroundService for LB {
             current_upstreams: self.ump_upst.clone(),
             full_upstreams: self.ump_full.clone(),
         };
-        drop(tokio::spawn(async move { api_load.start(tx_api).await }));
-
+        tokio::spawn(async move { api_load.start(tx_api).await });
         let uu = self.ump_upst.clone();
         let ff = self.ump_full.clone();
         let im = self.ump_byid.clone();
         let (hc_method, hc_interval) = (self.config.hc_method.clone(), self.config.hc_interval);
-        drop(tokio::spawn(async move {
-            healthcheck::hc2(uu, ff, im, (&*hc_method.to_string(), hc_interval.to_string().parse().unwrap())).await
-        }));
-        drop(tokio::spawn(async move { calc_cache_metrics().await }));
-        drop(tokio::spawn(async move { refresh_order(certdir, confdir).await }));
+        tokio::spawn(async move { healthcheck::hc2(uu, ff, im, (&*hc_method.to_string(), hc_interval.to_string().parse().unwrap())).await });
+        tokio::spawn(async move { calc_cache_metrics().await });
+        tokio::spawn(async move { refresh_order(certdir, confdir).await });
 
         init_access_logging(self.config.access_log.clone()).await;
         loop {

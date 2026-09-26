@@ -10,12 +10,12 @@ use humantime::format_rfc3339;
 use serde_json::json;
 use std::env;
 use std::sync::LazyLock;
-use std::time::Duration;
-use std::time::SystemTime;
+use std::time::{Duration, SystemTime};
 use tokio::sync::mpsc;
 use tokio::sync::OnceCell;
 
 static CLIENT: OnceCell<Elasticsearch> = OnceCell::const_new();
+
 #[derive(Debug)]
 struct ElasticHost {
     url: &'static str,
@@ -33,6 +33,7 @@ struct ElasticSearchConfig {
 }
 
 static ELASTIC: LazyLock<ElasticSearchConfig> = LazyLock::new(ElasticSearchConfig::load_from_env);
+
 impl ElasticSearchConfig {
     pub fn load_from_env() -> Self {
         let raw_hosts = env::var("LOG_ELASTIC_HOSTS").unwrap_or_else(|_| "http://127.0.0.1:9200".to_string());
@@ -90,32 +91,6 @@ impl ElasticSearchConfig {
     }
 }
 
-static LOG_CHANNEL: LazyLock<mpsc::UnboundedSender<StructuredSystemLog>> = LazyLock::new(|| {
-    let (tx, mut rx) = mpsc::unbounded_channel::<StructuredSystemLog>();
-    tokio::spawn(async move {
-        let mut batch = Vec::with_capacity(ELASTIC.batch_len);
-        let mut timer = tokio::time::interval(Duration::from_secs(ELASTIC.flush_duration));
-        let mut buffer = BytesMut::with_capacity(ELASTIC.buffer_size);
-        loop {
-            tokio::select! {
-                Some(msg) = rx.recv() => {
-                    batch.push(msg);
-                    if batch.len() >= ELASTIC.batch_len {
-                        flush_to_es(&mut batch, &mut buffer, ELASTIC.hostname).await;
-                    }
-                }
-                _ = timer.tick() => {
-                    if !batch.is_empty() {
-                        flush_to_es(&mut batch, &mut buffer, ELASTIC.hostname).await;
-                    }
-                }
-            }
-        }
-    });
-
-    tx
-});
-
 async fn make_es_pool() -> Elasticsearch {
     let valid_urls: Vec<&str> = ELASTIC.hosts.iter().map(|target| target.url).collect();
     if valid_urls.is_empty() {
@@ -138,25 +113,44 @@ async fn make_es_pool() -> Elasticsearch {
             return client;
         }
     }
-    log::warn!("Elasticsearch pool initialized, but clustser ping returned non-200");
+    log::warn!("Elasticsearch pool initialized, but cluster ping returned non-200");
     client
 }
+
 struct ElasticSearch;
 
 #[async_trait]
 impl WriteLog for ElasticSearch {
-    async fn writelog(&self, msg: &StructuredSystemLog) {
-        let _ = LOG_CHANNEL.send(msg.clone());
+    async fn run(&self, mut rx: mpsc::Receiver<StructuredSystemLog>) {
+        let mut batch = Vec::with_capacity(ELASTIC.batch_len);
+        let mut timer = tokio::time::interval(Duration::from_secs(ELASTIC.flush_duration));
+        let mut buffer = BytesMut::with_capacity(ELASTIC.buffer_size);
+        let index_header = format!("{{\"index\":{{\"_index\":\"{}\"}}}}\n", ELASTIC.index_name).into_bytes();
+
+        loop {
+            tokio::select! {
+                Some(msg) = rx.recv() => {
+                    batch.push(msg);
+                    if batch.len() >= ELASTIC.batch_len {
+                        flush_to_es(&mut batch, &mut buffer, &index_header, ELASTIC.hostname).await;
+                    }
+                }
+                _ = timer.tick() => {
+                    if !batch.is_empty() {
+                        flush_to_es(&mut batch, &mut buffer, &index_header, ELASTIC.hostname).await;
+                    }
+                }
+            }
+        }
     }
 }
 
-async fn flush_to_es(batch: &mut Vec<StructuredSystemLog>, buffer: &mut BytesMut, hostname: &str) {
+async fn flush_to_es(batch: &mut Vec<StructuredSystemLog>, buffer: &mut BytesMut, index_header: &[u8], hostname: &str) {
     buffer.clear();
 
     for msg in batch.drain(..) {
-        let index_header = format!("{{\"index\":{{\"_index\":\"{}\"}}}}\n", ELASTIC.index_name).into_bytes();
-        buffer.extend_from_slice(&index_header);
-        // buffer.extend_from_slice(b"{\"index\":{\"_index\":\"logs\"}}\n");
+        buffer.extend_from_slice(index_header);
+
         let logstash_payload = json!({
             "@timestamp": format_rfc3339(SystemTime::now()).to_string(),
             "@version": "1",
@@ -174,9 +168,11 @@ async fn flush_to_es(batch: &mut Vec<StructuredSystemLog>, buffer: &mut BytesMut
             buffer.extend_from_slice(b"\n");
         }
     }
+
     if buffer.is_empty() {
         return;
     }
+
     let payload = buffer.split().freeze();
     let client = CLIENT.get_or_init(make_es_pool).await;
 

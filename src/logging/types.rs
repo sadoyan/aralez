@@ -2,10 +2,11 @@ use crate::logging::core::StructuredSystemLog;
 use async_trait::async_trait;
 use std::collections::HashMap;
 use std::sync::LazyLock;
+use tokio::sync::mpsc;
 
 #[async_trait]
 pub trait WriteLog: Send + Sync {
-    async fn writelog(&self, msg: &StructuredSystemLog);
+    async fn run(&self, rx: mpsc::Receiver<StructuredSystemLog>);
 }
 
 pub struct LogBackendPlugin {
@@ -23,9 +24,12 @@ static BACKENDS: LazyLock<HashMap<&'static str, Box<dyn WriteLog>>> = LazyLock::
     map
 });
 
-pub async fn sendlog(backend: &str, msg: &StructuredSystemLog) {
+pub fn start_logging_backend(backend: &str, rx: mpsc::Receiver<StructuredSystemLog>) {
     if let Some(logger) = BACKENDS.get(backend) {
-        logger.writelog(msg).await;
+        let logger_ref = logger.as_ref();
+        tokio::spawn(async move {
+            logger_ref.run(rx).await;
+        });
     } else {
         log::warn!("Unsupported logging mechanism: {}", backend);
     }

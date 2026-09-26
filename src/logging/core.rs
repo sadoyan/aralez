@@ -1,4 +1,4 @@
-use crate::logging::types::sendlog;
+use crate::logging::types::start_logging_backend;
 use crate::utils::metrics::LOGGING_ERRORS;
 use crate::utils::types::AppConfig;
 use anyhow::Result;
@@ -44,8 +44,8 @@ thread_local! {
     static LOG_BUF: RefCell<String> = RefCell::new(String::with_capacity(512));
 }
 
-static LOG_SENDER: OnceLock<mpsc::Sender<LogMessage>> = OnceLock::new();
-pub(crate) static PINGORA_LOG_SENDER: OnceLock<mpsc::Sender<StructuredSystemLog>> = OnceLock::new();
+static ACCESS_LOG_SENDER: OnceLock<mpsc::Sender<LogMessage>> = OnceLock::new();
+pub(crate) static SYSTEM_LOG_SENDER: OnceLock<mpsc::Sender<StructuredSystemLog>> = OnceLock::new();
 static ACCESS_LOG: OnceLock<LogLevel> = OnceLock::new();
 const LOG_BUFFER: usize = 16384;
 static IS_STRUCTURED: OnceLock<bool> = OnceLock::new();
@@ -120,7 +120,7 @@ pub async fn log_builder(conf: &AppConfig, location: &Option<String>) {
             let _ = set_backend(backend_name.to_string());
             init_structured_log().await;
         }
-        let pingora_appender: Option<Box<dyn Append>> = PINGORA_LOG_SENDER
+        let syslog_appender: Option<Box<dyn Append>> = SYSTEM_LOG_SENDER
             .get()
             .cloned()
             .map(|sender| Box::new(StructuredChannelAppender::new(sender)) as Box<dyn Append>);
@@ -129,16 +129,16 @@ pub async fn log_builder(conf: &AppConfig, location: &Option<String>) {
 
         let mut config_builder = Log4rsConfig::builder().appender(Appender::builder().build("stdout", Box::new(stdout)));
 
-        if let Some(appender) = pingora_appender {
+        if let Some(appender) = syslog_appender {
             config_builder = config_builder
-                .appender(Appender::builder().build("pingora_channel", appender))
-                .logger(Logger::builder().appender("pingora_channel").additive(false).build("pingora_proxy", log_level))
-                .logger(Logger::builder().appender("pingora_channel").additive(false).build("pingora_core", log_level))
-                .logger(Logger::builder().appender("pingora_channel").additive(false).build("pingora_pool", log_level))
-                .logger(Logger::builder().appender("pingora_channel").additive(false).build("pingora_cache", log_level))
-                .logger(Logger::builder().appender("pingora_channel").additive(false).build("hyper_util", log_level))
-                .logger(Logger::builder().appender("pingora_channel").additive(false).build("aralez", log_level))
-                .logger(Logger::builder().appender("pingora_channel").additive(false).build("h2", log_level));
+                .appender(Appender::builder().build("syslog_appender", appender))
+                .logger(Logger::builder().appender("syslog_appender").additive(false).build("pingora_proxy", log_level))
+                .logger(Logger::builder().appender("syslog_appender").additive(false).build("pingora_core", log_level))
+                .logger(Logger::builder().appender("syslog_appender").additive(false).build("pingora_pool", log_level))
+                .logger(Logger::builder().appender("syslog_appender").additive(false).build("pingora_cache", log_level))
+                .logger(Logger::builder().appender("syslog_appender").additive(false).build("hyper_util", log_level))
+                .logger(Logger::builder().appender("syslog_appender").additive(false).build("aralez", log_level))
+                .logger(Logger::builder().appender("syslog_appender").additive(false).build("h2", log_level));
         } else {
             config_builder = config_builder
                 .logger(Logger::builder().build("pingora_core", LevelFilter::Off))
@@ -290,7 +290,7 @@ pub async fn access_log(response_code: u16, summary: &str, session: &Session) {
         write_access_log(&msg).await;
         return;
     }
-    if let Some(sender) = LOG_SENDER.get() {
+    if let Some(sender) = ACCESS_LOG_SENDER.get() {
         if let Err(_) = sender.try_send(msg) {
             LOGGING_ERRORS.inc();
         }
@@ -302,30 +302,17 @@ pub async fn init_access_logging(enabled: Option<String>) {
         LOGGING_ERRORS.set(0);
         info!("Enabling {:?} log, with buffer of {} messages", ACCESS_LOG.get().unwrap_or(&LogLevel::None), LOG_BUFFER);
         let (ltx, lrx) = mpsc::channel(LOG_BUFFER);
-        let _ = LOG_SENDER.set(ltx);
-        drop(tokio::spawn(async move { access_log_receiver(lrx).await }));
+        let _ = ACCESS_LOG_SENDER.set(ltx);
+        tokio::spawn(async move { access_log_receiver(lrx).await });
     }
 }
 
 pub async fn init_structured_log() {
-    let (tx, mut rx) = mpsc::channel::<StructuredSystemLog>(LOG_BUFFER);
-    let _ = PINGORA_LOG_SENDER.set(tx);
+    let (tx, rx) = mpsc::channel::<StructuredSystemLog>(LOG_BUFFER);
+    let _ = SYSTEM_LOG_SENDER.set(tx);
     let backend = get_backend();
-
-    drop(tokio::spawn(async move {
-        while let Some(syslog) = rx.recv().await {
-            sendlog(backend, &syslog).await;
-        }
-    }));
-
-    // std::thread::Builder::new()
-    //     .name("structured-log-receiver".to_string())
-    //     .spawn(move || {
-    //         while let Some(syslog) = rx.blocking_recv() {
-    //             sendlog(backend, &syslog);
-    //         }
-    //     })
-    //     .expect("Failed to spawn log thread");
+    // Start backend receiver directly without double-channel forwarding
+    start_logging_backend(backend, rx);
 }
 
 pub async fn access_log_receiver(mut receiver: mpsc::Receiver<LogMessage>) {

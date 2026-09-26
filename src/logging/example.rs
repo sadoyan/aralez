@@ -1,17 +1,19 @@
 use crate::logging::core::StructuredSystemLog;
 use crate::logging::types::{LogBackendPlugin, WriteLog};
 use async_trait::async_trait;
+use tokio::sync::mpsc;
 
 pub struct Example;
+
 #[async_trait]
 impl WriteLog for Example {
-    async fn writelog(&self, msg: &StructuredSystemLog) {
-        // Here comes the backend logic
-        println!("Sending log Example : {:?}", msg);
+    async fn run(&self, mut rx: mpsc::Receiver<StructuredSystemLog>) {
+        while let Some(msg) = rx.recv().await {
+            println!("Sending log Example : {:?}", msg);
+        }
     }
 }
 
-// Mandatory  with name: matching value of "log_structired" in main.yaml
 inventory::submit! {
     LogBackendPlugin {
         name: "example",
