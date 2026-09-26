@@ -21,6 +21,7 @@ com_crashlytics_export_strings.xml
 crashlytics.properties
 crashlytics-build.properties
 /target
+/.zig-cache/
 /z_shpo
 /configs
 Makefile

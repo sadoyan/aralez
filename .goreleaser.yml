@@ -2,6 +2,10 @@
 version: 2
 project_name: aralez
 
+before:
+  hooks:
+    - cargo install --locked cargo-zigbuild
+
 dist: target
 builds:
   - id: aralez
@@ -24,6 +28,24 @@ builds:
     env:
       - RUSTFLAGS={{ if eq .Arch "amd64" }}-C target-cpu=x86-64-v3 -C target-feature=+aes,+ssse3{{else}}-C target-cpu=neoverse-n1 -C target-feature=+aes,+sha2,+neon,+crc{{ end }}
 
+  - id: aralez-compat
+    builder: rust
+    flags:
+      - --release
+    targets:
+      - x86_64-unknown-linux-gnu
+    env:
+      - RUSTFLAGS=-C target-cpu=x86-64
+
+  - id: aralez-compat-musl
+    builder: rust
+    flags:
+      - --release
+    targets:
+      - x86_64-unknown-linux-musl
+    env:
+      - RUSTFLAGS=-C target-cpu=x86-64
+
 snapshot:
   version_template: edge
 
@@ -40,6 +62,18 @@ archives:
     formats: [binary]
     name_template: "{{ .ProjectName }}_{{ .Arch }}-musl"
 
+  - id: aralez-compat
+    ids:
+      - aralez-compat
+    formats: [binary]
+    name_template: "{{ .ProjectName }}_{{ .Arch }}-compat-glibc"
+
+  - id: aralez-compat-musl
+    ids:
+      - aralez-compat-musl
+    formats: [binary]
+    name_template: "{{ .ProjectName }}_{{ .Arch }}-compat-musl"
+
 dockers_v2:
   - id: aralez
     ids:
@@ -47,8 +81,8 @@ dockers_v2:
     flags:
       - --target=release
     images:
-      - "ghcr.io/sadoyan/{{ .ProjectName }}"
-      # - "sadoyan/{{ .ProjectName }}"
+      - "ghcr.io/{{ .Env.USERNAME }}/{{ .ProjectName }}"
+      # - "{{ .Env.USERNAME }}/{{ .ProjectName }}"
     tags:
       - "{{ if not .IsSnapshot }}v{{.Version}}{{ else }}edge{{ end }}"
     platforms:
@@ -57,12 +91,12 @@ dockers_v2:
     annotations:
       org.opencontainers.image.name: "{{ .ProjectName }}"
       org.opencontainers.image.licenses: "Apache-2.0"
-      org.opencontainers.image.source: "https://github.com/sadoyan/{{ .ProjectName }}"
+      org.opencontainers.image.source: "https://github.com/{{ .Env.USERNAME }}/{{ .ProjectName }}"
       org.opencontainers.image.url: "{{ .GitURL }}"
       org.opencontainers.image.created: "{{ .Date }}"
       org.opencontainers.image.version: "{{ .Version }}"
       org.opencontainers.image.revision: "{{ .FullCommit }}"
-      io.artifacthub.package.readme-url: "https://raw.githubusercontent.com/sadoyan/{{ .ProjectName }}/main/README.md"
+      io.artifacthub.package.readme-url: "https://raw.githubusercontent.com/{{ .Env.USERNAME }}/{{ .ProjectName }}/main/README.md"
       io.artifacthub.package.license: "Apache-2.0"
 
 docker_signs:
