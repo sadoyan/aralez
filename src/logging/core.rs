@@ -159,9 +159,6 @@ pub async fn log_builder(conf: &AppConfig, location: &Option<String>) {
         return;
     }
     if let Some(location) = location {
-        // let parts: Vec<&str> = location.splitn(4, ',').map(|s| s.trim()).collect();
-        // let path = parts.get(0).expect("Syntax error, could not get path for log files");
-
         let parts: Vec<&str> = location.split(',').map(|s| s.trim()).collect();
         let path = match parts.get(0).filter(|s| !s.is_empty()) {
             Some(p) => p,
@@ -311,7 +308,6 @@ pub async fn init_structured_log() {
     let (tx, rx) = mpsc::channel::<StructuredSystemLog>(LOG_BUFFER);
     let _ = SYSTEM_LOG_SENDER.set(tx);
     let backend = get_backend();
-    // Start backend receiver directly without double-channel forwarding
     start_logging_backend(backend, rx);
 }
 
