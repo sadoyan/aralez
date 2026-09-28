@@ -1,7 +1,7 @@
 [package]
 name = "aralez"
 version = "0.94.1"
-edition = "2021"
+edition = "2024"
 license = "Apache-2.0"
 description = "Reverse proxy built on top of Cloudflare's Pingora"
 exclude = ["configs/*"]
@@ -32,7 +32,6 @@ noyalib = { version = "0.0.44", features = ["compat-serde-yaml"] }
 rand = "0.10.2"
 base64 = "0.23.1"
 jsonwebtoken = { version = "11.1.0", default-features = false, features = ["use_pem", "rust_crypto"] }
-#sha2 = { version = "0.11.0-rc.5", default-features = false }
 sha2 = { version = "0.11.0", default-features = false }
 base16ct = { version = "1.0.0", features = ["alloc"] }
 urlencoding = "2.1.3"

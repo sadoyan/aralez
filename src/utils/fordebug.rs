@@ -8,12 +8,13 @@ pub static DEALLOC_COUNT: AtomicUsize = AtomicUsize::new(0);
 pub static ALLOC_BYTES: AtomicUsize = AtomicUsize::new(0);
 #[allow(dead_code)]
 unsafe impl GlobalAlloc for CountingAllocator {
+    #[allow(unsafe_op_in_unsafe_fn)]
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         ALLOC_COUNT.fetch_add(1, Ordering::Relaxed);
         ALLOC_BYTES.fetch_add(layout.size(), Ordering::Relaxed);
         System.alloc(layout)
     }
-
+    #[allow(unsafe_op_in_unsafe_fn)]
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
         DEALLOC_COUNT.fetch_add(1, Ordering::Relaxed);
         System.dealloc(ptr, layout)

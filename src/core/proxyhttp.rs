@@ -8,9 +8,9 @@ use arc_swap::ArcSwap;
 use async_trait::async_trait;
 use axum::body::Bytes;
 use log::error;
+use pingora::ErrorSource::Upstream;
 use pingora::http::{Method, RequestHeader, ResponseHeader, StatusCode};
 use pingora::prelude::*;
-use pingora::ErrorSource::Upstream;
 use pingora_cache::cache_control::CacheControl;
 use pingora_cache::{CacheKey, CacheMetaDefaults, RespCacheable};
 use pingora_core::listeners::ALPN;
@@ -109,7 +109,7 @@ impl ProxyHttp for LB {
         let hostname = return_header_host_from_upstream(session, &self.ump_upst);
         _ctx.hostname = hostname;
         let mut backend_id = None;
-        if let Some(_) = _ctx.extraparams.sticky_sessions {
+        if _ctx.extraparams.sticky_sessions.is_some() {
             if let Some(cookies) = session.req_header().headers.get("cookie") {
                 if let Ok(cookie_str) = cookies.to_str() {
                     if let Some(pos) = cookie_str.find("backend_id=") {
