@@ -9,7 +9,28 @@ use std::time::Duration;
 
 pub static HC_CONNECTOR: LazyLock<Connector> = LazyLock::new(|| Connector::new(None));
 
-pub async fn httpclient(method: &str, tls: bool, host: &str, path: &str, address: &str, port: u16, url: &str, payload: Bytes) -> (bool, bool) {
+pub struct HttpClientRequest<'a> {
+    pub method: &'a str,
+    pub tls: bool,
+    pub host: &'a str,
+    pub path: &'a str,
+    pub address: &'a str,
+    pub port: u16,
+    pub url: &'a str,
+    pub payload: Bytes,
+}
+
+pub async fn httpclient(req: HttpClientRequest<'_>) -> (bool, bool) {
+    let HttpClientRequest {
+        method,
+        tls,
+        host,
+        path,
+        address,
+        port,
+        url,
+        payload,
+    } = req;
     let method = match method {
         "HEAD" => "HEAD",
         "GET" => "GET",

@@ -67,7 +67,7 @@ pub async fn run_server(config: &APIUpstreamProvider, mut to_return: mpsc::Sende
 
     let mut static_handle: Option<tokio::task::JoinHandle<()>> = None;
     if let (Some(address), Some(folder)) = (&config.file_server_address, &config.file_server_folder) {
-        let static_listen = port_is_available("File Server", &address).await;
+        let static_listen = port_is_available("File Server", address).await;
         let static_files = ServeDir::new(folder);
         let static_serve: Router = Router::new().fallback_service(static_files);
         info!("Starting file server on: {}", address);
@@ -86,10 +86,9 @@ pub async fn run_server(config: &APIUpstreamProvider, mut to_return: mpsc::Sende
 
     let (tx, mut rx) = mpsc::channel(1);
     std::thread::spawn(move || {
-        let mut signals = Signals::new(&[SIGQUIT]).unwrap();
-        for sig in signals.forever() {
+        let mut signals = Signals::new([SIGQUIT]).unwrap();
+        if let Some(sig) = signals.forever().next() {
             tx.blocking_send(sig).unwrap();
-            break;
         }
     });
     rx.recv().await;
@@ -109,7 +108,7 @@ async fn conf(State(st): State<AppState>, Query(params): Query<HashMap<String, S
     let parsed = noyalib::from_str::<Config>(strcontent);
     match parsed {
         Ok(_) => {
-            if let Some(_) = params.get("save") {
+            if params.contains_key("save") {
                 tokio::spawn(async move { apply_config(content.as_str(), st, true).await });
             } else {
                 tokio::spawn(async move { apply_config(content.as_str(), st, false).await });

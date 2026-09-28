@@ -68,7 +68,7 @@ pub fn run() {
         client_headers: ch_config,
         server_headers: sh_config,
         extraparams: ec_config,
-        cache_enabled: cache_enabled,
+        cache_enabled,
     };
     // let al = cfg.access_log.clone().unwrap_or("none".to_string());
     // init_access_log(al.as_str());
@@ -164,8 +164,8 @@ pub fn run() {
     if let Err(e) = write_pid_file(pf.as_str()) {
         panic!("Failed to write PID file: {} : {}", pf, e);
     }
-    let mut signals = Signals::new(&[SIGINT, SIGTERM, SIGQUIT]).unwrap();
-    for sig in signals.forever() {
+    let mut signals = Signals::new([SIGINT, SIGTERM, SIGQUIT]).unwrap();
+    if let Some(sig) = signals.forever().next() {
         match sig {
             SIGINT => info!("SIGINT received! Exiting..."),
             SIGTERM => info!("SIGTERM received! Exiting..."),
@@ -175,6 +175,5 @@ pub fn run() {
             }
             _ => unreachable!(),
         }
-        break;
     }
 }

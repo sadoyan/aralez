@@ -159,6 +159,13 @@ pub struct InnerMap {
 }
 
 #[allow(dead_code)]
+impl Default for InnerMap {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[allow(dead_code)]
 impl InnerMap {
     pub fn new() -> Self {
         Self {
