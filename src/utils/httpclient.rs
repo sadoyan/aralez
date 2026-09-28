@@ -154,7 +154,7 @@ pub async fn for_kuber(url: &str, token: &str, conf: &GlobalServiceMapping) -> O
 }
 
 pub async fn getfromapi(url: &str, token: Option<String>, provider: &str) -> Option<Vec<u8>> {
-    let (host, port, path, is_tls) = parse_url(&url).ok()?;
+    let (host, port, path, is_tls) = parse_url(url).ok()?;
 
     let mut peer = HttpPeer::new((host, port), is_tls, host.to_string());
     peer.options.total_connection_timeout = Some(Duration::from_secs(5));

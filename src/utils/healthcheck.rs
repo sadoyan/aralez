@@ -1,4 +1,4 @@
-use crate::utils::hcclient::httpclient;
+use crate::utils::hcclient::{httpclient, HttpClientRequest};
 use crate::utils::lazylock::REVERSE_STORE;
 use crate::utils::tools::*;
 use crate::utils::types::{InnerMap, UpstreamsDashMap, UpstreamsIdMap};
@@ -68,7 +68,17 @@ async fn build_upstreams(fullist: &UpstreamsDashMap, method: &str) -> UpstreamsD
                     } else {
                         format!("http://{}:{}{}", upstream.address, upstream.port, path)
                     };
-                    let resp = httpclient(method, tls, host, path, upstream.address.as_ref(), upstream.port, link.as_str(), EMPTY_PAYLOAD).await;
+                    let resp = httpclient(HttpClientRequest {
+                        method,
+                        tls,
+                        host,
+                        path,
+                        address: upstream.address.as_ref(),
+                        port: upstream.port,
+                        url: link.as_str(),
+                        payload: EMPTY_PAYLOAD,
+                    })
+                    .await;
                     if resp.0 {
                         if resp.1 {
                             scheme.is_http2 = resp.1;

@@ -54,7 +54,7 @@ impl Certificates {
                     cert_infos.push(cert)
                 }
                 None => {
-                    error!("Unable to load certificate info | public: {}, private: {}", &config.cert_path, &config.key_path);
+                    error!("Unable to load certificate info | public: {}, private: {}", config.cert_path, config.key_path);
                     return None;
                 }
             }

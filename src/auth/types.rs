@@ -11,10 +11,10 @@ pub trait AuthValidator {
 }
 pub async fn authenticate(auth: &InnerAuth, session: &mut Session) -> bool {
     match &*auth.auth_type {
-        "basic" => BasicAuth(&*auth.auth_cred).validate(session).await,
-        "apikey" => ApiKeyAuth(&*auth.auth_cred).validate(session).await,
+        "basic" => BasicAuth(&auth.auth_cred).validate(session).await,
+        "apikey" => ApiKeyAuth(&auth.auth_cred).validate(session).await,
         "jwt" => JwtAuth().validate(session).await,
-        "forward" => ForwardAuth(&*auth.auth_cred).validate(session).await,
+        "forward" => ForwardAuth(&auth.auth_cred).validate(session).await,
         _ => {
             log::warn!("Unsupported authentication mechanism : {}", &*auth.auth_type);
             false

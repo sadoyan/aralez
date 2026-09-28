@@ -160,7 +160,7 @@ pub async fn log_builder(conf: &AppConfig, location: &Option<String>) {
     }
     if let Some(location) = location {
         let parts: Vec<&str> = location.split(',').map(|s| s.trim()).collect();
-        let path = match parts.get(0).filter(|s| !s.is_empty()) {
+        let path = match parts.first().filter(|s| !s.is_empty()) {
             Some(p) => p,
             None => {
                 error!("Invalid log location string provided; falling back to stdout");
@@ -213,7 +213,7 @@ pub async fn log_builder(conf: &AppConfig, location: &Option<String>) {
 }
 
 pub async fn init_access_log(level_str: &str) {
-    let level = LogLevel::from_str(level_str);
+    let level = LogLevel::parse(level_str);
     let _ = ACCESS_LOG.set(level);
 }
 
@@ -225,7 +225,7 @@ pub enum LogLevel {
 }
 
 impl LogLevel {
-    pub fn from_str(s: &str) -> Self {
+    pub fn parse(s: &str) -> Self {
         match s {
             "all" => LogLevel::Access,
             "error" => LogLevel::Error,
@@ -288,7 +288,7 @@ pub async fn access_log(response_code: u16, summary: &str, session: &Session) {
         return;
     }
     if let Some(sender) = ACCESS_LOG_SENDER.get() {
-        if let Err(_) = sender.try_send(msg) {
+        if sender.try_send(msg).is_err() {
             LOGGING_ERRORS.inc();
         }
     }
