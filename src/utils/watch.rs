@@ -38,13 +38,11 @@ pub async fn file_watch(fp: String, toreturn: Sender<Configuration>) {
     while let Some(event) = local_rx.recv().await {
         match event {
             Ok(e) => match e.kind {
-                EventKind::Modify(ModifyKind::Data(_)) | EventKind::Create(..) | EventKind::Remove(..) => {
-                    if start.elapsed() > Duration::from_secs(2) {
-                        start = Instant::now();
-                        let snd = load_configuration(file_path, "filepath").await.0;
-                        if let Some(snd) = snd {
-                            toreturn.send(snd).await.unwrap();
-                        }
+                EventKind::Modify(ModifyKind::Data(_)) | EventKind::Create(..) | EventKind::Remove(..) if start.elapsed() > Duration::from_secs(2) => {
+                    start = Instant::now();
+                    let snd = load_configuration(file_path, "filepath").await.0;
+                    if let Some(snd) = snd {
+                        toreturn.send(snd).await.unwrap();
                     }
                 }
                 _ => (),
@@ -64,13 +62,11 @@ pub fn folder_watch(path: String, sender: std::sync::mpsc::Sender<Vec<Certificat
     loop {
         match rx.recv_timeout(Duration::from_secs(1)) {
             Ok(Ok(event)) => match &event.kind {
-                EventKind::Modify(ModifyKind::Data(_)) | EventKind::Create(_) | EventKind::Remove(_) => {
-                    if start.elapsed() > Duration::from_secs(1) {
-                        start = Instant::now();
-                        let certificate_configs = listdir(path.clone());
-                        sender.send(certificate_configs)?;
-                        info!("Certificate changed: {:?}, {:?}", event.kind, event.paths);
-                    }
+                EventKind::Modify(ModifyKind::Data(_)) | EventKind::Create(_) | EventKind::Remove(_) if start.elapsed() > Duration::from_secs(1) => {
+                    start = Instant::now();
+                    let certificate_configs = listdir(path.clone());
+                    sender.send(certificate_configs)?;
+                    info!("Certificate changed: {:?}, {:?}", event.kind, event.paths);
                 }
                 _ => {}
             },

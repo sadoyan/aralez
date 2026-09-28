@@ -128,7 +128,7 @@ impl ProxyHttp for LB {
                     None => return Ok(false),
                     Some(ref innermap) => {
                         if let Some(auth) = _ctx.extraparams.authentication.as_ref().or(innermap.authorization.as_ref()) {
-                            if !authenticate(&auth, session).await {
+                            if !authenticate(auth, session).await {
                                 let _ = session.respond_error(401).await;
                                 return Ok(true);
                             }
@@ -227,7 +227,7 @@ impl ProxyHttp for LB {
                     peer.options.tcp_recv_buf = Some(128 * 1024);
                     End of experimental options
                     */
-                    if let Some(_) = ctx.extraparams.sticky_sessions {
+                    if ctx.extraparams.sticky_sessions.is_some() {
                         let mut s = String::with_capacity(64);
                         write!(
                             &mut s,
@@ -347,12 +347,10 @@ impl ProxyHttp for LB {
         };
         calc_metrics(m);
         ACTIVE_SESSIONS.dec();
-        if let Some(_) = ctx.x4xx_limit.or(ctx.extraparams.x4xx_limit) {
-            if (400..=499).contains(&response_code) {
-                if let Some(ip) = session.client_addr().and_then(|a| a.as_inet()).map(|i| i.ip()) {
-                    let current = REQUESTS_4XX.get(&ip).unwrap_or(0);
-                    REQUESTS_4XX.insert(ip, current + 1);
-                }
+        if ctx.x4xx_limit.or(ctx.extraparams.x4xx_limit).is_some() && (400..=499).contains(&response_code) {
+            if let Some(ip) = session.client_addr().and_then(|a| a.as_inet()).map(|i| i.ip()) {
+                let current = REQUESTS_4XX.get(&ip).unwrap_or(0);
+                REQUESTS_4XX.insert(ip, current + 1);
             }
         }
         access_log(response_code, &self.request_summary(session, ctx), session).await;

@@ -107,7 +107,7 @@ async fn process_ingress_change(client: &Client, ing: &Ingress, target_class: &s
                 let key_clone = key.clone();
                 tokio::spawn(async move {
                     if let Err(e) = patch_ingress_status_address(&client_clone, &ns_clone, &name_clone, &external_ip).await {
-                        error!("Failed to patch ingress status address {}/{}: {}", &ns_clone, &name_clone, e);
+                        error!("Failed to patch ingress status address {}/{}: {}", ns_clone, name_clone, e);
                         PATCHED_INGRESSES.remove(&key_clone);
                     }
                 });

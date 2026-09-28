@@ -22,7 +22,7 @@ pub enum TlsGrade {
 }
 
 impl TlsGrade {
-    pub fn from_str(s: &str) -> Option<Self> {
+    pub fn parse(s: &str) -> Option<Self> {
         match s.to_ascii_lowercase().as_str() {
             "high" => Some(TlsGrade::High),
             "medium" => Some(TlsGrade::Medium),
@@ -39,7 +39,7 @@ pub fn prefer_h2<'a>(_ssl: &mut SslRef, alpn_in: &'a [u8]) -> Result<&'a [u8], A
 }
 
 pub fn set_tsl_grade(tls_settings: &mut TlsSettings, grade: &str) {
-    let config_grade = TlsGrade::from_str(grade);
+    let config_grade = TlsGrade::parse(grade);
     match config_grade {
         Some(TlsGrade::High) => {
             let _ = tls_settings.set_min_proto_version(Some(SslVersion::TLS1_2));
