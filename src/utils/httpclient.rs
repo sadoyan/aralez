@@ -90,10 +90,10 @@ pub async fn for_consul(url: &str, token: Option<String>, conf: &GlobalServiceMa
                 is_ssl: false,
                 is_http2: false,
                 to_https: conf.to_https.unwrap_or(false),
-                rate_limit: conf.rate_limit,
-                x4xx_limit: conf.x4xx_limit,
+                rate_limit: conf.rate_limit.unwrap_or(0),
+                x4xx_limit: conf.x4xx_limit.unwrap_or(0),
                 redirect_to: conf.redirect_to.clone().map(Arc::<str>::from),
-                healthcheck: None,
+                healthcheck: true,
                 authorization: None,
             });
             inner_vec.push(to_add);
@@ -132,9 +132,9 @@ pub async fn for_kuber(url: &str, token: &str, conf: &GlobalServiceMapping) -> O
                                 is_ssl: false,
                                 is_http2: false,
                                 to_https: conf.to_https.unwrap_or(false),
-                                rate_limit: conf.rate_limit,
-                                x4xx_limit: conf.x4xx_limit,
-                                healthcheck: None,
+                                rate_limit: conf.rate_limit.unwrap_or(0),
+                                x4xx_limit: conf.x4xx_limit.unwrap_or(0),
+                                healthcheck: true,
                                 redirect_to: None,
                                 authorization: None,
                             });
@@ -213,11 +213,7 @@ pub async fn getfromapi(url: &str, token: Option<String>, provider: &str) -> Opt
 
     CONNECTOR.release_http_session(http_session.0, &peer, None).await;
 
-    if status == 200 && !body_bytes.is_empty() {
-        Some(body_bytes)
-    } else {
-        None
-    }
+    if status == 200 && !body_bytes.is_empty() { Some(body_bytes) } else { None }
 }
 
 fn parse_url(url: &str) -> Result<(&str, u16, &str, bool), &'static str> {

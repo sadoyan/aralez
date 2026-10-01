@@ -11,9 +11,9 @@ use dashmap::DashMap;
 use log::info;
 use pingora::tls::ssl::{SslAlert, SslRef};
 use pingora_cache::eviction::simple_lru::Manager;
-use pingora_core::listeners::tls::TlsSettings;
 use pingora_core::listeners::TcpSocketOptions;
-use pingora_core::prelude::{background_service, Opt};
+use pingora_core::listeners::tls::TlsSettings;
+use pingora_core::prelude::{Opt, background_service};
 use pingora_core::protocols::TcpKeepalive;
 use pingora_core::server::Server;
 use privdrop::reexports::libc::SIGQUIT;
@@ -23,8 +23,8 @@ use signal_hook::{
     consts::{SIGINT, SIGTERM},
     iterator::Signals,
 };
-use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::Arc;
+use std::sync::mpsc::{Receiver, Sender, channel};
 use std::time::Duration;
 use std::{fs, thread};
 
@@ -51,11 +51,12 @@ pub fn run() {
     let sh_config = Arc::new(DashMap::new());
 
     let ec_config = Arc::new(ArcSwap::from_pointee(Extraparams {
-        to_https: None,
-        sticky_sessions: None,
+        to_https: false,
+        ssl_verify: false,
+        sticky_sessions: 0,
         authentication: None,
-        rate_limit: None,
-        x4xx_limit: None,
+        rate_limit: 0,
+        x4xx_limit: 0,
     }));
 
     let cfg = Arc::new(maincfg);
@@ -70,8 +71,6 @@ pub fn run() {
         extraparams: ec_config,
         cache_enabled,
     };
-    // let al = cfg.access_log.clone().unwrap_or("none".to_string());
-    // init_access_log(al.as_str());
 
     let grade = cfg.proxy_tls_grade.clone().unwrap_or("medium".to_string());
     info!("TLS grade set to: [ {} ]", grade);
@@ -83,9 +82,6 @@ pub fn run() {
     let mut proxy = pingora_proxy::http_proxy_service(&server.configuration, lb.clone());
 
     check_priv(bind_address_http.as_str());
-
-    // let mut tcp_options: Option<TcpSocketOptions> = Some(TcpSocketOptions::default());
-    // let mut tcp_options = TcpSocketOptions::default();
 
     let mut tcp_options: Option<TcpSocketOptions> = None;
     if let Some(idle) = cfg.tcp_keepalive_idle {

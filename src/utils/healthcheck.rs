@@ -1,11 +1,11 @@
-use crate::utils::hcclient::{httpclient, HttpClientRequest};
+use crate::utils::hcclient::{HttpClientRequest, httpclient};
 use crate::utils::lazylock::REVERSE_STORE;
 use crate::utils::tools::*;
 use crate::utils::types::{InnerMap, UpstreamsDashMap, UpstreamsIdMap};
 use bytes::Bytes;
 use dashmap::DashMap;
-use std::sync::atomic::AtomicUsize;
 use std::sync::Arc;
+use std::sync::atomic::AtomicUsize;
 use std::time::Duration;
 use tokio::net::TcpStream;
 use tokio::time::{interval, timeout};
@@ -44,7 +44,7 @@ async fn build_upstreams(fullist: &UpstreamsDashMap, method: &str) -> UpstreamsD
             let mut innervec = Vec::new();
 
             for upstream in path_entry.value().0.iter() {
-                let tls = if upstream.healthcheck.unwrap_or(true) {
+                let tls = if upstream.healthcheck {
                     detect_tls(upstream.address.as_ref(), &upstream.port, host).await
                 } else {
                     false
@@ -62,7 +62,7 @@ async fn build_upstreams(fullist: &UpstreamsDashMap, method: &str) -> UpstreamsD
                     authorization: upstream.authorization.clone(),
                 };
 
-                if scheme.healthcheck.unwrap_or(true) {
+                if scheme.healthcheck {
                     let link = if tls {
                         format!("https://{}:{}{}", upstream.address, upstream.port, path)
                     } else {

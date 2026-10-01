@@ -1,8 +1,8 @@
 use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::sync::atomic::AtomicUsize;
 use std::sync::Arc;
+use std::sync::atomic::AtomicUsize;
 
 pub type UpstreamsDashMap = DashMap<Arc<str>, DashMap<Arc<str>, (Vec<Arc<InnerMap>>, AtomicUsize)>>;
 
@@ -11,11 +11,12 @@ pub type Headers = DashMap<Arc<str>, DashMap<Arc<str>, Vec<(String, Arc<str>)>>>
 
 #[derive(Clone, Debug, Default)]
 pub struct Extraparams {
-    pub to_https: Option<bool>,
-    pub sticky_sessions: Option<u64>,
+    pub sticky_sessions: u64,
+    pub rate_limit: isize,
+    pub x4xx_limit: u32,
+    pub to_https: bool,
+    pub ssl_verify: bool,
     pub authentication: Option<Arc<InnerAuth>>,
-    pub rate_limit: Option<isize>,
-    pub x4xx_limit: Option<u32>,
 }
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
@@ -151,9 +152,9 @@ pub struct InnerMap {
     pub is_ssl: bool,
     pub is_http2: bool,
     pub to_https: bool,
-    pub rate_limit: Option<isize>,
-    pub x4xx_limit: Option<u32>,
-    pub healthcheck: Option<bool>,
+    pub rate_limit: isize,
+    pub x4xx_limit: u32,
+    pub healthcheck: bool,
     pub redirect_to: Option<Arc<str>>,
     pub authorization: Option<Arc<InnerAuth>>,
 }
@@ -190,9 +191,9 @@ pub struct InnerMapForJson {
     pub is_ssl: bool,
     pub is_http2: bool,
     pub to_https: bool,
-    pub rate_limit: Option<isize>,
-    pub x4xx_limit: Option<u32>,
-    pub healthcheck: Option<bool>,
+    pub rate_limit: isize,
+    pub x4xx_limit: u32,
+    pub healthcheck: bool,
 }
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct UpstreamSnapshotForJson {

@@ -172,10 +172,10 @@ async fn populate_headers_and_auth(config: &mut Configuration, parsed: &Config) 
     let server_global_headers: DashMap<Arc<str>, Vec<(String, Arc<str>)>> = DashMap::new();
     server_global_headers.insert(Arc::from("/"), sh);
     config.server_headers.insert(Arc::from("GLOBAL_SERVER_HEADERS"), server_global_headers);
-    config.extraparams.to_https = parsed.to_https;
-    config.extraparams.sticky_sessions = parsed.sticky_sessions;
-    config.extraparams.rate_limit = parsed.rate_limit;
-    config.extraparams.x4xx_limit = parsed.x4xx_limit;
+    config.extraparams.to_https = parsed.to_https.unwrap_or(false);
+    config.extraparams.sticky_sessions = parsed.sticky_sessions.unwrap_or(0);
+    config.extraparams.rate_limit = parsed.rate_limit.unwrap_or(0);
+    config.extraparams.x4xx_limit = parsed.x4xx_limit.unwrap_or(0);
 
     if let Some(rate) = &parsed.rate_limit {
         info!("Applied Global Rate Limit : {} request per second", rate);
@@ -228,9 +228,9 @@ async fn populate_file_upstreams(config: &mut Configuration, parsed: &Config) {
                                 is_ssl: false,
                                 is_http2: false,
                                 to_https: path_config.to_https.unwrap_or(false),
-                                rate_limit: path_config.rate_limit,
-                                x4xx_limit: path_config.x4xx_limit,
-                                healthcheck: path_config.healthcheck,
+                                rate_limit: path_config.rate_limit.unwrap_or(0),
+                                x4xx_limit: path_config.x4xx_limit.unwrap_or(0),
+                                healthcheck: path_config.healthcheck.unwrap_or(true),
                                 redirect_to: redirect_link,
                                 authorization: path_auth,
                             }));

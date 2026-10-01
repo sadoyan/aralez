@@ -4,7 +4,7 @@ use crate::utils::types::{Extraparams, InnerMapForJson, UpstreamSnapshotForJson,
 use dashmap::DashMap;
 use log::{error, info};
 use privdrop::PrivDrop;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
 use std::fmt::Write;
@@ -16,8 +16,8 @@ use std::os::unix::fs::MetadataExt;
 use std::os::unix::fs::OpenOptionsExt;
 use std::process::Command;
 use std::str::FromStr;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::{env, fs, process, thread, time};
 
 pub fn print_upstreams(upstreams: &UpstreamsDashMap, extraparams: &Extraparams) {
@@ -35,8 +35,8 @@ pub fn print_upstreams(upstreams: &UpstreamsDashMap, extraparams: &Extraparams) 
                     f.is_ssl,
                     f.is_http2,
                     f.to_https,
-                    f.rate_limit.unwrap_or(extraparams.rate_limit.unwrap_or(0)),
-                    f.x4xx_limit.unwrap_or(extraparams.x4xx_limit.unwrap_or(0))
+                    if f.rate_limit > 0 { f.rate_limit } else { extraparams.rate_limit },
+                    if f.x4xx_limit > 0 { f.x4xx_limit } else { extraparams.x4xx_limit }
                 )
                 .unwrap();
             }
@@ -138,9 +138,9 @@ pub fn clone_idmap_into(original: &UpstreamsDashMap, cloned: &UpstreamsIdMap) {
                     x.port,
                     x.is_http2,
                     x.to_https,
-                    x.x4xx_limit.unwrap_or_default(),
-                    x.rate_limit.unwrap_or_default(),
-                    x.healthcheck.unwrap_or_default(),
+                    x.x4xx_limit,
+                    x.rate_limit,
+                    x.healthcheck,
                     x.authorization
                 )
                 .unwrap_or(());
