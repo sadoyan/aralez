@@ -54,9 +54,6 @@ pub async fn order(domain: &str, credsfile: &str, certs_dir: String, provider: O
     let mut order = account.new_order(&NewOrder::new(&[Identifier::Dns(domain.to_string())])).await?;
 
     let mut authorizations = order.authorizations();
-    // let dns_provider = CloudflareProvider::new();
-
-    let dns_provider = get_provider();
 
     while let Some(auth) = authorizations.next().await {
         let mut auth = auth?;
@@ -68,17 +65,16 @@ pub async fn order(domain: &str, credsfile: &str, certs_dir: String, provider: O
         let key_auth_str = key_auth.as_str().to_string();
 
         if let Some(prov) = provider.clone() {
-            println!("============================== {:?}", prov);
+            let dns_provider = get_provider(prov.clone());
             let dns_value = calculate_dns_value(&key_auth_str);
             let clean_domain = domain.trim_start_matches("*.").to_string();
             let record_name = format!("_acme-challenge.{}", clean_domain);
-            // Works identically for Cloudflare, Route53, or any future provider!
+
             match dns_provider.create_txt_record(&clean_domain, &record_name, &dns_value).await {
                 Ok(record_id) => {
-                    info!("Waiting 30 seconds for DNS propagation: {}", record_name);
-                    tokio::time::sleep(tokio::time::Duration::from_secs(30)).await;
-                    challenge_handle.set_ready().await?;
-                    let _ = dns_provider.delete_txt_record(&record_id).await;
+                    let ready_res = challenge_handle.set_ready().await;
+                    let _ = dns_provider.delete_txt_record(&record_id, &record_name).await;
+                    ready_res?;
                 }
                 Err(e) => {
                     eprintln!("Failed to create DNS record: {}", e);

@@ -1,4 +1,6 @@
-use crate::tls::acme::types::DnsProvider;
+use crate::tls::acme::lookup::lookup_wait;
+use crate::tls::acme::types::{DnsBackendPlugin, DnsProvider};
+use log::info;
 use reqwest::Client;
 use serde_json::json;
 
@@ -45,11 +47,12 @@ impl DnsProvider for CloudflareProvider {
         }
 
         let record_id = res_json["result"]["id"].as_str().ok_or("missing id")?.to_string();
-        println!(" ====> Created DNS Record ID: {}", record_id);
+        info!("Created TXT record name: {}, id: {}", name, record_id);
+        lookup_wait(name, "1.1.1.1", 60).await;
         Ok(record_id)
     }
 
-    async fn delete_txt_record(&self, record_id: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    async fn delete_txt_record(&self, record_id: &str, record_name: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let url = format!("https://api.cloudflare.com/client/v4/zones/{}/dns_records/{}", self.zone_id, record_id);
 
         let response = self.client.delete(&url).bearer_auth(&self.api_token).send().await?;
@@ -58,8 +61,14 @@ impl DnsProvider for CloudflareProvider {
         if !res_json["success"].as_bool().unwrap_or(false) {
             return Err(format!("Cloudflare API error deleting record: {:?}", res_json["errors"]).into());
         }
-
-        println!(" ====> Successfully deleted DNS record: {}", record_id);
+        info!("Deleted TXT record name: {}, id: {}", record_name, record_id);
         Ok(())
+    }
+}
+
+inventory::submit! {
+    DnsBackendPlugin {
+        name: "cloudflare",
+        factory: || Box::new(CloudflareProvider::new()),
     }
 }

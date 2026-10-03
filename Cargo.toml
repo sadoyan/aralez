@@ -68,4 +68,6 @@ inventory = "0.3.24"
 elasticsearch = "9.1.0-alpha.1"
 humantime = "2.4.0"
 reqwest = "0.12.28"
+hickory-resolver = { version = "0.26", features = ["tokio"] }
+
 

@@ -1,23 +1,32 @@
-use crate::tls::acme::dns::cloudflare::CloudflareProvider;
-use crate::tls::acme::dns::route53::Route53Provider;
+use async_trait::async_trait;
+use std::collections::HashMap;
+use std::sync::LazyLock;
 
-#[async_trait::async_trait]
+pub struct DnsBackendPlugin {
+    pub name: &'static str,
+    pub factory: fn() -> Box<dyn DnsProvider>,
+}
+
+inventory::collect!(DnsBackendPlugin);
+
+static PROVIDERS: LazyLock<HashMap<&'static str, Box<dyn DnsProvider>>> = LazyLock::new(|| {
+    let mut map = HashMap::new();
+    for plugin in inventory::iter::<DnsBackendPlugin> {
+        map.insert(plugin.name, (plugin.factory)());
+    }
+    map
+});
+
+#[async_trait]
 pub trait DnsProvider: Send + Sync {
     async fn create_txt_record(&self, domain: &str, name: &str, value: &str) -> Result<String, Box<dyn std::error::Error + Send + Sync>>;
 
-    async fn delete_txt_record(&self, record_id: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>>;
+    async fn delete_txt_record(&self, record_id: &str, record_name: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>>;
 }
 
-// pub enum ProviderType {
-//     Cloudflare,
-//     Route53,
-// }
-
-pub fn get_provider() -> Box<dyn DnsProvider> {
-    let provider_choice: Option<Box<dyn DnsProvider>> = match std::env::var("DNS_PROVIDER").as_deref() {
-        Ok("cloudflare") => Some(Box::new(CloudflareProvider::new())),
-        Ok("route53") => Some(Box::new(Route53Provider::new())),
-        _ => None,
-    };
-    provider_choice.expect("No provider choice provided!")
+pub fn get_provider(provider: String) -> &'static dyn DnsProvider {
+    PROVIDERS
+        .get(provider.as_str())
+        .map(|boxed| boxed.as_ref())
+        .unwrap_or_else(|| panic!("Unknown DNS provider '{}'. Available providers: {:?}", provider, PROVIDERS.keys().collect::<Vec<_>>()))
 }

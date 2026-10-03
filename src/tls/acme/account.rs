@@ -30,8 +30,8 @@ async fn create_account(file: &str) -> Result<(), Box<dyn std::error::Error>> {
         only_return_existing: false,
     };
     let acc_builder = Account::builder()?;
-    // let (account, credentials) = acc_builder.create(&new_account, LetsEncrypt::Production.url().to_string(), None).await?;
-    let (account, credentials) = acc_builder.create(&new_account, LetsEncrypt::Staging.url().to_string(), None).await?;
+    let (account, credentials) = acc_builder.create(&new_account, LetsEncrypt::Production.url().to_string(), None).await?;
+    // let (account, credentials) = acc_builder.create(&new_account, LetsEncrypt::Staging.url().to_string(), None).await?;
     info!("Account created: {:?}", account.id());
     save_credentials(&credentials, file)?;
     let _ = ACCOUNT.set(account);
