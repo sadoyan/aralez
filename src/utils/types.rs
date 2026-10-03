@@ -134,6 +134,7 @@ pub struct AppConfig {
     pub log_file: Option<String>,
     pub log_pattern: Option<String>,
     pub log_structured: Option<String>,
+    pub acme_dns_provider: Option<String>,
     pub tcp_keepalive_idle: Option<u64>,
     pub tcp_keepalive_interval: Option<u64>,
     pub tcp_keepalive_count: Option<usize>,

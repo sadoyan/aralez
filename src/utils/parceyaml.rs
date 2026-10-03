@@ -1,5 +1,5 @@
 use crate::utils::healthcheck;
-use crate::utils::lazylock::REVERSE_STORE;
+use crate::utils::lazylock::{DOMAINS, REVERSE_STORE};
 use crate::utils::state::{is_first_run, mark_not_first_run};
 use crate::utils::tools::{clone_dashmap, clone_dashmap_into, print_upstreams};
 use crate::utils::types::*;
@@ -7,11 +7,9 @@ use dashmap::DashMap;
 use log::{error, info, warn};
 use std::collections::HashMap;
 use std::path::Path;
+use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
-use std::sync::{Arc, LazyLock};
 use std::{env, fs};
-
-pub static DOMAINS: LazyLock<DashMap<String, bool>> = LazyLock::new(DashMap::new);
 
 pub async fn load_configuration(d: &str, kind: &str) -> (Option<Configuration>, String) {
     let mut conf_files = Vec::new();

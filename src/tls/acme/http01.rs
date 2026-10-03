@@ -14,32 +14,32 @@ pub async fn acme_create(State(state): State<webserver::AppState>) -> impl IntoR
                 .status(StatusCode::OK)
                 .header("Content-Type", "text/plain")
                 .body(Body::from(txt))
-                .unwrap()
+                .unwrap();
         }
         Err(e) => {
             return Response::builder()
                 .status(StatusCode::INTERNAL_SERVER_ERROR)
                 .body(Body::from(format!("Failed to create account: {}", e)))
-                .unwrap()
+                .unwrap();
         }
     };
 }
 #[allow(clippy::needless_return)]
 pub async fn acme_order(State(state): State<webserver::AppState>, axum::extract::Path(domain): axum::extract::Path<String>) -> impl IntoResponse {
     let domain_clean = domain.trim_matches('/');
-    match order::order(domain_clean, state.cert_creds.as_str(), state.certs_dir).await {
+    match order::order(domain_clean, state.cert_creds.as_str(), state.certs_dir, state.acme_dns_provider).await {
         Ok(txt) => {
             return Response::builder()
                 .status(StatusCode::OK)
                 .header("Content-Type", "text/plain")
                 .body(Body::from(txt))
-                .unwrap()
+                .unwrap();
         }
         Err(e) => {
             return Response::builder()
                 .status(StatusCode::INTERNAL_SERVER_ERROR)
                 .body(Body::from(format!("Failed to order a certificate: {}", e)))
-                .unwrap()
+                .unwrap();
         }
     };
 }

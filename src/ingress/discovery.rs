@@ -12,6 +12,7 @@ pub struct APIUpstreamProvider {
     pub config_api_enabled: bool,
     pub address: String,
     pub masterkey: Option<String>,
+    pub acme_dns_provider: Option<String>,
     pub certs_dir: String,
     pub config_dir: String,
     pub upstreams_file: String,

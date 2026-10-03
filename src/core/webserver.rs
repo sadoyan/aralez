@@ -1,7 +1,7 @@
 use crate::auth::jwt::Claims;
 use crate::ingress::APIUpstreamProvider;
 use crate::tls::acme::http01::{acme_create, acme_order, http01_challenge};
-use crate::utils::metrics::{get_memory_usage, get_open_files, MEMORY_USAGE, OPEN_FILES};
+use crate::utils::metrics::{MEMORY_USAGE, OPEN_FILES, get_memory_usage, get_open_files};
 use crate::utils::tools::{upstreams_liveness_json, upstreams_to_json};
 use crate::utils::types::{Config, Configuration, UpstreamsDashMap};
 use axum::body::Body;
@@ -10,9 +10,9 @@ use axum::http::{Response, StatusCode};
 use axum::response::IntoResponse;
 use axum::routing::{any, get, post};
 use axum::{Json, Router};
-use jsonwebtoken::{encode, EncodingKey, Header};
+use jsonwebtoken::{EncodingKey, Header, encode};
 use log::{debug, error, info, warn};
-use prometheus::{gather, Encoder, TextEncoder};
+use prometheus::{Encoder, TextEncoder, gather};
 use serde::Serialize;
 use signal_hook::{consts::SIGQUIT, iterator::Signals};
 use std::collections::HashMap;
@@ -32,6 +32,7 @@ struct OutToken {
 #[derive(Clone)]
 pub struct AppState {
     master_key: Option<String>,
+    pub acme_dns_provider: Option<String>,
     pub cert_creds: String,
     pub certs_dir: String,
     upstreams_file: String,
@@ -53,6 +54,7 @@ pub async fn run_server(config: &APIUpstreamProvider, mut to_return: mpsc::Sende
         config_api_enabled: config.config_api_enabled,
         current_upstreams: upstreams_curr,
         full_upstreams: upstreams_full,
+        acme_dns_provider: config.acme_dns_provider.clone(),
     };
     let app = Router::new()
         // .route("/{*wildcard}", get(senderror))
@@ -214,7 +216,7 @@ async fn status(State(st): State<AppState>, Query(params): Query<HashMap<String,
                     .status(StatusCode::OK)
                     .header("Content-Type", "application/json")
                     .body(Body::from(j))
-                    .unwrap()
+                    .unwrap();
             }
             Err(e) => {
                 return Response::builder()

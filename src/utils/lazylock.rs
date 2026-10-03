@@ -1,8 +1,8 @@
 use dashmap::DashMap;
 use moka::sync::Cache;
+use pingora_cache::MemCache;
 use pingora_cache::eviction::simple_lru::Manager;
 use pingora_cache::lock::CacheLock;
-use pingora_cache::MemCache;
 use pingora_limits::rate::Rate;
 use std::collections::HashMap;
 use std::net::IpAddr;
@@ -19,3 +19,4 @@ pub static CACHE_LOCK: LazyLock<CacheLock> = LazyLock::new(|| CacheLock::new(Dur
 pub static EVICTION: OnceLock<Manager> = OnceLock::new();
 pub static CACHE_TTL: OnceLock<u64> = OnceLock::new();
 pub static CHALLENGES: LazyLock<RwLock<HashMap<String, String>>> = LazyLock::new(|| RwLock::new(HashMap::new()));
+pub static DOMAINS: LazyLock<DashMap<String, bool>> = LazyLock::new(DashMap::new);

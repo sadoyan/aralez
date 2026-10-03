@@ -72,6 +72,7 @@ impl BackgroundService for LB {
             file_server_folder: self.config.file_server_folder.clone(),
             current_upstreams: self.ump_upst.clone(),
             full_upstreams: self.ump_full.clone(),
+            acme_dns_provider: self.config.acme_dns_provider.clone(),
         };
         tokio::spawn(async move { api_load.start(tx_api).await });
         let uu = self.ump_upst.clone();
@@ -80,7 +81,8 @@ impl BackgroundService for LB {
         let (hc_method, hc_interval) = (self.config.hc_method.clone(), self.config.hc_interval);
         tokio::spawn(async move { healthcheck::hc2(uu, ff, im, (&*hc_method.to_string(), hc_interval.to_string().parse().unwrap())).await });
         tokio::spawn(async move { calc_cache_metrics().await });
-        tokio::spawn(async move { refresh_order(certdir, confdir).await });
+        let acme_provider = self.config.acme_dns_provider.clone();
+        tokio::spawn(async move { refresh_order(certdir, confdir, acme_provider).await });
 
         init_access_logging(self.config.access_log.clone()).await;
         loop {
