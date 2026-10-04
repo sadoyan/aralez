@@ -48,7 +48,7 @@ impl DnsProvider for CloudflareProvider {
 
         let record_id = res_json["result"]["id"].as_str().ok_or("missing id")?.to_string();
         info!("Created TXT record name: {}, id: {}", name, record_id);
-        lookup_wait(name, "1.1.1.1", 60).await;
+        lookup_wait(name, Some("1.1.1.1"), 60, value).await;
         Ok(record_id)
     }
 
