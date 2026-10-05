@@ -69,5 +69,5 @@ elasticsearch = "9.1.0-alpha.1"
 humantime = "2.4.0"
 reqwest = "0.12.28"
 hickory-resolver = { version = "0.26", features = ["tokio"] }
-
-
+aws-sdk-route53 = "1.127.0"
+aws-config = { version = "1.12.0", features = ["behavior-version-latest"] }
