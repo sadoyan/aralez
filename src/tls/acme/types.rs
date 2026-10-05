@@ -9,10 +9,10 @@ pub struct DnsBackendPlugin {
 
 inventory::collect!(DnsBackendPlugin);
 
-static PROVIDERS: LazyLock<HashMap<&'static str, Box<dyn DnsProvider>>> = LazyLock::new(|| {
+static FACTORIES: LazyLock<HashMap<&'static str, fn() -> Box<dyn DnsProvider>>> = LazyLock::new(|| {
     let mut map = HashMap::new();
     for plugin in inventory::iter::<DnsBackendPlugin> {
-        map.insert(plugin.name, (plugin.factory)());
+        map.insert(plugin.name, plugin.factory);
     }
     map
 });
@@ -24,9 +24,9 @@ pub trait DnsProvider: Send + Sync {
     async fn delete_txt_record(&self, record_id: &str, record_name: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>>;
 }
 
-pub fn get_provider(provider: String) -> &'static dyn DnsProvider {
-    PROVIDERS
+pub fn get_provider(provider: String) -> Box<dyn DnsProvider> {
+    FACTORIES
         .get(provider.as_str())
-        .map(|boxed| boxed.as_ref())
-        .unwrap_or_else(|| panic!("Unknown DNS provider '{}'. Available providers: {:?}", provider, PROVIDERS.keys().collect::<Vec<_>>()))
+        .map(|factory| factory())
+        .unwrap_or_else(|| panic!("Unknown DNS provider '{}'. Available providers: {:?}", provider, FACTORIES.keys().collect::<Vec<_>>()))
 }
