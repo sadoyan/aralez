@@ -47,13 +47,13 @@ async fn build_upstreams(fullist: &UpstreamsDashMap, method: &str) -> UpstreamsD
                 let tls = if upstream.healthcheck {
                     detect_tls(upstream.address.as_ref(), &upstream.port, host).await
                 } else {
-                    false
+                    upstream.is_ssl
                 };
                 let mut scheme = InnerMap {
                     address: upstream.address.clone(),
                     port: upstream.port,
                     is_ssl: tls,
-                    is_http2: false,
+                    is_http2: upstream.is_http2,
                     to_https: upstream.to_https,
                     rate_limit: upstream.rate_limit,
                     x4xx_limit: upstream.x4xx_limit,

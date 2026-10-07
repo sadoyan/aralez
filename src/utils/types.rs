@@ -92,6 +92,8 @@ pub struct PathConfig {
     pub healthcheck: Option<bool>,
     pub redirect_to: Option<String>,
     pub authorization: Option<Auth>,
+    pub is_ssl: Option<bool>,
+    pub is_http2: Option<bool>,
 }
 #[derive(Debug, Default)]
 pub struct Configuration {

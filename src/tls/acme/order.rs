@@ -31,7 +31,7 @@ pub async fn order(domain: &str, credsfile: &str, certs_dir: String, provider: O
         let newlist: Vec<String> = DOMAINS.iter().map(|item| item.key().to_string()).collect();
         if let Ok(json_content) = serde_json::to_string_pretty(&newlist) {
             let autocfg_file = credsfile.replace("/acme_credentials.json", "/domains.json");
-            if let Err(err) = std::fs::write(&autocfg_file, json_content) {
+            if let Err(err) = fs::write(&autocfg_file, json_content) {
                 error!("Error Updating domains for certificates: {} : {}", domain, err);
                 return Err(Box::from(err));
             }

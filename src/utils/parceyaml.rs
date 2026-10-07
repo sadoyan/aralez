@@ -223,8 +223,8 @@ async fn populate_file_upstreams(config: &mut Configuration, parsed: &Config) {
                             server_list.push(Arc::from(InnerMap {
                                 address: Arc::from(ip),
                                 port,
-                                is_ssl: false,
-                                is_http2: false,
+                                is_ssl: path_config.is_ssl.unwrap_or(false),
+                                is_http2: path_config.is_http2.unwrap_or(false),
                                 to_https: path_config.to_https.unwrap_or(false),
                                 rate_limit: path_config.rate_limit.unwrap_or(0),
                                 x4xx_limit: path_config.x4xx_limit.unwrap_or(0),
