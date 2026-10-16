@@ -1,6 +1,7 @@
 use crate::auth::jwt::Claims;
 use crate::ingress::APIUpstreamProvider;
 use crate::tls::acme::http01::{acme_create, acme_order, http01_challenge};
+use crate::utils::lazylock::NODE_STATUS;
 use crate::utils::metrics::{MEMORY_USAGE, OPEN_FILES, get_memory_usage, get_open_files};
 use crate::utils::tools::{upstreams_liveness_json, upstreams_to_json};
 use crate::utils::types::{Config, Configuration, UpstreamsDashMap};
@@ -63,6 +64,7 @@ pub async fn run_server(config: &APIUpstreamProvider, mut to_return: mpsc::Sende
         .route("/acme_order/{*domain}", any(acme_order))
         .route("/.well-known/acme-challenge/{*token}", any(http01_challenge))
         .route("/conf", post(conf))
+        .route("/workerconf", post(workerconf))
         .route("/metrics", get(metrics))
         .route("/status", get(status))
         .with_state(app_state);
@@ -84,7 +86,8 @@ pub async fn run_server(config: &APIUpstreamProvider, mut to_return: mpsc::Sende
 
     let listener = port_is_available("Config API", &config.address).await;
     info!("Starting the API server on: {}", config.address);
-    let api_server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+    // let api_server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+    let api_server = tokio::spawn(async move { axum::serve(listener, app.into_make_service_with_connect_info::<SocketAddr>()).await.unwrap() });
 
     let (tx, mut rx) = mpsc::channel(1);
     std::thread::spawn(move || {
@@ -122,6 +125,54 @@ async fn conf(State(st): State<AppState>, Query(params): Query<HashMap<String, S
             Response::builder().status(StatusCode::BAD_GATEWAY).body(Body::from(format!("Failed: {}\n", err))).unwrap()
         }
     }
+}
+
+use axum::extract::ConnectInfo;
+use axum::http::HeaderMap;
+async fn workerconf(State(st): State<AppState>, ConnectInfo(addr): ConnectInfo<SocketAddr>, headers: HeaderMap, content: String) -> impl IntoResponse {
+    let api_key = headers.get("API-KEY").and_then(|v| v.to_str().ok());
+    if api_key != st.master_key.as_deref() {
+        warn!("Unauthorised access to workerconf endpoint from {}", addr.ip());
+        return Response::builder()
+            .status(StatusCode::UNAUTHORIZED)
+            .body(Body::from("Unauthorized: Invalid API-KEY\n"))
+            .unwrap();
+    }
+    if let Some(member) = NODE_STATUS.get() {
+        if let Some(mbr) = member.as_ref() {
+            match mbr.as_ref() {
+                "worker" => {
+                    info!("Accepted new config from master server {}", addr.ip());
+                    let strcontent = content.as_str();
+                    let parsed = noyalib::from_str::<Config>(strcontent);
+                    match parsed {
+                        Ok(_) => {
+                            tokio::spawn(async move { apply_config(content.as_str(), st, true).await });
+                            return Response::builder().status(StatusCode::OK).body(Body::from("Accepted! Applying in background\n")).unwrap();
+                        }
+                        Err(err) => {
+                            error!("Failed to parse upstreams file: {}", err);
+                            return Response::builder().status(StatusCode::BAD_GATEWAY).body(Body::from(format!("Failed: {}\n", err))).unwrap();
+                        }
+                    }
+                }
+                _ => {
+                    return Response::builder()
+                        .status(StatusCode::BAD_GATEWAY)
+                        .body(Body::from("Node is not running on worker mode !\n"))
+                        .unwrap();
+                }
+            }
+        }
+        return Response::builder()
+            .status(StatusCode::BAD_GATEWAY)
+            .body(Body::from("Node is not running on worker mode !\n"))
+            .unwrap();
+    }
+    Response::builder()
+        .status(StatusCode::BAD_GATEWAY)
+        .body(Body::from("Node is not running on worker mode !\n"))
+        .unwrap()
 }
 
 async fn apply_config(content: &str, st: AppState, save: bool) {

@@ -34,6 +34,7 @@ pub struct LB {
     pub config: Arc<AppConfig>,
     pub extraparams: Arc<ArcSwap<Extraparams>>,
     pub cache_enabled: bool,
+    pub master_server: bool,
 }
 
 pub struct Context {
@@ -105,6 +106,10 @@ impl ProxyHttp for LB {
     }
 
     async fn request_filter(&self, session: &mut Session, _ctx: &mut Self::CTX) -> Result<bool> {
+        if self.master_server {
+            let _ = session.respond_error(400).await;
+            return Ok(true);
+        };
         ACTIVE_SESSIONS.inc();
         let hostname = return_header_host_from_upstream(session, &self.ump_upst);
         _ctx.hostname = hostname;

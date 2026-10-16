@@ -34,6 +34,7 @@ pub fn run() {
     let file = parameters.conf.clone().unwrap();
     let maincfg = crate::utils::parceyaml::parce_main_config(file.as_str());
 
+    let master_server = maincfg.cluster_member.as_deref() == Some("master");
     let cache_enabled = maincfg.cache_size_mb.is_some();
     CACHE_TTL.set(maincfg.cache_ttl.unwrap_or(60)).unwrap();
     if let Some(size) = maincfg.cache_size_mb {
@@ -70,6 +71,7 @@ pub fn run() {
         server_headers: sh_config,
         extraparams: ec_config,
         cache_enabled,
+        master_server,
     };
 
     let grade = cfg.proxy_tls_grade.clone().unwrap_or("medium".to_string());

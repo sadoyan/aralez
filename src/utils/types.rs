@@ -9,7 +9,7 @@ pub type UpstreamsDashMap = DashMap<Arc<str>, DashMap<Arc<str>, (Vec<Arc<InnerMa
 pub type UpstreamsIdMap = DashMap<String, Arc<InnerMap>>;
 pub type Headers = DashMap<Arc<str>, DashMap<Arc<str>, Vec<(String, Arc<str>)>>>;
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Serialize)]
 pub struct Extraparams {
     pub sticky_sessions: u64,
     pub rate_limit: isize,
@@ -140,9 +140,11 @@ pub struct AppConfig {
     pub tcp_keepalive_idle: Option<u64>,
     pub tcp_keepalive_interval: Option<u64>,
     pub tcp_keepalive_count: Option<usize>,
+    pub cluster_member: Option<String>,
+    pub worker_nodes: Option<String>,
 }
 
-#[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Hash, Serialize)]
 pub struct InnerAuth {
     pub auth_type: Arc<str>,
     pub auth_cred: Arc<str>,
@@ -202,4 +204,12 @@ pub struct InnerMapForJson {
 pub struct UpstreamSnapshotForJson {
     pub backends: Vec<InnerMapForJson>,
     pub requests: usize,
+}
+
+#[derive(Debug)]
+pub struct WorkerNodes {
+    pub address: Arc<str>,
+    pub key: Option<Arc<str>>,
+    pub port: u16,
+    pub tls: bool,
 }

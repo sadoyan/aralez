@@ -27,7 +27,8 @@ async-trait = "0.1.92"
 log = "0.4.34"
 notify = "9.0.0-rc.4"
 axum = { version = "0.8.9" }
-serde = { version = "1.0.229", features = ["derive"] }
+serde = { version = "1.0.229", features = ["derive", "rc"] }
+#serde = { version = "1.0.229", features = ["derive"] }
 noyalib = { version = "0.0.44", features = ["compat-serde-yaml"] }
 rand = "0.10.2"
 base64 = "0.23.1"

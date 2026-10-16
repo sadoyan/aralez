@@ -4,6 +4,7 @@ pub mod hcclient;
 pub mod healthcheck;
 pub mod httpclient;
 // pub mod ingress;
+pub mod deser;
 pub mod lazylock;
 pub mod metrics;
 pub mod parceyaml;
@@ -11,4 +12,5 @@ pub mod state;
 pub mod tools;
 pub mod types;
 pub(crate) mod watch;
+
 pub use watch::*;

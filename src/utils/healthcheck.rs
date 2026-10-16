@@ -1,38 +1,54 @@
+use crate::utils::deser::{send_to_worker, serialize_config};
 use crate::utils::hcclient::{HttpClientRequest, httpclient};
-use crate::utils::lazylock::REVERSE_STORE;
+use crate::utils::lazylock::{IM_A_MASTER, NODE_STATUS, REVERSE_STORE};
 use crate::utils::tools::*;
 use crate::utils::types::{InnerMap, UpstreamsDashMap, UpstreamsIdMap};
 use bytes::Bytes;
 use dashmap::DashMap;
+use log::info;
 use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
 use std::time::Duration;
 use tokio::net::TcpStream;
 use tokio::time::{interval, timeout};
 use tokio_native_tls::native_tls::TlsConnector;
+
 const EMPTY_PAYLOAD: Bytes = Bytes::from_static(b"");
 
 pub async fn hc2(upslist: Arc<UpstreamsDashMap>, fullist: Arc<UpstreamsDashMap>, idlist: Arc<UpstreamsIdMap>, params: (&str, u64)) {
     let mut period = interval(Duration::from_secs(params.1));
+    if let Some(member) = NODE_STATUS.get() {
+        if let Some(mbr) = member.as_ref() {
+            match mbr.as_ref() {
+                "worker" => {
+                    info!("Disabling health-checks. Running in cluster mode as {}", mbr);
+                    return;
+                }
+                "master" => {
+                    info!("Disabling client/server routing. Running in cluster mode as {}", mbr);
+                }
+                _ => {}
+            }
+        }
+    }
     loop {
         tokio::select! {
             _ = period.tick() => {
-                let totest = build_upstreams(&fullist, params.0).await;
+                let totest = initiate_upstreams(&fullist, params.0).await;
                 if !compare_dashmaps(&totest, &upslist) {
                     clone_dashmap_into(&totest, &upslist);
                     clone_idmap_into(&totest, &idlist);
+                    if let Some(true) = IM_A_MASTER.get(){
+                        let binary_output = serialize_config(&totest);
+                        let _ = send_to_worker(binary_output).await;
+                    }
                     REVERSE_STORE.clear();
                 }
             }
         }
     }
 }
-
-pub async fn initiate_upstreams(fullist: UpstreamsDashMap) -> UpstreamsDashMap {
-    build_upstreams(&fullist, "HEAD").await
-}
-
-async fn build_upstreams(fullist: &UpstreamsDashMap, method: &str) -> UpstreamsDashMap {
+pub(crate) async fn initiate_upstreams(fullist: &UpstreamsDashMap, method: &str) -> UpstreamsDashMap {
     let totest: UpstreamsDashMap = DashMap::new();
     let fclone = clone_dashmap(fullist);
     for val in fclone.iter() {
@@ -77,6 +93,7 @@ async fn build_upstreams(fullist: &UpstreamsDashMap, method: &str) -> UpstreamsD
                         port: upstream.port,
                         url: link.as_str(),
                         payload: EMPTY_PAYLOAD,
+                        headers: None,
                     })
                     .await;
                     if resp.0 {

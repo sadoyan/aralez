@@ -18,9 +18,10 @@ pub struct HttpClientRequest<'a> {
     pub port: u16,
     pub url: &'a str,
     pub payload: Bytes,
+    pub headers: Option<Vec<(&'a str, &'a str)>>, // ← add this
 }
 
-pub async fn httpclient(req: HttpClientRequest<'_>) -> (bool, bool) {
+pub async fn httpclient(req: HttpClientRequest<'_>) -> (bool, bool, u16) {
     let HttpClientRequest {
         method,
         tls,
@@ -30,6 +31,7 @@ pub async fn httpclient(req: HttpClientRequest<'_>) -> (bool, bool) {
         port,
         url,
         payload,
+        headers,
     } = req;
     let method = match method {
         "HEAD" => "HEAD",
@@ -57,7 +59,7 @@ pub async fn httpclient(req: HttpClientRequest<'_>) -> (bool, bool) {
             } else {
                 log::warn!("Fail to connect to addr: {}, tls {}, host {}", address, tls, host);
             }
-            return (false, false);
+            return (false, false, 500);
         }
     };
 
@@ -68,7 +70,7 @@ pub async fn httpclient(req: HttpClientRequest<'_>) -> (bool, bool) {
         }
         None => {
             if ping_grpc(url).await {
-                return (true, true);
+                return (true, true, 204);
             }
         }
     }
@@ -77,7 +79,7 @@ pub async fn httpclient(req: HttpClientRequest<'_>) -> (bool, bool) {
         Ok(r) => r,
         Err(e) => {
             log::warn!("Failed to build request: {}", e);
-            return (false, false);
+            return (false, false, 500);
         }
     };
 
@@ -85,113 +87,33 @@ pub async fn httpclient(req: HttpClientRequest<'_>) -> (bool, bool) {
     let body_bytes = if method == "POST" {
         req.insert_header("Content-Type", "application/json").ok();
         req.insert_header("Content-Length", payload.len().to_string()).ok();
+        if let Some(headers) = headers {
+            for (k, v) in headers {
+                req.insert_header(k.to_owned(), v).ok();
+            }
+        }
         payload
     } else {
         Bytes::new()
     };
     if let Err(e) = http_session.write_request_header(Box::new(req)).await {
         log::warn!("Write header failed: {}", e);
-        return (false, false);
+        return (false, false, 500);
     }
     if let Err(e) = http_session.write_request_body(body_bytes, true).await {
         log::warn!("Write body failed: {}", e);
-        return (false, false);
+        return (false, false, 500);
     }
     let status = match http_session.read_response_header().await {
         Ok(_) => http_session.response_header().map(|r| r.status.as_u16()).unwrap_or(500),
         Err(e) => {
             if !is_h2 && ping_grpc(url).await {
-                return (true, true);
+                return (true, true, 204);
             }
             log::warn!("Health Check read failed ({}) : {} - {}", if is_h2 { "H2" } else { "H1" }, host, e);
-            return (false, false);
+            return (false, false, 500);
         }
     };
     HC_CONNECTOR.release_http_session(http_session, &peer, None).await;
-    ((200..500).contains(&status), is_h2)
+    ((200..500).contains(&status), is_h2, status)
 }
-/*
-pub async fn httpclient(method: &str, tls: bool, host: &str, path: &str, address: &str, port: u16, url: String) -> (bool, bool) {
-    let method = match method {
-        "HEAD" => "HEAD",
-        "GET" => "GET",
-        "POST" => "POST",
-        _ => "GET",
-    };
-    let mut peer = HttpPeer::new((address, port), tls, host.to_string());
-
-    if tls {
-        peer.options.verify_cert = false;
-        peer.options.verify_hostname = false;
-    }
-
-    let mut is_h2 = false;
-    peer.options.total_connection_timeout = Option::from(Duration::from_secs(5));
-    peer.options.alpn = ALPN::H2H1;
-    let (mut http_session, _) = match HC_CONNECTOR.get_http_session(&peer).await {
-        Ok(s) => s,
-        Err(e) => {
-            if let Some(msg) = e.context {
-                log::warn!("{}, type: {}", msg.as_str(), e.etype.as_str());
-            } else {
-                log::warn!("Fail to connect to addr: {}, tls {}, host {}", address, tls, host);
-            }
-            return (false, false);
-        }
-    };
-
-    match http_session.as_http2() {
-        Some(_) => {
-            peer.options.alpn = ALPN::H2;
-            is_h2 = true;
-        }
-        None => {
-            if ping_grpc(url.as_str()).await {
-                return (true, true);
-            }
-        }
-    }
-
-    let mut req = match RequestHeader::build(method, path.as_bytes(), None) {
-        Ok(r) => r,
-        Err(e) => {
-            log::warn!("Failed to build request: {}", e);
-            return (false, false);
-        }
-    };
-
-    req.insert_header("Host", host).ok();
-
-    if let Err(e) = http_session.write_request_header(Box::new(req)).await {
-        log::warn!("Write header failed: {}", e);
-        return (false, false);
-    }
-
-    let status = if is_h2 {
-        if let Err(e) = http_session.write_request_body(Bytes::new(), true).await {
-            log::warn!("Write body failed: {}", e);
-            return (false, false);
-        }
-        match http_session.read_response_header().await {
-            Ok(_) => http_session.response_header().map(|r| r.status.as_u16()).unwrap_or(500),
-            Err(e) => {
-                if ping_grpc(url.as_str()).await {
-                    return (true, true);
-                }
-                log::warn!("Health Check H2 read failed: {} - {}", host, e);
-                return (false, false);
-            }
-        }
-    } else {
-        match http_session.read_response_header().await {
-            Ok(_) => http_session.response_header().map(|r| r.status.as_u16()).unwrap_or(500),
-            Err(e) => {
-                log::warn!("Health Check H1 read failed: {} - {}", e, host);
-                return (false, false);
-            }
-        }
-    };
-    HC_CONNECTOR.release_http_session(http_session, &peer, None).await;
-    ((200..500).contains(&status), is_h2)
-}
-*/

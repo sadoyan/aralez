@@ -1,7 +1,8 @@
+use crate::utils::deser::{send_to_worker, serialize_config};
 use crate::utils::healthcheck;
-use crate::utils::lazylock::{DOMAINS, REVERSE_STORE};
+use crate::utils::lazylock::{DOMAINS, GLOBAL_PARAMS, IM_A_MASTER, MASTER_KEY, NODE_STATUS, REVERSE_STORE, WORKERS};
 use crate::utils::state::{is_first_run, mark_not_first_run};
-use crate::utils::tools::{clone_dashmap, clone_dashmap_into, print_upstreams};
+use crate::utils::tools::clone_dashmap_into;
 use crate::utils::types::*;
 use dashmap::DashMap;
 use log::{error, info, warn};
@@ -239,28 +240,48 @@ async fn populate_file_upstreams(config: &mut Configuration, parsed: &Config) {
             }
             config.client_headers.insert(Arc::from(hostname.clone()), client_header_list);
             config.server_headers.insert(Arc::from(hostname.clone()), server_header_list);
+
             imtdashmap.insert(Arc::from(hostname.clone()), path_map);
+        }
+
+        {
+            let mut config_guard = GLOBAL_PARAMS.write().expect("Global config lock poisoned");
+            config_guard.client_headers = config.client_headers.clone();
+            config_guard.server_headers = config.server_headers.clone();
+            config_guard.extraparams = config.extraparams.clone();
+            config_guard.kubernetes = config.kubernetes.clone();
+            config_guard.consul = config.consul.clone();
+            config_guard.typecfg = config.typecfg.clone();
         }
 
         if is_first_run() {
             clone_dashmap_into(&imtdashmap, &config.upstreams);
             mark_not_first_run();
         } else {
-            let y = clone_dashmap(&imtdashmap);
-            let r = healthcheck::initiate_upstreams(y).await;
+            let r = healthcheck::initiate_upstreams(&imtdashmap, "HEAD").await;
             clone_dashmap_into(&r, &config.upstreams);
         }
         info!("Upstream Config:");
         REVERSE_STORE.clear();
-        print_upstreams(&config.upstreams, &config.extraparams);
+
+        if let Some(true) = IM_A_MASTER.get() {
+            if !is_first_run() {
+                let binary_output = serialize_config(&config.upstreams);
+                let _ = send_to_worker(binary_output).await;
+            }
+        }
+        // print_upstreams(&config.upstreams, &config.extraparams);
     }
 }
 pub fn parce_main_config(path: &str) -> AppConfig {
     let data = fs::read_to_string(path).expect("Failed to read main config file");
     let mut cfo: AppConfig = noyalib::from_str(&data).expect("Failed to parse main config file");
-    if let Ok(jwt_key) = env::var("JWT_KEY") {
+    if let Ok(jwt_key) = env::var("MASTER_KEY") {
+        cfo.master_key = Some(jwt_key);
+    } else if let Ok(jwt_key) = env::var("JWT_KEY") {
         cfo.master_key = Some(jwt_key);
     };
+
     // log_builder(&cfo, &cfo.log_file);
     cfo.hc_method = cfo.hc_method.to_uppercase();
     if let Some((ip, port_str)) = cfo.config_address.rsplit_once(':') {
@@ -279,6 +300,39 @@ pub fn parce_main_config(path: &str) -> AppConfig {
     }
 
     cfo.proxy_tls_grade = parce_tls_grades(cfo.proxy_tls_grade.clone());
+    if let Some(member) = cfo.cluster_member.clone() {
+        NODE_STATUS.set(Some(Arc::from(member.as_str()))).expect("Config can only be initialized once");
+        let mk = cfo.master_key.clone().expect("In CLuster mode master key must be set");
+        MASTER_KEY.set(Some(Arc::from(mk.as_str()))).expect("Config can only be initialized once");
+        if member == "master" {
+            IM_A_MASTER.set(true).expect("Master status can only be initialized once");
+            let worker_str = cfo.worker_nodes.as_deref().expect("At least one worker must be set in master mode");
+            let mut wks = Vec::new();
+            for worker in worker_str.split(',') {
+                let clean = worker.replace("//", "");
+                let wk_vec = clean.trim().split(':').collect::<Vec<&str>>();
+                let wk = WorkerNodes {
+                    address: Arc::from(wk_vec[1]),
+                    port: wk_vec[2].parse::<u16>().expect("Invalid worker port number"),
+                    tls: match wk_vec[0] {
+                        "https" => true,
+                        "http" => false,
+                        _ => panic!("invalid protocol string"),
+                    },
+                    key: cfo.master_key.clone().map(|s| Arc::from(s)),
+                };
+                wks.push(wk);
+                // println!("{:?}", wk);
+                // if let Some((host, port_str)) = worker.trim().split_once(':') {
+                //     let port = port_str.parse::<u16>().expect("Invalid worker port number");
+                //     wks.push((host.to_string(), port));
+                // } else {
+                //     panic!("Invalid worker format, expected host:port");
+                // }
+            }
+            WORKERS.set(wks).expect("Workers list can only be initialized once");
+        }
+    }
     cfo
 }
 

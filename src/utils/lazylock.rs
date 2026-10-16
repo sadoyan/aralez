@@ -1,3 +1,4 @@
+use crate::utils::types::{Configuration, WorkerNodes};
 use dashmap::DashMap;
 use moka::sync::Cache;
 use pingora_cache::MemCache;
@@ -20,3 +21,8 @@ pub static EVICTION: OnceLock<Manager> = OnceLock::new();
 pub static CACHE_TTL: OnceLock<u64> = OnceLock::new();
 pub static CHALLENGES: LazyLock<RwLock<HashMap<String, String>>> = LazyLock::new(|| RwLock::new(HashMap::new()));
 pub static DOMAINS: LazyLock<DashMap<String, bool>> = LazyLock::new(DashMap::new);
+pub static NODE_STATUS: OnceLock<Option<Arc<str>>> = OnceLock::new();
+pub static MASTER_KEY: OnceLock<Option<Arc<str>>> = OnceLock::new();
+pub static GLOBAL_PARAMS: LazyLock<RwLock<Configuration>> = LazyLock::new(|| RwLock::new(Configuration::default()));
+pub static IM_A_MASTER: OnceLock<bool> = OnceLock::new();
+pub static WORKERS: OnceLock<Vec<WorkerNodes>> = OnceLock::new();
