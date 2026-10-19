@@ -1,3 +1,4 @@
+use crate::cache::types::init_cache;
 use crate::core::proxyhttp::LB;
 use crate::ingress::{APIUpstreamProvider, ConsulProvider, Discovery, FromFileProvider, KubernetesProvider};
 use crate::logging::core::{init_access_log, init_access_logging, log_builder};
@@ -84,6 +85,7 @@ impl BackgroundService for LB {
         let acme_provider = self.config.acme_dns_provider.clone();
         tokio::spawn(async move { refresh_order(certdir, confdir, acme_provider).await });
 
+        init_cache(self.config.clone()).await;
         init_access_logging(self.config.access_log.clone()).await;
         loop {
             tokio::select! {

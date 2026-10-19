@@ -1,7 +1,8 @@
 use crate::auth::authenticate;
+use crate::cache::types::GLOBAL_STORAGE;
 use crate::core::gethosts::{GetHost, GetHostsReturHeaders};
 use crate::logging::core::access_log;
-use crate::utils::lazylock::{CACHE_LOCK, CACHE_TTL, EVICTION, LOCALHOST, MEM_CACHE, RATE_LIMITER, REQUESTS_4XX, REVERSE_STORE};
+use crate::utils::lazylock::{CACHE_LOCK, CACHE_TTL, EVICTION, LOCALHOST, RATE_LIMITER, REQUESTS_4XX, REVERSE_STORE};
 use crate::utils::metrics::*;
 use crate::utils::types::{AppConfig, Extraparams, Headers, InnerMap, UpstreamsDashMap, UpstreamsIdMap};
 use arc_swap::ArcSwap;
@@ -67,8 +68,7 @@ impl ProxyHttp for LB {
 
     fn cache_key_callback(&self, session: &Session, ctx: &mut Self::CTX) -> Result<CacheKey> {
         let host = ctx.hostname.as_deref().unwrap_or("default");
-        let path = session.req_header().uri.path();
-
+        let path = session.req_header().uri.path_and_query().map_or("/", |pq| pq.as_str());
         let primary_key = KEY_BUF.with(|buf| {
             let mut b = buf.borrow_mut();
             b.clear();
@@ -76,15 +76,14 @@ impl ProxyHttp for LB {
             b.push_str(path);
             b.clone()
         });
-
-        let secondary_key = session.req_header().uri.path_and_query().map(|pq| pq.as_str()).unwrap_or("/");
-        Ok(CacheKey::new(primary_key, secondary_key))
+        Ok(CacheKey::new(primary_key, host /* host is just for debugging */))
     }
-
     fn request_cache_filter(&self, session: &mut Session, _ctx: &mut Self::CTX) -> Result<()> {
-        if self.cache_enabled && session.req_header().method == Method::GET {
-            if let Some(eviction) = EVICTION.get() {
-                session.cache.enable(&*MEM_CACHE, Some(eviction), None, Some(&*CACHE_LOCK), None);
+        let has_auth = _ctx.upstream_peer.as_ref().map(|m| m.authorization.is_some()).unwrap_or(false) || _ctx.extraparams.authentication.is_some();
+        if self.cache_enabled && session.req_header().method == Method::GET && !has_auth {
+            if let Some(storage) = GLOBAL_STORAGE.get() {
+                let eviction_mgr = EVICTION.get().map(|e| e as &(dyn pingora_cache::eviction::EvictionManager + Sync));
+                session.cache.enable(storage.as_ref(), eviction_mgr, None, Some(&*CACHE_LOCK), None);
             }
         }
         Ok(())

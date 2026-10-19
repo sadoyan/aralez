@@ -29,20 +29,24 @@ use std::time::Duration;
 use std::{fs, thread};
 
 pub fn run() {
-    default_provider().install_default().expect("Failed to install RusTLS crypto provider");
+    default_provider().install_default().die("Failed to install RusTLS crypto provider:");
     let parameters = Opt::parse_args();
-    let file = parameters.conf.clone().unwrap();
+    let file = parameters.conf.clone().die("Failed to clone the config:");
     let maincfg = crate::utils::parceyaml::parce_main_config(file.as_str());
 
     let master_server = maincfg.cluster_member.as_deref() == Some("master");
-    let cache_enabled = maincfg.cache_size_mb.is_some();
-    CACHE_TTL.set(maincfg.cache_ttl.unwrap_or(60)).unwrap();
-    if let Some(size) = maincfg.cache_size_mb {
-        let cache_size = size * 1024 * 1024;
-        drop(EVICTION.set(Manager::new(cache_size)));
-    }
 
-    let mut server = Server::new(parameters).unwrap();
+    let cache_enabled = maincfg.cache_enabled.unwrap_or(false);
+
+    // ========================================================================== //
+    CACHE_TTL.set(maincfg.cache_ttl.unwrap_or(60)).die("Failed to set cache TTL");
+    if cache_enabled {
+        let cache_size = maincfg.cache_size_mb.unwrap_or(50);
+        let _ = EVICTION.set(Manager::new(cache_size * 1024 * 1024));
+    }
+    // ========================================================================== //
+
+    let mut server = Server::new(parameters).die("Failed to start the server:");
     server.bootstrap();
 
     let uf_config = Arc::new(DashMap::new());
@@ -106,22 +110,22 @@ pub fn run() {
     if let Some(bind_address_tls) = bind_address_tls {
         check_priv(bind_address_tls.as_str());
         let (tx, rx): (Sender<Vec<CertificateConfig>>, Receiver<Vec<CertificateConfig>>) = channel();
-        let certs_path = cfg.proxy_configs.clone().unwrap() + "/certificates";
+        let certs_path = cfg.proxy_configs.clone().die("Failed certificates path") + "/certificates";
 
         if fs::metadata(certs_path.clone()).is_err() {
-            fs::create_dir_all(certs_path.clone()).unwrap();
+            fs::create_dir_all(certs_path.clone()).die("Failed to create directories");
         }
         thread::spawn(move || {
-            folder_watch(certs_path, tx).unwrap();
+            folder_watch(certs_path, tx).die("Failed to spawn certificates channel");
         });
-        let certificate_configs = rx.recv().unwrap();
+        let certificate_configs = rx.recv().die("Failed to spawn certificates channel");
         let first_set = load::Certificates::new(&certificate_configs, grade.as_str()).unwrap_or_else(|| panic!("Unable to load initial certificate info"));
         let certificates = Arc::new(ArcSwap::from_pointee(first_set));
         let certs_for_callback = certificates.clone();
 
         let certs_for_watcher = certificates.clone();
         let new_certs = load::Certificates::new(&certificate_configs, grade.as_str());
-        certs_for_watcher.store(Arc::new(new_certs.unwrap()));
+        certs_for_watcher.store(Arc::new(new_certs.die("Failed to build the watcher")));
 
         let mut tls_settings =
             TlsSettings::intermediate(&certs_for_callback.load().default_cert_path, &certs_for_callback.load().default_key_path).expect("unable to load or parse cert/key");
@@ -162,7 +166,7 @@ pub fn run() {
     if let Err(e) = write_pid_file(pf.as_str()) {
         panic!("Failed to write PID file: {} : {}", pf, e);
     }
-    let mut signals = Signals::new([SIGINT, SIGTERM, SIGQUIT]).unwrap();
+    let mut signals = Signals::new([SIGINT, SIGTERM, SIGQUIT]).die("Failed to create signals");
     if let Some(sig) = signals.forever().next() {
         match sig {
             SIGINT => info!("SIGINT received! Exiting..."),

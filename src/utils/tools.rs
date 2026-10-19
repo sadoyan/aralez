@@ -7,7 +7,7 @@ use privdrop::PrivDrop;
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
-use std::fmt::Write;
+use std::fmt::{Debug, Write};
 use std::fs::OpenOptions;
 use std::io::Write as IoWrite;
 use std::net::SocketAddr;
@@ -364,3 +364,38 @@ pub fn get_hostname() -> String {
         .filter(|s| !s.is_empty())
         .unwrap_or_else(|| "unknown".to_string())
 }
+
+// pub fn die(message: &str) -> ! {
+//     log::error!("{message}");
+//     process::exit(1);
+// }
+// ========================================= //
+
+pub trait Die<T> {
+    fn die(self, message: &str) -> T;
+}
+
+impl<T, E: Debug> Die<T> for Result<T, E> {
+    fn die(self, message: &str) -> T {
+        match self {
+            Ok(value) => value,
+            Err(e) => {
+                eprintln!("\x1b[1;31mERROR:\x1b[0m {message}: {e:?}");
+                process::exit(1);
+            }
+        }
+    }
+}
+
+impl<T> Die<T> for Option<T> {
+    fn die(self, message: &str) -> T {
+        match self {
+            Some(value) => value,
+            None => {
+                eprintln!("\x1b[1;31mERROR:\x1b[0m {message}");
+                process::exit(1);
+            }
+        }
+    }
+}
+// ========================================= //

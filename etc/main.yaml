@@ -4,7 +4,12 @@ runuser: aralez # Username for running aralez after dropping root privileges, re
 rungroup: aralez # Group for running aralez after dropping root privileges, requires program to start as root
 upstream_keepalive_pool_size: 500 # Pool size for upstream keepalive connections
 pid_file: /tmp/aralez.pid # Path to PID file
+#error_log: /tmp/aralez_err.log # Path to error log
 upgrade_sock: /tmp/aralez.sock # Path to socket file
+cache_enabled: true #  Optional. Disabled by default
+cache_storage: memory # memory | redis://host:port . Optional Defaults to memory works with Redis, Valkey, Dragonfly (requires redis:// prefix)
+cache_size_mb: 50 # Optional. Set internal cache with size in megabytes of value. Defaults to 50Mb if cache_enabled: true
+cache_ttl: 60 # Optional. Set Default TTL in seconds for cached items, works if cache control headers are not set via upstream. Defaults to 60 if cache_enabled: true
 config_api_enabled: true # Boolean to enable/disable remote config push capability.
 config_address: 127.0.0.1:3000 # HTTP API address for pushing upstreams.yaml from remote location
 proxy_address_http: 0.0.0.0:80 # Proxy HTTP bind address
@@ -23,6 +28,7 @@ hc_interval: 2 #Interval for health checks in seconds
 tcp_keepalive_idle: 60 # Seconds of inactivity before the kernel starts sending keepalive probes to a downstream client
 tcp_keepalive_interval: 10 # Seconds between individual keepalive probes if the client does not respond
 tcp_keepalive_count: 5 # Number of unanswered probes before the kernel declares the connection dead and closes it
-cache_size_mb: 50 # Optional. Enable internal cache with size in megabytes of value. Cache is entirely disabled when this line is commented out
-cache_ttl: 120 # Optional. Set Default TTL in seconds for cached items, works if cache control headers are not set via upstream. Defaults to 60 if cache_size_mb is set
-
+#cluster_member: master | worker  Optional. Enables cluster mode, Sets node type to master or worker. Disabled by default
+#worker_nodes: http://127.0.0.1:8000, http://127.0.0.1:4000 Required is if cluster_member: master. Comma separated list of worker nodes http(s)://host:port
+#log_structured: elasticsearch Optional. Enables structured logging and sets backend type. Only elasticsearch et the moment.
+#acme_dns_provider: cloudflare Optional. Enable ACME DNS-01 challenge, sets DNS provider.  ONly coudflare, route53, digitalocean at the moment.

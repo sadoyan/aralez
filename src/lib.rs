@@ -1,4 +1,5 @@
 pub mod auth;
+pub mod cache;
 pub mod core;
 pub mod ingress;
 pub mod logging;

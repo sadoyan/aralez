@@ -112,6 +112,8 @@ pub struct AppConfig {
     pub hc_method: String,
     pub upstreams_conf: String,
     pub log_level: String,
+    pub cache_enabled: Option<bool>,
+    pub cache_storage: Option<String>,
     pub cache_size_mb: Option<usize>,
     pub cache_ttl: Option<u64>,
     pub access_log: Option<String>,
