@@ -14,6 +14,7 @@ use std::net::SocketAddr;
 use std::net::TcpListener;
 use std::os::unix::fs::MetadataExt;
 use std::os::unix::fs::OpenOptionsExt;
+use std::panic::Location;
 use std::process::Command;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -23,9 +24,9 @@ use std::{env, fs, process, thread, time};
 pub fn print_upstreams(upstreams: &UpstreamsDashMap, extraparams: &Extraparams) {
     let mut out = String::new();
     for host_entry in upstreams.iter() {
-        writeln!(out, "Hostname: {}", host_entry.key()).unwrap();
+        writeln!(out, "Hostname: {}", host_entry.key()).unwrap_or_default();
         for path_entry in host_entry.value().iter() {
-            writeln!(out, "    Path: {}", path_entry.key()).unwrap();
+            writeln!(out, "    Path: {}", path_entry.key()).unwrap_or_default();
             for f in path_entry.value().0.clone() {
                 writeln!(
                     out,
@@ -38,7 +39,7 @@ pub fn print_upstreams(upstreams: &UpstreamsDashMap, extraparams: &Extraparams) 
                     if f.rate_limit > 0 { f.rate_limit } else { extraparams.rate_limit },
                     if f.x4xx_limit > 0 { f.x4xx_limit } else { extraparams.x4xx_limit }
                 )
-                .unwrap();
+                .unwrap_or_default();
             }
         }
     }
@@ -161,9 +162,9 @@ pub fn clone_idmap_into(original: &UpstreamsDashMap, cloned: &UpstreamsIdMap) {
 pub fn listdir(dir: String) -> Vec<load::CertificateConfig> {
     let mut f = HashMap::new();
     let mut certificate_configs: Vec<load::CertificateConfig> = vec![];
-    let paths = fs::read_dir(dir).unwrap();
+    let paths = fs::read_dir(dir).die("listing certificates directory failed");
     for path in paths {
-        let path_str = path.unwrap().path().to_str().unwrap().to_owned();
+        let path_str = path.die("getting certs path").path().to_str().die("certs pat t &str").to_owned();
         if path_str.ends_with(".crt") {
             let name = path_str.replace(".crt", "");
             let mut inner = vec![];
@@ -212,9 +213,9 @@ pub fn drop_priv(user: String, group: String, http_addr: String, tls_addr: Optio
 }
 
 pub fn check_priv(addr: &str) {
-    let port = SocketAddr::from_str(addr).map(|sa| sa.port()).expect("Failed to parse address port ");
+    let port = SocketAddr::from_str(addr).map(|sa| sa.port()).die("Failed to parse address port ");
     if port < 1024 {
-        let meta = std::fs::metadata("/proc/self").map(|m| m.uid()).unwrap();
+        let meta = std::fs::metadata("/proc/self").map(|m| m.uid()).die("Reading /proc/self");
         if meta != 0 {
             error!("Running on privileged port requires to start as ROOT");
             process::exit(1)
@@ -369,18 +370,19 @@ pub fn get_hostname() -> String {
 //     log::error!("{message}");
 //     process::exit(1);
 // }
-// ========================================= //
 
 pub trait Die<T> {
     fn die(self, message: &str) -> T;
 }
 
 impl<T, E: Debug> Die<T> for Result<T, E> {
+    #[track_caller]
     fn die(self, message: &str) -> T {
         match self {
             Ok(value) => value,
             Err(e) => {
-                eprintln!("\x1b[1;31mERROR:\x1b[0m {message}: {e:?}");
+                let loc = Location::caller();
+                eprintln!("\x1b[1;31mERROR:\x1b[0m {message}: {e:?}: {}: {}", loc.file(), loc.line());
                 process::exit(1);
             }
         }
@@ -388,14 +390,15 @@ impl<T, E: Debug> Die<T> for Result<T, E> {
 }
 
 impl<T> Die<T> for Option<T> {
+    #[track_caller]
     fn die(self, message: &str) -> T {
         match self {
             Some(value) => value,
             None => {
-                eprintln!("\x1b[1;31mERROR:\x1b[0m {message}");
+                let loc = Location::caller();
+                eprintln!("\x1b[1;31mERROR:\x1b[0m {message} at {}:{}", loc.file(), loc.line());
                 process::exit(1);
             }
         }
     }
 }
-// ========================================= //

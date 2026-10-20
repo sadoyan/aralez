@@ -9,10 +9,11 @@ use std::env;
 use std::sync::Arc;
 
 use crate::ingress::kuberconsul;
-use crate::ingress::kuberconsul::{clone_compare, list_to_upstreams, ServiceDiscovery};
-use crate::ingress::kubewatcher::{start_ingress_watcher_with_config, AralezRouteUpdate};
-use rustls::crypto::ring::default_provider;
+use crate::ingress::kuberconsul::{ServiceDiscovery, clone_compare, list_to_upstreams};
+use crate::ingress::kubewatcher::{AralezRouteUpdate, start_ingress_watcher_with_config};
+use crate::utils::tools::Die;
 use rustls::crypto::CryptoProvider;
+use rustls::crypto::ring::default_provider;
 use tokio::sync::mpsc::Sender;
 
 #[derive(Debug, serde::Deserialize)]
@@ -66,12 +67,12 @@ impl ServiceDiscovery for KubernetesDiscovery {
 
             let end = servers.len().saturating_sub(1);
             let num = if end > 0 { rand::rng().random_range(0..end) } else { 0 };
-            let server = servers.get(num).unwrap().to_string();
+            let server = servers.get(num).die("Getting k8s api server").to_string();
             let path = kuber.tokenpath.unwrap_or_else(|| "/var/run/secrets/kubernetes.io/serviceaccount/token".to_string());
             let token = kuberconsul::read_token(path.as_str()).await;
 
             if CryptoProvider::get_default().is_none() {
-                default_provider().install_default().expect("Failed to install rustls crypto provider");
+                default_provider().install_default().die("Failed to install rustls crypto provider");
             }
 
             let (tx, mut rx) = tokio::sync::mpsc::channel::<AralezRouteUpdate>(100);

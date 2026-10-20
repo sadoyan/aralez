@@ -5,7 +5,6 @@ use axum::body::Body;
 use axum::extract::State;
 use axum::http::{Response, StatusCode};
 use axum::response::IntoResponse;
-
 #[allow(clippy::needless_return)]
 pub async fn acme_create(State(state): State<webserver::AppState>) -> impl IntoResponse {
     match account::load_or_create(state.cert_creds.as_str()).await {
@@ -14,13 +13,10 @@ pub async fn acme_create(State(state): State<webserver::AppState>) -> impl IntoR
                 .status(StatusCode::OK)
                 .header("Content-Type", "text/plain")
                 .body(Body::from(txt))
-                .unwrap();
+                .unwrap_or_else(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error\n").into_response());
         }
         Err(e) => {
-            return Response::builder()
-                .status(StatusCode::INTERNAL_SERVER_ERROR)
-                .body(Body::from(format!("Failed to create account: {}", e)))
-                .unwrap();
+            return (StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to create account {}\n", e)).into_response();
         }
     };
 }
@@ -33,13 +29,10 @@ pub async fn acme_order(State(state): State<webserver::AppState>, axum::extract:
                 .status(StatusCode::OK)
                 .header("Content-Type", "text/plain")
                 .body(Body::from(txt))
-                .unwrap();
+                .unwrap_or_else(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error\n").into_response());
         }
         Err(e) => {
-            return Response::builder()
-                .status(StatusCode::INTERNAL_SERVER_ERROR)
-                .body(Body::from(format!("Failed to order a certificate: {}", e)))
-                .unwrap();
+            return (StatusCode::INTERNAL_SERVER_ERROR, format!("Internal Server Error: {}\n", e)).into_response();
         }
     };
 }
@@ -50,12 +43,8 @@ pub async fn http01_challenge(axum::extract::Path(token): axum::extract::Path<St
                 .status(StatusCode::OK)
                 .header("Content-Type", "text/plain")
                 .body(Body::from(key_authorization.clone()))
-                .unwrap();
+                .unwrap_or_else(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error\n").into_response());
         }
     }
-    Response::builder()
-        .status(StatusCode::NOT_FOUND)
-        .header("Content-Type", "text/plain")
-        .body(Body::from("Not found"))
-        .unwrap()
+    (StatusCode::NOT_FOUND, "Not found\n").into_response()
 }

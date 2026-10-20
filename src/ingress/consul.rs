@@ -1,7 +1,8 @@
 use crate::ingress::kuberconsul;
-use crate::ingress::kuberconsul::{list_to_upstreams, ServiceDiscovery};
+use crate::ingress::kuberconsul::{ServiceDiscovery, list_to_upstreams};
 use crate::utils::httpclient;
 use crate::utils::parceyaml::build_headers;
+use crate::utils::tools::Die;
 use crate::utils::types::{Configuration, GlobalServiceMapping, UpstreamsDashMap};
 use async_trait::async_trait;
 use dashmap::DashMap;
@@ -38,7 +39,7 @@ impl ServiceDiscovery for ConsulDiscovery {
                 });
                 let end = servers.len().saturating_sub(1);
                 let num = if end > 0 { rand::rng().random_range(0..end) } else { 0 };
-                let consul_data = servers.get(num).unwrap().to_string();
+                let consul_data = servers.get(num).die("Reading consul data").to_string();
                 let ss = format!("{}/v1/catalog/service/", consul_data);
                 let dc = format!("{}/v1/catalog/services?filter=%22aralez.service=yes%22+in+ServiceTags", consul_data);
 

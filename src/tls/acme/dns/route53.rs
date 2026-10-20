@@ -4,7 +4,7 @@
 
 use crate::tls::acme::lookup::lookup_wait;
 use crate::tls::acme::types::{DnsBackendPlugin, DnsProvider};
-use aws_config::SdkConfig;
+use crate::utils::tools::Die;
 use aws_sdk_route53::Client;
 use aws_sdk_route53::types::{Change, ChangeAction, ChangeBatch, ResourceRecord, ResourceRecordSet, RrType};
 use log::info;
@@ -17,13 +17,20 @@ pub struct Route53Provider {
 
 impl Route53Provider {
     pub fn new() -> Self {
-        let hosted_zone_id = std::env::var("AWS_HOSTED_ZONE_ID").expect("Environment variable AWS_HOSTED_ZONE_ID is required");
-        // Load AWS SDK config synchronously using Tokio runtime handle to fit factory construction
-        let config: SdkConfig = if let Ok(handle) = Handle::try_current() {
-            tokio::task::block_in_place(|| handle.block_on(aws_config::load_from_env()))
+        let hosted_zone_id = std::env::var("AWS_HOSTED_ZONE_ID").die("Environment variable AWS_HOSTED_ZONE_ID is required");
+
+        let config = if let Ok(handle) = Handle::try_current() {
+            // If we're inside a tokio runtime, we can block on it directly
+            handle.block_on(aws_config::load_from_env())
         } else {
-            tokio::runtime::Runtime::new().unwrap().block_on(aws_config::load_from_env())
+            // If we're completely outside tokio, spin up a temporary current-thread runtime
+            tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .die("Failed to create current-thread runtime")
+                .block_on(aws_config::load_from_env())
         };
+
         let client = Client::new(&config);
         Self { client, hosted_zone_id }
     }

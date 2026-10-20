@@ -1,9 +1,9 @@
-use crate::utils::tools::{clone_dashmap_into, compare_dashmaps, print_upstreams};
+use crate::utils::tools::{Die, clone_dashmap_into, compare_dashmaps, print_upstreams};
 use crate::utils::types::{Configuration, GlobalServiceMapping, InnerMap, UpstreamsDashMap};
 use async_trait::async_trait;
 use dashmap::DashMap;
-use std::sync::atomic::AtomicUsize;
 use std::sync::Arc;
+use std::sync::atomic::AtomicUsize;
 use tokio::fs::File;
 use tokio::io::AsyncReadExt;
 use tokio::sync::mpsc::Sender;
@@ -31,9 +31,9 @@ pub fn match_path(conf: &GlobalServiceMapping, upstreams: &DashMap<Arc<str>, (Ve
 }
 
 pub async fn read_token(path: &str) -> String {
-    let mut file = File::open(path).await.unwrap();
+    let mut file = File::open(path).await.die("Reading kubernetes token");
     let mut contents = String::new();
-    file.read_to_string(&mut contents).await.unwrap();
+    file.read_to_string(&mut contents).await.die("Kubernetes token to string");
     contents.trim().to_string()
 }
 

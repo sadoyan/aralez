@@ -48,8 +48,8 @@ pub async fn load_configuration(d: &str, kind: &str) -> (Option<Configuration>, 
                 return (None, err_msg);
             }
 
-            let mut confdir = Path::new(d).parent().unwrap().to_path_buf();
-            let mut autocfg = Path::new(d).parent().unwrap().to_path_buf();
+            let mut confdir = Path::new(d).parent().die("Invalid configuration path").to_path_buf();
+            let mut autocfg = Path::new(d).parent().die("Invalid configuration path").to_path_buf();
 
             autocfg.push("autoconfigs");
             if fs::metadata(autocfg.clone()).is_err() {

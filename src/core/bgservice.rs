@@ -30,16 +30,15 @@ impl BackgroundService for LB {
         let config = load_configuration(self.config.upstreams_conf.clone().as_str(), "filepath")
             .await
             .0
-            .expect("Failed to load configuration");
+            .die("Failed to load configuration");
 
         match config.typecfg.as_str() {
             "file" => {
                 info!("Running File discovery, requested type is: {}", config.typecfg);
-                tx.send(config).await.unwrap();
+                tx.send(config).await.die("Running File discovery");
                 let file_load = FromFileProvider {
                     path: self.config.upstreams_conf.clone(),
                 };
-                // let _ = tokio::spawn(async move { file_load.start(tx).await });
                 drop(tokio::spawn(async move { file_load.start(tx).await }));
             }
             "kubernetes" => {
@@ -80,7 +79,7 @@ impl BackgroundService for LB {
         let ff = self.ump_full.clone();
         let im = self.ump_byid.clone();
         let (hc_method, hc_interval) = (self.config.hc_method.clone(), self.config.hc_interval);
-        tokio::spawn(async move { healthcheck::hc2(uu, ff, im, (&*hc_method.to_string(), hc_interval.to_string().parse().unwrap())).await });
+        tokio::spawn(async move { healthcheck::hc2(uu, ff, im, (&*hc_method.to_string(), hc_interval.to_string().parse().die("Unable to spawn HC worker"))).await });
         tokio::spawn(async move { calc_cache_metrics().await });
         let acme_provider = self.config.acme_dns_provider.clone();
         tokio::spawn(async move { refresh_order(certdir, confdir, acme_provider).await });
@@ -93,7 +92,7 @@ impl BackgroundService for LB {
                     break;
                 }
                 val = rx.recv() => {
-                    let start = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
+                    let start = SystemTime::now().duration_since(UNIX_EPOCH).die(format!("ON {} {}", file!(), line!()).as_str());
                     if let Some(ss) = val {
                         clone_dashmap_into(&ss.upstreams, &self.ump_full);
                         clone_dashmap_into(&ss.upstreams, &self.ump_upst);
@@ -140,7 +139,7 @@ impl BackgroundService for LB {
                             }
                         }
                     }
-                    let end = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
+                    let end = SystemTime::now().duration_since(UNIX_EPOCH).die(format!("ON {} {}", file!(), line!()).as_str());
                     let startup = end - start;
                     info!("Loading upstreams took: {}ms", startup.as_millis());
                 }

@@ -126,7 +126,7 @@ async fn detect_tls(ip: &str, port: &u16, sni: &str) -> bool {
             .danger_accept_invalid_certs(true)
             .danger_accept_invalid_hostnames(true)
             .build()
-            .unwrap(),
+            .die("Failed to create TLS connector"),
     );
     connector.connect(sni, stream).await.is_ok()
 }

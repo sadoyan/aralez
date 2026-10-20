@@ -1,3 +1,4 @@
+use crate::utils::tools::Die;
 use hickory_resolver::TokioResolver;
 use hickory_resolver::config::{NameServerConfig, ResolverConfig, ResolverOpts};
 use hickory_resolver::net::runtime::TokioRuntimeProvider;
@@ -17,7 +18,7 @@ pub async fn lookup_wait(record_name: &str, dns_server_ip: Option<&str>, max_wai
     let resolver = TokioResolver::builder_with_config(config, TokioRuntimeProvider::default())
         .with_options(opts)
         .build()
-        .expect("failed to build DNS resolver");
+        .die("failed to build DNS resolver");
 
     let start = std::time::Instant::now();
     let poll_interval = Duration::from_secs(3);

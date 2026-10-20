@@ -1,5 +1,6 @@
 use crate::tls::acme::lookup::lookup_wait;
 use crate::tls::acme::types::{DnsBackendPlugin, DnsProvider};
+use crate::utils::tools::Die;
 use log::info;
 use reqwest::Client;
 use serde_json::json;
@@ -12,8 +13,8 @@ pub struct CloudflareProvider {
 
 impl CloudflareProvider {
     pub fn new() -> Self {
-        let api_token = std::env::var("CLOUDFLARE_API_TOKEN").expect("Environment variable CLOUDFLARE_API_TOKEN is required");
-        let zone_id = std::env::var("CLOUDFLARE_ZONE_ID").expect("Environment variable CLOUDFLARE_ZONE_ID is required");
+        let api_token = std::env::var("CLOUDFLARE_API_TOKEN").die("Environment variable CLOUDFLARE_API_TOKEN is required");
+        let zone_id = std::env::var("CLOUDFLARE_ZONE_ID").die("Environment variable CLOUDFLARE_ZONE_ID is required");
 
         Self {
             client: Client::new(),

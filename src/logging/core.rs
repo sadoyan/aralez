@@ -1,13 +1,14 @@
 use crate::logging::types::start_logging_backend;
 use crate::utils::metrics::LOGGING_ERRORS;
+use crate::utils::tools::Die;
 use crate::utils::types::AppConfig;
 use anyhow::Result;
-use log::{error, info, log, Level, LevelFilter, Record};
+use log::{Level, LevelFilter, Record, error, info, log};
+use log4rs::append::Append;
+use log4rs::append::rolling_file::RollingFileAppender;
+use log4rs::append::rolling_file::policy::compound::CompoundPolicy;
 use log4rs::append::rolling_file::policy::compound::roll::fixed_window::FixedWindowRoller;
 use log4rs::append::rolling_file::policy::compound::trigger::size::SizeTrigger;
-use log4rs::append::rolling_file::policy::compound::CompoundPolicy;
-use log4rs::append::rolling_file::RollingFileAppender;
-use log4rs::append::Append;
 use log4rs::config::Logger;
 use log4rs::{
     append::console::ConsoleAppender,
@@ -149,7 +150,7 @@ pub async fn log_builder(conf: &AppConfig, location: &Option<String>) {
                 .logger(Logger::builder().build("h2", LevelFilter::Off));
         }
 
-        let config = config_builder.build(Root::builder().appender("stdout").build(log_level)).unwrap();
+        let config = config_builder.build(Root::builder().appender("stdout").build(log_level)).die("Logging config builder");
 
         if let Err(e) = log4rs::init_config(config) {
             eprintln!("Warning: log4rs logger already initialized: {:?}", e);
@@ -177,7 +178,7 @@ pub async fn log_builder(conf: &AppConfig, location: &Option<String>) {
             _ => format!("{}.{{}}", path),
         };
 
-        let roller = FixedWindowRoller::builder().build(pattern_str.as_str(), keep).unwrap();
+        let roller = FixedWindowRoller::builder().build(pattern_str.as_str(), keep).die("Logging roller builder");
         let trigger = SizeTrigger::new(size_mb * 1024 * 1024);
         let policy = CompoundPolicy::new(Box::new(trigger), Box::new(roller));
 
@@ -193,7 +194,7 @@ pub async fn log_builder(conf: &AppConfig, location: &Option<String>) {
             .appender(Appender::builder().build("file", Box::new(file)))
             .logger(Logger::builder().build("pingora_proxy", LevelFilter::Off))
             .build(Root::builder().appender("file").build(log_level))
-            .unwrap();
+            .die("Parsing Lo4rsConfig");
         if let Err(e) = log4rs::init_config(config) {
             eprintln!("Warning: log4rs logger already initialized: {:?}", e);
         }
@@ -204,7 +205,7 @@ pub async fn log_builder(conf: &AppConfig, location: &Option<String>) {
             .appender(Appender::builder().build("stdout", Box::new(stdout)))
             .logger(Logger::builder().build("pingora_proxy", LevelFilter::Off))
             .build(Root::builder().appender("stdout").build(log_level))
-            .unwrap();
+            .die("Parsing Lo4rsConfig");
         if let Err(e) = log4rs::init_config(config) {
             eprintln!("Warning: log4rs logger already initialized: {:?}", e);
         }

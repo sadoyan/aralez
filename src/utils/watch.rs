@@ -1,6 +1,6 @@
 use crate::tls::CertificateConfig;
 use crate::utils::parceyaml::load_configuration;
-use crate::utils::tools::listdir;
+use crate::utils::tools::{Die, listdir};
 use crate::utils::types::Configuration;
 use log::{error, info};
 use notify::event::ModifyKind;
@@ -15,7 +15,7 @@ use tokio::task;
 pub async fn file_watch(fp: String, toreturn: Sender<Configuration>) {
     sleep(Duration::from_millis(50)).await; // For having nice logs :-)
     let file_path = fp.as_str();
-    let parent_dir = Path::new(file_path).parent().unwrap();
+    let parent_dir = Path::new(file_path).parent().die("Get parent folder");
     let (local_tx, mut local_rx) = tokio::sync::mpsc::channel::<notify::Result<Event>>(1);
 
     let _watcher_handle = task::spawn_blocking({
@@ -27,8 +27,8 @@ pub async fn file_watch(fp: String, toreturn: Sender<Configuration>) {
                 },
                 Config::default(),
             )
-            .unwrap();
-            watcher.watch(&parent_dir, RecursiveMode::Recursive).unwrap();
+            .die("Initialize file watcher");
+            watcher.watch(&parent_dir, RecursiveMode::Recursive).die("");
             let (_rtx, mut rrx) = tokio::sync::mpsc::channel::<bool>(1);
             let _ = rrx.blocking_recv();
         }
@@ -42,7 +42,7 @@ pub async fn file_watch(fp: String, toreturn: Sender<Configuration>) {
                     start = Instant::now();
                     let snd = load_configuration(file_path, "filepath").await.0;
                     if let Some(snd) = snd {
-                        toreturn.send(snd).await.unwrap();
+                        toreturn.send(snd).await.die("Send to file watcher");
                     }
                 }
                 _ => (),

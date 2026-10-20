@@ -3,7 +3,7 @@ use crate::ingress::APIUpstreamProvider;
 use crate::tls::acme::http01::{acme_create, acme_order, http01_challenge};
 use crate::utils::lazylock::NODE_STATUS;
 use crate::utils::metrics::{MEMORY_USAGE, OPEN_FILES, get_memory_usage, get_open_files};
-use crate::utils::tools::{upstreams_liveness_json, upstreams_to_json};
+use crate::utils::tools::{Die, upstreams_liveness_json, upstreams_to_json};
 use crate::utils::types::{Config, Configuration, UpstreamsDashMap};
 use axum::body::Body;
 use axum::extract::{Query, State};
@@ -86,14 +86,16 @@ pub async fn run_server(config: &APIUpstreamProvider, mut to_return: mpsc::Sende
 
     let listener = port_is_available("Config API", &config.address).await;
     info!("Starting the API server on: {}", config.address);
-    // let api_server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
-    let api_server = tokio::spawn(async move { axum::serve(listener, app.into_make_service_with_connect_info::<SocketAddr>()).await.unwrap() });
-
+    let api_server = tokio::spawn(async move {
+        axum::serve(listener, app.into_make_service_with_connect_info::<SocketAddr>())
+            .await
+            .die("Can't start API server")
+    });
     let (tx, mut rx) = mpsc::channel(1);
     std::thread::spawn(move || {
-        let mut signals = Signals::new([SIGQUIT]).unwrap();
+        let mut signals = Signals::new([SIGQUIT]).die("Can't initialize OS SIGNALS");
         if let Some(sig) = signals.forever().next() {
-            tx.blocking_send(sig).unwrap();
+            tx.blocking_send(sig).die("Can;t send signal to main thread");
         }
     });
     rx.recv().await;
@@ -106,7 +108,7 @@ pub async fn run_server(config: &APIUpstreamProvider, mut to_return: mpsc::Sende
 
 async fn conf(State(st): State<AppState>, Query(params): Query<HashMap<String, String>>, content: String) -> impl IntoResponse {
     if !st.config_api_enabled {
-        return Response::builder().status(StatusCode::FORBIDDEN).body(Body::from("Config API is disabled !\n")).unwrap();
+        return (StatusCode::FORBIDDEN, "Config API is disabled !\n").into_response();
     }
 
     let strcontent = content.as_str();
@@ -118,11 +120,11 @@ async fn conf(State(st): State<AppState>, Query(params): Query<HashMap<String, S
             } else {
                 tokio::spawn(async move { apply_config(content.as_str(), st, false).await });
             }
-            Response::builder().status(StatusCode::OK).body(Body::from("Accepted! Applying in background\n")).unwrap()
+            (StatusCode::OK, "Accepted! Applying in background\n").into_response()
         }
         Err(err) => {
             error!("Failed to parse upstreams file: {}", err);
-            Response::builder().status(StatusCode::BAD_GATEWAY).body(Body::from(format!("Failed: {}\n", err))).unwrap()
+            (StatusCode::BAD_GATEWAY, format!("Failed: {}\n", err)).into_response()
         }
     }
 }
@@ -133,10 +135,7 @@ async fn workerconf(State(st): State<AppState>, ConnectInfo(addr): ConnectInfo<S
     let api_key = headers.get("API-KEY").and_then(|v| v.to_str().ok());
     if api_key != st.master_key.as_deref() {
         warn!("Unauthorised access to workerconf endpoint from {}", addr.ip());
-        return Response::builder()
-            .status(StatusCode::UNAUTHORIZED)
-            .body(Body::from("Unauthorized: Invalid API-KEY\n"))
-            .unwrap();
+        return (StatusCode::UNAUTHORIZED, "Unauthorized: Invalid API-KEY\n").into_response();
     }
     if let Some(member) = NODE_STATUS.get() {
         if let Some(mbr) = member.as_ref() {
@@ -148,31 +147,22 @@ async fn workerconf(State(st): State<AppState>, ConnectInfo(addr): ConnectInfo<S
                     match parsed {
                         Ok(_) => {
                             tokio::spawn(async move { apply_config(content.as_str(), st, true).await });
-                            return Response::builder().status(StatusCode::OK).body(Body::from("Accepted! Applying in background\n")).unwrap();
+                            return (StatusCode::OK, "Accepted! Applying in background\n").into_response();
                         }
                         Err(err) => {
                             error!("Failed to parse upstreams file: {}", err);
-                            return Response::builder().status(StatusCode::BAD_GATEWAY).body(Body::from(format!("Failed: {}\n", err))).unwrap();
+                            return (StatusCode::BAD_GATEWAY, format!("Failed: {}\n", err)).into_response();
                         }
                     }
                 }
                 _ => {
-                    return Response::builder()
-                        .status(StatusCode::BAD_GATEWAY)
-                        .body(Body::from("Node is not running on worker mode !\n"))
-                        .unwrap();
+                    return (StatusCode::BAD_GATEWAY, "Node is not running on worker mode !\n").into_response();
                 }
             }
         }
-        return Response::builder()
-            .status(StatusCode::BAD_GATEWAY)
-            .body(Body::from("Node is not running on worker mode !\n"))
-            .unwrap();
+        return (StatusCode::BAD_GATEWAY, "Node is not running on worker mode !\n").into_response();
     }
-    Response::builder()
-        .status(StatusCode::BAD_GATEWAY)
-        .body(Body::from("Node is not running on worker mode !\n"))
-        .unwrap()
+    (StatusCode::BAD_GATEWAY, "Node is not running on worker mode !\n").into_response()
 }
 
 async fn apply_config(content: &str, st: AppState, save: bool) {
@@ -236,17 +226,13 @@ async fn metrics() -> impl IntoResponse {
     let encoder = TextEncoder::new();
     let mut buffer = Vec::new();
     if let Err(e) = encoder.encode(&metric_families, &mut buffer) {
-        // encoding error fallback
-        return Response::builder()
-            .status(StatusCode::INTERNAL_SERVER_ERROR)
-            .body(Body::from(format!("Failed to encode metrics: {}", e)))
-            .unwrap();
+        return (StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to encode metrics: {}", e)).into_response();
     }
     Response::builder()
         .status(StatusCode::OK)
         .header("Content-Type", encoder.format_type())
         .body(Body::from(buffer))
-        .unwrap()
+        .unwrap_or_else(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error\n").into_response())
 }
 
 #[allow(clippy::needless_return)]
@@ -257,7 +243,7 @@ async fn status(State(st): State<AppState>, Query(params): Query<HashMap<String,
             .status(StatusCode::OK)
             .header("Content-Type", "application/json")
             .body(Body::from(format!("{}", r)))
-            .unwrap();
+            .unwrap_or_else(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error\n").into_response());
     }
     if params.contains_key("all") {
         let resp = upstreams_to_json(&st.current_upstreams);
@@ -267,29 +253,17 @@ async fn status(State(st): State<AppState>, Query(params): Query<HashMap<String,
                     .status(StatusCode::OK)
                     .header("Content-Type", "application/json")
                     .body(Body::from(j))
-                    .unwrap();
+                    .unwrap_or_else(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error\n").into_response());
             }
-            Err(e) => {
-                return Response::builder()
-                    .status(StatusCode::INTERNAL_SERVER_ERROR)
-                    .body(Body::from(format!("Failed to get status: {}", e)))
-                    .unwrap();
-            }
+            Err(e) => return (StatusCode::BAD_GATEWAY, format!("Internal Server Error {}\n", e)).into_response(),
         }
     }
-    Response::builder()
-        .status(StatusCode::INTERNAL_SERVER_ERROR)
-        .body(Body::from("Parameter mismatch"))
-        .unwrap()
+    (StatusCode::INTERNAL_SERVER_ERROR, "Parameter mismatch\n").into_response()
 }
 
 pub async fn port_is_available(name: &str, address: &str) -> TcpListener {
     let addr = SocketAddr::from_str(address).unwrap_or_else(|e| panic!("{}: Invalid address format: {:?}", name, e));
     let t = Duration::from_secs(2);
-
-    //if addr.ip() == IpAddr::V4(Ipv4Addr::UNSPECIFIED) {
-    //    addr.set_ip(IpAddr::V4(Ipv4Addr::LOCALHOST));
-    //}
     let p = addr.port();
     loop {
         match TcpListener::bind(addr).await {

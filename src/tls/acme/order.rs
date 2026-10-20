@@ -2,6 +2,7 @@ use crate::tls::acme::account::get_account;
 use crate::tls::acme::types::get_provider;
 use crate::utils::lazylock::CHALLENGES;
 use crate::utils::lazylock::DOMAINS;
+use crate::utils::tools::Die;
 use base64::Engine;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use instant_acme::{ChallengeType, Identifier, NewOrder, RetryPolicy};
@@ -63,7 +64,7 @@ pub async fn order(domain: &str, credsfile: &str, certs_dir: String, provider: O
         let key_auth_str = key_auth.as_str().to_string();
 
         if is_dns {
-            let prov = provider.as_ref().unwrap();
+            let prov = provider.as_ref().die("Failed to get DNS provider");
             let dns_provider = get_provider(prov.clone());
             let dns_value = calculate_dns_value(&key_auth_str);
             let clean_domain = domain_name.trim_start_matches("*.").to_string();
@@ -82,7 +83,7 @@ pub async fn order(domain: &str, credsfile: &str, certs_dir: String, provider: O
             }
         } else {
             let token = key_auth_str.split('.').next().ok_or("Invalid key authorization")?.to_string();
-            CHALLENGES.write().unwrap().insert(token, key_auth_str);
+            CHALLENGES.write().die("Failed to write challenge").insert(token, key_auth_str);
             tokio::time::sleep(std::time::Duration::from_millis(100)).await;
             challenge_handle.set_ready().await?;
         }
@@ -98,7 +99,7 @@ pub async fn order(domain: &str, credsfile: &str, certs_dir: String, provider: O
     let csr_der = signing_request.der();
     order.finalize_csr(csr_der).await?;
     let cert_chain_pem = order.poll_certificate(&RetryPolicy::default()).await?;
-    CHALLENGES.write().unwrap().clear();
+    CHALLENGES.write().die("Challenges lock poisoned").clear();
     let private_key_pem = private_key.serialize_pem();
     fs::write(crt, cert_chain_pem)?;
     fs::write(key, private_key_pem)?;

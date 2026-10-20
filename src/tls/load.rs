@@ -1,8 +1,9 @@
 use crate::tls::grades;
+use crate::utils::tools::Die;
 use dashmap::DashMap;
 use log::error;
 use pingora::tls::ssl::{NameType, SniError, SslAlert, SslContext, SslFiletype, SslMethod, SslRef};
-use rustls_pemfile::{read_one, Item};
+use rustls_pemfile::{Item, read_one};
 use serde::Deserialize;
 use std::collections::HashSet;
 use std::fs::File;
@@ -10,6 +11,7 @@ use std::io::BufReader;
 use x509_parser::extensions::GeneralName;
 use x509_parser::nom::Err as NomErr;
 use x509_parser::prelude::*;
+
 #[derive(Clone, Deserialize, Debug)]
 pub struct CertificateConfig {
     pub cert_path: String,
@@ -37,7 +39,7 @@ pub struct Certificates {
 
 impl Certificates {
     pub fn new(configs: &Vec<CertificateConfig>, _grade: &str) -> Option<Self> {
-        let default_cert = configs.first().expect("At least one TLS certificate required");
+        let default_cert = configs.first().die("At least one TLS certificate required");
         let mut cert_infos = Vec::new();
         let name_map: DashMap<String, SslContext> = DashMap::new();
         for config in configs {

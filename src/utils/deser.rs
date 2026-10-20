@@ -1,5 +1,6 @@
 use crate::utils::hcclient::{HttpClientRequest, httpclient};
 use crate::utils::lazylock::{GLOBAL_PARAMS, MASTER_KEY, WORKERS};
+use crate::utils::tools::Die;
 use crate::utils::types::{Consul, Extraparams, Headers, Kubernetes, UpstreamsDashMap};
 use bytes::Bytes;
 use log::{error, info, warn};
@@ -44,7 +45,7 @@ pub struct SendConfigDto {
 }
 
 pub fn serialize_config(data: &UpstreamsDashMap) -> String {
-    let config = GLOBAL_PARAMS.read().unwrap();
+    let config = GLOBAL_PARAMS.read().die("Failed to read config");
     let mut snapshot: HashMap<String, UpstreamConfigDto> = HashMap::new();
 
     for outer_entry in data.iter() {
@@ -268,7 +269,7 @@ pub fn to_yaml(config: &SendConfigDto) -> String {
 }
 
 pub async fn send_to_worker(data: String) {
-    let masterkey = MASTER_KEY.get().expect("Master key not set");
+    let masterkey = MASTER_KEY.get().die("Master key not set");
     if let Some(workers) = WORKERS.get() {
         for worker in workers {
             let prefix = if worker.tls { "https://" } else { "http://" };
@@ -282,7 +283,7 @@ pub async fn send_to_worker(data: String) {
                 port: worker.port,
                 url: worker_url.as_str(),
                 payload: Bytes::from(data.clone()),
-                headers: Some(vec![("API-KEY", masterkey.clone().expect("Master key must be set in the cluster mode").deref())]),
+                headers: Some(vec![("API-KEY", masterkey.clone().die("Master key must be set in the cluster mode").deref())]),
             })
             .await;
             if (200..500).contains(&status.2) {

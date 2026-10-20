@@ -1,5 +1,6 @@
 use crate::tls::acme::lookup::lookup_wait;
 use crate::tls::acme::types::{DnsBackendPlugin, DnsProvider};
+use crate::utils::tools::Die;
 use async_trait::async_trait;
 use log::info;
 use serde_json::json;
@@ -12,7 +13,7 @@ pub struct DigitalOceanProvider {
 
 impl DigitalOceanProvider {
     pub fn new() -> Self {
-        let token = env::var("DIGITALOCEAN_TOKEN").expect("Environment variable DIGITALOCEAN_TOKEN is required");
+        let token = env::var("DIGITALOCEAN_TOKEN").die("Environment variable DIGITALOCEAN_TOKEN is required");
 
         Self {
             token,
