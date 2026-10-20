@@ -297,10 +297,27 @@ openssl req -x509 -newkey rsa:4096 \
 
 ## Remote Config API
 
-Push new `upstreams.yaml` over HTTP to `config_address` (`:3000` by default). Useful for CI/CD automation or remote config updates. URL parameter. `key=MASTERKEY` is required. `MASTERKEY` is the value of `master_key` in the `main.yaml`
+Push new `upstreams.yaml` over HTTP to `config_address` (`127.0.0.1:3000` by default).
+Useful for CI/CD automation or remote config updates.
 
 ```bash
-curl -XPOST --data-binary @./etc/upstreams.txt 127.0.0.1:3000/conf?key=${MASTERKEY}
+curl -XPOST --data-binary @./etc/upstreams.txt 127.0.0.1:3000/conf
+```
+
+Don't run API on address 0.0.0.0 on production servers, keep it on 127.0.0.1 and configure appropriate upstream with supported authentication and TLS termination
+
+Example:
+
+```yaml
+  config.example.com:
+    paths:
+      "/conf":
+        authorization:
+          type: "basic"
+          data: "user:pass"
+        healthcheck: false
+        servers:
+          - "127.0.0.1:3000"
 ```
 
 ---
