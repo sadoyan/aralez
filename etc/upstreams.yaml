@@ -130,7 +130,7 @@ upstreams:
       "/":
         healthcheck: false
         servers:
-          - "127.0.0.1:3000"
+          - "127.0.0.1:8000"
       "/.well-known/acme-challenge":
         healthcheck: false
         servers:

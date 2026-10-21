@@ -6,7 +6,9 @@ use crate::utils::metrics::{MEMORY_USAGE, OPEN_FILES, get_memory_usage, get_open
 use crate::utils::tools::{Die, upstreams_liveness_json, upstreams_to_json};
 use crate::utils::types::{Config, Configuration, UpstreamsDashMap};
 use axum::body::Body;
+use axum::extract::ConnectInfo;
 use axum::extract::{Query, State};
+use axum::http::HeaderMap;
 use axum::http::{Response, StatusCode};
 use axum::response::IntoResponse;
 use axum::routing::{any, get, post};
@@ -106,31 +108,45 @@ pub async fn run_server(config: &APIUpstreamProvider, mut to_return: mpsc::Sende
     info!("Exiting...");
 }
 
-async fn conf(State(st): State<AppState>, Query(params): Query<HashMap<String, String>>, content: String) -> impl IntoResponse {
+async fn conf(
+    State(st): State<AppState>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    Query(params): Query<HashMap<String, String>>,
+    headers: HeaderMap,
+    content: String,
+) -> impl IntoResponse {
     if !st.config_api_enabled {
         return (StatusCode::FORBIDDEN, "Config API is disabled !\n").into_response();
+    }
+
+    let api_key = headers.get("API-KEY").and_then(|v| v.to_str().ok());
+    let query_key = params.get("key").map(|k| k.as_str());
+    let authorized = match st.master_key.as_deref() {
+        Some(master_key) if !master_key.is_empty() => api_key == Some(master_key) || query_key == Some(master_key),
+        _ => false,
+    };
+    if !authorized {
+        warn!("Unauthorised access to /conf endpoint from {}", addr.ip());
+        return (StatusCode::UNAUTHORIZED, "Unauthorized: Invalid API-KEY\n").into_response();
     }
 
     let strcontent = content.as_str();
     let parsed = noyalib::from_str::<Config>(strcontent);
     match parsed {
         Ok(_) => {
-            if params.contains_key("save") {
-                tokio::spawn(async move { apply_config(content.as_str(), st, true).await });
-            } else {
-                tokio::spawn(async move { apply_config(content.as_str(), st, false).await });
-            }
+            let save = params.contains_key("save");
+            tokio::spawn(async move {
+                apply_config(&content, st, save).await;
+            });
             (StatusCode::OK, "Accepted! Applying in background\n").into_response()
         }
         Err(err) => {
             error!("Failed to parse upstreams file: {}", err);
-            (StatusCode::BAD_GATEWAY, format!("Failed: {}\n", err)).into_response()
+            (StatusCode::BAD_REQUEST, format!("Failed: {}\n", err)).into_response()
         }
     }
 }
 
-use axum::extract::ConnectInfo;
-use axum::http::HeaderMap;
 async fn workerconf(State(st): State<AppState>, ConnectInfo(addr): ConnectInfo<SocketAddr>, headers: HeaderMap, content: String) -> impl IntoResponse {
     let api_key = headers.get("API-KEY").and_then(|v| v.to_str().ok());
     if api_key != st.master_key.as_deref() {
