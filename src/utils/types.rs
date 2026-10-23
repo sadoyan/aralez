@@ -115,6 +115,7 @@ pub struct AppConfig {
     pub cache_enabled: Option<bool>,
     pub cache_storage: Option<String>,
     pub cache_size_mb: Option<usize>,
+    pub cache_item_max_size: Option<usize>,
     pub cache_ttl: Option<u64>,
     pub access_log: Option<String>,
     pub pid_file: Option<String>,

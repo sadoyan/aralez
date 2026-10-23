@@ -10,6 +10,7 @@ cache_enabled: true #  Optional. Disabled by default
 cache_storage: memory # memory | redis://host:port . Optional Defaults to memory works with Redis, Valkey, Dragonfly (requires redis:// prefix)
 cache_size_mb: 50 # Optional. Set internal cache with size in megabytes of value. Defaults to 50Mb if cache_enabled: true
 cache_ttl: 60 # Optional. Set Default TTL in seconds for cached items, works if cache control headers are not set via upstream. Defaults to 60 if cache_enabled: true
+cache_item_max_size: 5 # Optional. Set maximum size for cached items in megabytes. Defaults to 0 , no max size.
 config_api_enabled: true # Boolean to enable/disable remote config push capability.
 config_address: 127.0.0.1:3000 # HTTP API address for pushing upstreams.yaml from remote location
 proxy_address_http: 0.0.0.0:80 # Proxy HTTP bind address

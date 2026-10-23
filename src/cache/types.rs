@@ -21,7 +21,8 @@ pub async fn init_cache(config: Arc<AppConfig>) {
             CACHE_TTL.set(ttl).ok();
             if let Some(size) = config.cache_size_mb {
                 let cache_size = size * 1024 * 1024;
-                drop(EVICTION.set(Manager::new(cache_size)));
+                let manager = Manager::new(cache_size);
+                let _ = EVICTION.set(manager);
             }
             GLOBAL_STORAGE.set(Box::new(MemCache::new())).ok();
             info!("Cache initialized successfully. Storage: {}", cache_storage);

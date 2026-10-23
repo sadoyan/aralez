@@ -170,9 +170,13 @@ impl Storage for RedisCache {
         let (internal_bytes, header_bytes) = meta.serialize()?;
         let mut conn = (*self.client).clone();
 
-        let _: RedisResult<()> = conn.set_ex(&internal_key, &internal_bytes, ttl).await;
-        let _: RedisResult<()> = conn.set_ex(&header_key, &header_bytes, ttl).await;
+        if let Err(e) = conn.set_ex::<_, _, ()>(&internal_key, &internal_bytes, ttl).await {
+            log::error!("Failed to cache body to Redis: {}", e);
+        }
 
+        if let Err(e) = conn.set_ex::<_, _, ()>(&header_key, &header_bytes, ttl).await {
+            log::error!("Failed to cache headers to Redis: {}", e);
+        }
         Ok(Box::new(RedisMissHandler {
             client: self.client.clone(),
             body_key,

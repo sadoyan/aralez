@@ -13,7 +13,7 @@ use pingora::ErrorSource::Upstream;
 use pingora::http::{Method, RequestHeader, ResponseHeader, StatusCode};
 use pingora::prelude::*;
 use pingora_cache::cache_control::CacheControl;
-use pingora_cache::{CacheKey, CacheMetaDefaults, RespCacheable};
+use pingora_cache::{CacheKey, CacheMetaDefaults, NoCacheReason, RespCacheable};
 use pingora_core::listeners::ALPN;
 use pingora_core::prelude::HttpPeer;
 use pingora_proxy::{ProxyHttp, Session};
@@ -89,6 +89,22 @@ impl ProxyHttp for LB {
         Ok(())
     }
     fn response_cache_filter(&self, _session: &Session, resp: &ResponseHeader, _ctx: &mut Self::CTX) -> Result<RespCacheable> {
+        if let Some(item_size) = self.config.cache_item_max_size {
+            if let Some(content_length_str) = resp.headers.get("content-length") {
+                match content_length_str.to_str().ok().and_then(|s| s.parse::<usize>().ok()) {
+                    Some(content_length) => {
+                        if content_length > item_size {
+                            return Ok(RespCacheable::Uncacheable(NoCacheReason::Custom("Response too large")));
+                        }
+                    }
+                    None => {
+                        return Ok(RespCacheable::Uncacheable(NoCacheReason::Custom("Response too large")));
+                    }
+                }
+            } else {
+                return Ok(RespCacheable::Uncacheable(NoCacheReason::Custom("Response too large")));
+            }
+        };
         let cc = CacheControl::from_resp_headers(resp);
         let defaults = CacheMetaDefaults::new(
             |status| {
