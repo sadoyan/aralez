@@ -1,5 +1,6 @@
 use crate::utils::lazylock::EVICTION;
 use crate::utils::tools::Die;
+use pingora_cache::CachePhase;
 use pingora_cache::eviction::EvictionManager;
 use pingora_http::Method;
 use pingora_http::StatusCode;
@@ -11,6 +12,7 @@ use std::time::Duration;
 
 pub struct MetricTypes {
     pub method: Method,
+    pub cache: CachePhase,
     pub upstream: Arc<str>,
     pub code: Option<StatusCode>,
     pub latency: Duration,
@@ -53,6 +55,9 @@ pub static REQUESTS_BY_METHOD: LazyLock<IntCounterVec> = LazyLock::new(|| {
     register_int_counter_vec!("aralez_requests_by_method_total", "Number of requests by HTTP method", &["method"]).die("Failed to register REQUESTS_BY_METHOD metric")
 });
 
+pub static CACHE_PHASE: LazyLock<IntCounterVec> =
+    LazyLock::new(|| register_int_counter_vec!("aralez_cache_status", "Phases of cached responses", &["phase"]).die("Failed to register CACHE_PHASE metric"));
+
 pub static REQUESTS_BY_UPSTREAM: LazyLock<IntCounterVec> = LazyLock::new(|| {
     register_int_counter_vec!("aralez_requests_by_upstream", "Number of requests by UPSTREAM server", &["upstream"]).die("Failed to register REQUESTS_BY_UPSTREAM metric")
 });
@@ -65,6 +70,12 @@ pub static HTTP_20_COUNT: LazyLock<IntCounter> = LazyLock::new(|| REQUESTS_BY_VE
 pub static HTTP_30_COUNT: LazyLock<IntCounter> = LazyLock::new(|| REQUESTS_BY_VERSION.with_label_values(&["HTTP/3.0"]));
 pub static HTTP_10_COUNT: LazyLock<IntCounter> = LazyLock::new(|| REQUESTS_BY_VERSION.with_label_values(&["HTTP/1.0"]));
 pub static HTTP_UNK_COUNT: LazyLock<IntCounter> = LazyLock::new(|| REQUESTS_BY_VERSION.with_label_values(&["Unknown"]));
+
+pub static CACHE_HIT: LazyLock<IntCounter> = LazyLock::new(|| CACHE_PHASE.with_label_values(&["hit"]));
+pub static CACHE_MISS: LazyLock<IntCounter> = LazyLock::new(|| CACHE_PHASE.with_label_values(&["miss"]));
+pub static CACHE_EXPIRED: LazyLock<IntCounter> = LazyLock::new(|| CACHE_PHASE.with_label_values(&["expired"]));
+pub static CACHE_REVALIDATED: LazyLock<IntCounter> = LazyLock::new(|| CACHE_PHASE.with_label_values(&["revalidated"]));
+pub static CACHE_DISABLED: LazyLock<IntCounter> = LazyLock::new(|| CACHE_PHASE.with_label_values(&["disabled"]));
 
 pub static METHOD_GET: LazyLock<IntCounter> = LazyLock::new(|| REQUESTS_BY_METHOD.with_label_values(&["GET"]));
 pub static METHOD_POST: LazyLock<IntCounter> = LazyLock::new(|| REQUESTS_BY_METHOD.with_label_values(&["POST"]));
@@ -128,6 +139,15 @@ pub fn calc_metrics(metric_types: &MetricTypes) {
         _ => RESPONSE_CODES.with_label_values(&[code.as_str()]).inc(), // Fallback for rare status codes
     }
 
+    match metric_types.cache.as_str() {
+        "disabled" => CACHE_DISABLED.inc(),
+        "hit" => CACHE_HIT.inc(),
+        "miss" => CACHE_MISS.inc(),
+        "expired" => CACHE_EXPIRED.inc(),
+        "revalidated" => CACHE_REVALIDATED.inc(),
+        _ => CACHE_PHASE.with_label_values(&[metric_types.cache.as_str()]).inc(),
+    }
+    // CACHE_PHASE.with_label_values(&[metric_types.cache.as_str()]).inc();
     REQUESTS_BY_UPSTREAM.with_label_values(&[metric_types.upstream.as_ref()]).inc();
     RESPONSE_LATENCY.observe(metric_types.latency.as_secs_f64());
 }

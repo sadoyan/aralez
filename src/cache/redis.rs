@@ -107,7 +107,6 @@ impl Storage for RedisCache {
     async fn lookup(&'static self, key: &CacheKey, _trace: &SpanHandle) -> Result<Option<(CacheMeta, HitHandler)>> {
         let base = Self::make_key(key);
 
-        // Pre-allocate exact capacities to prevent reallocations
         let mut meta_key = String::with_capacity(base.len() + 5);
         meta_key.push_str(&base);
         meta_key.push_str(":meta");

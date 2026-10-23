@@ -352,6 +352,7 @@ impl ProxyHttp for LB {
             code: session.response_written().map(|resp| resp.status),
             latency: ctx.start_time.elapsed(),
             version: session.req_header().version,
+            cache: session.cache.phase(),
             upstream: ctx.hostname.take().unwrap_or_else(|| LOCALHOST.clone()),
         };
         calc_metrics(m);

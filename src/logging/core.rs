@@ -274,7 +274,6 @@ pub async fn access_log(response_code: u16, summary: &str, session: &Session) {
         .unwrap_or(IpAddr::V4(Ipv4Addr::LOCALHOST));
 
     let user_agent = session.req_header().headers.get("user-agent").and_then(|v| v.to_str().ok()).unwrap_or("-");
-
     let msg = LogMessage {
         response_code,
         summary: summary.to_owned(),
