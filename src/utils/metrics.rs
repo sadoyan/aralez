@@ -39,6 +39,10 @@ pub static CACHE_EVICTED_BYTES: LazyLock<IntGauge> =
 
 pub static CACHE_EVICTED_ITEMS: LazyLock<IntGauge> =
     LazyLock::new(|| register_int_gauge!("aralez_cache_evicted_items_total", "Total cache items evicted").die("Failed to register CACHE_EVICTED_ITEMS metric"));
+
+pub static CACHE_PHASE: LazyLock<IntCounterVec> =
+    LazyLock::new(|| register_int_counter_vec!("aralez_cache_status", "Phases of cached responses", &["phase"]).die("Failed to register CACHE_PHASE metric"));
+
 pub static RESPONSE_CODES: LazyLock<IntCounterVec> =
     LazyLock::new(|| register_int_counter_vec!("aralez_responses_total", "Responses grouped by status code", &["status"]).die("Failed to register RESPONSE_CODES metric"));
 
@@ -54,9 +58,6 @@ pub static RESPONSE_LATENCY: LazyLock<Histogram> = LazyLock::new(|| {
 pub static REQUESTS_BY_METHOD: LazyLock<IntCounterVec> = LazyLock::new(|| {
     register_int_counter_vec!("aralez_requests_by_method_total", "Number of requests by HTTP method", &["method"]).die("Failed to register REQUESTS_BY_METHOD metric")
 });
-
-pub static CACHE_PHASE: LazyLock<IntCounterVec> =
-    LazyLock::new(|| register_int_counter_vec!("aralez_cache_status", "Phases of cached responses", &["phase"]).die("Failed to register CACHE_PHASE metric"));
 
 pub static REQUESTS_BY_UPSTREAM: LazyLock<IntCounterVec> = LazyLock::new(|| {
     register_int_counter_vec!("aralez_requests_by_upstream", "Number of requests by UPSTREAM server", &["upstream"]).die("Failed to register REQUESTS_BY_UPSTREAM metric")

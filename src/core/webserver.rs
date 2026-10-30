@@ -97,7 +97,7 @@ pub async fn run_server(config: &APIUpstreamProvider, mut to_return: mpsc::Sende
     std::thread::spawn(move || {
         let mut signals = Signals::new([SIGQUIT]).die("Can't initialize OS SIGNALS");
         if let Some(sig) = signals.forever().next() {
-            tx.blocking_send(sig).die("Can;t send signal to main thread");
+            tx.blocking_send(sig).die("Can't send signal to main thread");
         }
     });
     rx.recv().await;

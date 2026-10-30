@@ -3,14 +3,12 @@ use crate::tls::grades;
 use crate::tls::load;
 use crate::tls::load::CertificateConfig;
 use crate::utils::folder_watch;
-use crate::utils::lazylock::{CACHE_TTL, EVICTION};
 use crate::utils::tools::*;
 use crate::utils::types::Extraparams;
 use arc_swap::ArcSwap;
 use dashmap::DashMap;
 use log::info;
 use pingora::tls::ssl::{SslAlert, SslRef};
-use pingora_cache::eviction::simple_lru::Manager;
 use pingora_core::listeners::TcpSocketOptions;
 use pingora_core::listeners::tls::TlsSettings;
 use pingora_core::prelude::{Opt, background_service};
@@ -35,15 +33,21 @@ pub fn run() {
     let maincfg = crate::utils::parceyaml::parce_main_config(file.as_str());
 
     let master_server = maincfg.cluster_member.as_deref() == Some("master");
-
-    let cache_enabled = maincfg.cache_enabled.unwrap_or(false);
+    let cache_enabled = maincfg.cache.is_some();
 
     // ========================================================================== //
-    CACHE_TTL.set(maincfg.cache_ttl.unwrap_or(60)).die("Failed to set cache TTL");
-    if cache_enabled {
-        let cache_size = maincfg.cache_size_mb.unwrap_or(50);
-        let _ = EVICTION.set(Manager::new(cache_size * 1024 * 1024));
-    }
+    // let mut cache_enabled = false;
+    // if let Some(cache) = maincfg.cache.clone() {
+    //     CACHE_TTL.set(cache.ttl.unwrap_or(60)).die("Failed to set cache TTL");
+    //     let cache_size = cache.mem_size_mb.unwrap_or(64);
+    //     let _ = EVICTION.set(Manager::new(cache_size * 1024 * 1024));
+    //     cache_enabled = true;
+    // }
+    // CACHE_TTL.set(maincfg.cache_ttl.unwrap_or(60)).die("Failed to set cache TTL");
+    // if cache_enabled {
+    //     let cache_size = maincfg.cache_size_mb.unwrap_or(50);
+    //     let _ = EVICTION.set(Manager::new(cache_size * 1024 * 1024));
+    // }
     // ========================================================================== //
 
     let mut server = Server::new(parameters).die("Failed to start the server:");
@@ -86,26 +90,20 @@ pub fn run() {
     let bind_address_tls = cfg.proxy_address_tls.clone();
 
     let mut proxy = pingora_proxy::http_proxy_service(&server.configuration, lb.clone());
-
     check_priv(bind_address_http.as_str());
 
-    let mut tcp_options: Option<TcpSocketOptions> = None;
-    if let Some(idle) = cfg.tcp_keepalive_idle {
+    let tcp_options = cfg.tcp.as_ref().map(|tcp| {
         let mut to = TcpSocketOptions::default();
         to.tcp_keepalive = Some(TcpKeepalive {
-            idle: Duration::from_secs(idle),
-            interval: Duration::from_secs(cfg.tcp_keepalive_interval.unwrap_or(10)),
+            idle: Duration::from_secs(tcp.tcp_keepalive_idle.unwrap_or(30)),
+            interval: Duration::from_secs(tcp.tcp_keepalive_interval.unwrap_or(10)),
             user_timeout: Default::default(),
-            count: cfg.tcp_keepalive_count.unwrap_or(5usize),
+            count: tcp.tcp_keepalive_count.unwrap_or(5usize),
         });
-        tcp_options = Some(to);
-        info!(
-            "Applying kernel tcp_keepalive parameters: idle {}, interval {}, count {}",
-            idle,
-            cfg.tcp_keepalive_interval.unwrap_or(60),
-            cfg.tcp_keepalive_count.unwrap_or(5),
-        );
-    }
+        to.so_reuseport = Some(tcp.so_reuseport.unwrap_or(true));
+        to.tcp_fastopen = tcp.tcp_fastopen.or(Some(4096));
+        to
+    });
 
     if let Some(bind_address_tls) = bind_address_tls {
         check_priv(bind_address_tls.as_str());
@@ -166,11 +164,18 @@ pub fn run() {
     if let Err(e) = write_pid_file(pf.as_str()) {
         panic!("Failed to write PID file: {} : {}", pf, e);
     }
+
     let mut signals = Signals::new([SIGINT, SIGTERM, SIGQUIT]).die("Failed to create signals");
     if let Some(sig) = signals.forever().next() {
         match sig {
-            SIGINT => info!("SIGINT received! Exiting..."),
-            SIGTERM => info!("SIGTERM received! Exiting..."),
+            SIGINT => {
+                info!("SIGINT received! Exiting...");
+                thread::sleep(Duration::from_secs(5))
+            }
+            SIGTERM => {
+                info!("SIGTERM received! Exiting...");
+                thread::sleep(Duration::from_secs(5))
+            }
             SIGQUIT => {
                 thread::sleep(Duration::from_secs(300));
                 info!("SIGQUIT received! Exiting...")

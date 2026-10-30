@@ -281,8 +281,11 @@ pub fn parce_main_config(path: &str) -> AppConfig {
     } else if let Ok(jwt_key) = env::var("JWT_KEY") {
         cfo.master_key = Some(jwt_key);
     };
-    if let Some(cs) = cfo.cache_item_max_size {
-        cfo.cache_item_max_size = Some(cs * 1024 * 1024);
+
+    if let Some(cache) = &cfo.cache {
+        cfo.cache_item_max_size = Some(cache.item_max_size.unwrap_or(5) * 1024 * 1024);
+    } else {
+        cfo.cache_item_max_size = Some(5 * 1024 * 1024);
     }
     // log_builder(&cfo, &cfo.log_file);
     cfo.hc_method = cfo.hc_method.to_uppercase();
