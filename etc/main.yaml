@@ -2,7 +2,7 @@ threads: 12 # Number of daemon worker threads assigned to proxy operations
 runuser: aralez # Username used to drop root privileges after binding to low ports; requires the process to start as root
 rungroup: aralez # Group used to drop root privileges after binding to low ports; requires the process to start as root
 cache: # Optional block. If omitted entirely, caching is disabled.
-  storage: "hybrid" # Storage backend: "memory", "hybrid", or "redis://host:port" (compatible with Redis, Valkey, Dragonfly). Defaults to "memory".
+  storage: "tikv://192.168.1.1:2379" # Storage backend: "memory", "hybrid", tikv://host1:2379,host2:2379 or "redis://host:port" (compatible with Redis, Valkey, Dragonfly). Defaults to "memory".
   mem_size_mb: 64 # Optional. Memory cache tier limit in megabytes. Defaults to 64.
   file_size_mb: 128 # Optional. Disk cache tier limit in megabytes (hybrid mode). Defaults to 512.
   file_path: "/tmp/cache" # Optional. Directory path for the disk cache tier. Defaults to "/tmp/aralez_cache".

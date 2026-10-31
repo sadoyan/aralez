@@ -73,6 +73,5 @@ hickory-resolver = { version = "0.26", features = ["tokio"] }
 aws-sdk-route53 = "1.127.0"
 aws-config = { version = "1.12.0", features = ["behavior-version-latest"] }
 redis = { version = "1.7.1", features = ["tokio-comp", "connection-manager"] }
-#foyer = "0.22.6"
 foyer = { version = "0.22.6", features = ["serde", "tracing"] }
-
+tikv-client = "0.4.0"
