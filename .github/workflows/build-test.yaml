@@ -33,7 +33,7 @@ jobs:
           toolchain: "1.98"
           components: clippy, rustfmt
       - name: Install cargo-deny
-        uses: taiki-e/install-action@3f74d7c16a4242f1c95561e98edc25d36adb4375 # v2.87.12
+        uses: taiki-e/install-action@1e29709c0ec63babbe8f266397a465f29a825f91 # v2.87.31
         with:
           tool: cargo-deny
       - name: Rust cache
