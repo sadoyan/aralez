@@ -27,7 +27,7 @@ pub async fn init_cache(config: Arc<AppConfig>) {
                 let manager = Manager::new(cache_size);
                 let _ = EVICTION.set(manager);
                 GLOBAL_STORAGE.set(Box::new(MemCache::new())).ok();
-                info!("Cache initialized successfully. Storage: {}", storage);
+                info!("Cache initialized successfully. Storage: {}, Size: {}mb", storage, size);
             }
             "redis" => match RedisCache::new(&storage, ttl).await {
                 Ok(cache) => {

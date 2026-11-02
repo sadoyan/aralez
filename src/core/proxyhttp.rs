@@ -78,13 +78,17 @@ impl ProxyHttp for LB {
         });
         Ok(CacheKey::new(primary_key, host /* host is just for debugging */))
     }
-    fn request_cache_filter(&self, session: &mut Session, _ctx: &mut Self::CTX) -> Result<()> {
-        let has_auth = _ctx.upstream_peer.as_ref().map(|m| m.authorization.is_some()).unwrap_or(false) || _ctx.extraparams.authentication.is_some();
-        if self.cache_enabled && session.req_header().method == Method::GET && !has_auth {
-            if let Some(storage) = GLOBAL_STORAGE.get() {
-                let eviction_mgr = EVICTION.get().map(|e| e as &(dyn pingora_cache::eviction::EvictionManager + Sync));
-                session.cache.enable(storage.as_ref(), eviction_mgr, None, Some(&*CACHE_LOCK), None);
-            }
+    fn request_cache_filter(&self, session: &mut Session, ctx: &mut Self::CTX) -> Result<()> {
+        if !self.cache_enabled || session.req_header().method != Method::GET {
+            return Ok(());
+        }
+        let has_auth = ctx.upstream_peer.as_ref().is_some_and(|m| m.authorization.is_some()) || ctx.extraparams.authentication.is_some();
+        if has_auth || session.get_header("range").is_some() {
+            return Ok(());
+        }
+        if let Some(storage) = GLOBAL_STORAGE.get() {
+            let eviction_mgr = EVICTION.get().map(|e| e as &(dyn pingora_cache::eviction::EvictionManager + Sync));
+            session.cache.enable(storage.as_ref(), eviction_mgr, None, Some(&*CACHE_LOCK), None);
         }
         Ok(())
     }
