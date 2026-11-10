@@ -48,13 +48,13 @@ pub fn serialize_config(data: &UpstreamsDashMap) -> String {
     let config = GLOBAL_PARAMS.read().die("Failed to read config");
     let mut snapshot: HashMap<String, UpstreamConfigDto> = HashMap::new();
 
-    for outer_entry in data.iter() {
-        let domain = outer_entry.key().to_string();
+    for (okey, ovalue) in data.iter() {
+        let domain = okey.to_string();
         let mut paths: HashMap<String, PathConfigDto> = HashMap::new();
 
-        for inner_entry in outer_entry.value().iter() {
-            let path = inner_entry.key().to_string();
-            let (vec_inner, _atomic_val) = inner_entry.value();
+        for (ikey, ivalue) in ovalue.iter() {
+            let path = ikey.to_string();
+            let (vec_inner, _atomic_val) = ivalue;
 
             if let Some(first) = vec_inner.first() {
                 let servers = vec_inner.iter().map(|item| format!("{}:{}", item.address, item.port)).collect();
@@ -165,25 +165,23 @@ fn is_zero_u32(v: &u32) -> bool {
 pub fn to_yaml(config: &SendConfigDto) -> String {
     let server_headers: Vec<String> = config
         .server_headers
-        .get("GLOBAL_SERVER_HEADERS")
-        .map(|paths| {
-            paths
-                .value()
+        .get("GLOBAL_SERVER_HEADERS" as &str)
+        .map(|paths_map| {
+            paths_map
                 .iter()
-                .flat_map(|inner| inner.value().iter().map(|(k, v)| format!("{}:{}", k, v)).collect::<Vec<_>>())
-                .collect()
+                .flat_map(|(_path, headers_vec)| headers_vec.iter().map(|(k, v)| format!("{}:{}", k, v)))
+                .collect::<Vec<_>>()
         })
         .unwrap_or_default();
 
     let client_headers: Vec<String> = config
         .client_headers
-        .get("GLOBAL_CLIENT_HEADERS")
-        .map(|paths| {
-            paths
-                .value()
+        .get("GLOBAL_CLIENT_HEADERS" as &str)
+        .map(|paths_map| {
+            paths_map
                 .iter()
-                .flat_map(|inner| inner.value().iter().map(|(k, v)| format!("{}:{}", k, v)).collect::<Vec<_>>())
-                .collect()
+                .flat_map(|(_path, headers_vec)| headers_vec.iter().map(|(k, v)| format!("{}:{}", k, v)))
+                .collect::<Vec<_>>()
         })
         .unwrap_or_default();
 
@@ -200,31 +198,19 @@ pub fn to_yaml(config: &SendConfigDto) -> String {
                 .paths
                 .iter()
                 .map(|(path, pcfg)| {
-                    let ch: Option<Vec<String>> = {
-                        if let Some(domain_ref) = config.client_headers.get(domain.as_str()) {
-                            if let Some(path_ref) = domain_ref.get(path.as_str()) {
-                                let collected: Vec<String> = path_ref.value().iter().map(|(k, v)| format!("{}:{}", k, v)).collect();
-                                if !collected.is_empty() { Some(collected) } else { None }
-                            } else {
-                                None
-                            }
-                        } else {
-                            None
-                        }
-                    };
+                    let ch: Option<Vec<String>> = config
+                        .client_headers
+                        .get(domain.as_str())
+                        .and_then(|domain_ref| domain_ref.get(path.as_str()))
+                        .map(|path_ref| path_ref.iter().map(|(k, v)| format!("{}:{}", k, v)).collect::<Vec<String>>())
+                        .filter(|collected| !collected.is_empty());
 
-                    let sh: Option<Vec<String>> = {
-                        if let Some(domain_ref) = config.server_headers.get(domain.as_str()) {
-                            if let Some(path_ref) = domain_ref.get(path.as_str()) {
-                                let collected: Vec<String> = path_ref.value().iter().map(|(k, v)| format!("{}:{}", k, v)).collect();
-                                if !collected.is_empty() { Some(collected) } else { None }
-                            } else {
-                                None
-                            }
-                        } else {
-                            None
-                        }
-                    };
+                    let sh: Option<Vec<String>> = config
+                        .server_headers
+                        .get(domain.as_str())
+                        .and_then(|domain_ref| domain_ref.get(path.as_str()))
+                        .map(|path_ref| path_ref.iter().map(|(k, v)| format!("{}:{}", k, v)).collect::<Vec<String>>())
+                        .filter(|collected| !collected.is_empty());
 
                     let auth = pcfg.authorization.as_ref().map(|a| YamlAuth {
                         auth_type: a.get("type").cloned().unwrap_or_default(),

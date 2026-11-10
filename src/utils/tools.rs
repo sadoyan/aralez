@@ -1,17 +1,17 @@
 use crate::tls::load;
 use crate::tls::load::CertificateConfig;
 use crate::utils::types::{Extraparams, InnerMapForJson, UpstreamSnapshotForJson, UpstreamsDashMap, UpstreamsIdMap};
-use dashmap::DashMap;
 use log::{error, info};
 use privdrop::PrivDrop;
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::fmt::{Debug, Write};
 use std::fs::OpenOptions;
 use std::io::Write as IoWrite;
 use std::net::SocketAddr;
 use std::net::TcpListener;
+use std::ops::Deref;
 use std::os::unix::fs::MetadataExt;
 use std::os::unix::fs::OpenOptionsExt;
 use std::panic::Location;
@@ -21,13 +21,13 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::{env, fs, process, thread, time};
 
-pub fn print_upstreams(upstreams: &UpstreamsDashMap, extraparams: &Extraparams) {
+pub fn print_upstreams(upstreams: &UpstreamsDashMap, extraparams: &Extraparams) -> String {
     let mut out = String::new();
-    for host_entry in upstreams.iter() {
-        writeln!(out, "Hostname: {}", host_entry.key()).unwrap_or_default();
-        for path_entry in host_entry.value().iter() {
-            writeln!(out, "    Path: {}", path_entry.key()).unwrap_or_default();
-            for f in path_entry.value().0.clone() {
+    for (host, paths) in upstreams.iter() {
+        writeln!(out, "Hostname: {}", host).unwrap_or_default();
+        for (path, (servers, _index)) in paths.iter() {
+            writeln!(out, "    Path: {}", path).unwrap_or_default();
+            for f in servers {
                 writeln!(
                     out,
                     "        IP: {}, Port: {}, SSL: {}, H2: {}, To HTTPS: {}, Rate Limit: {}, 4xx Limit: {}",
@@ -43,43 +43,29 @@ pub fn print_upstreams(upstreams: &UpstreamsDashMap, extraparams: &Extraparams) 
             }
         }
     }
-    info!("\n{}", out.trim_end());
+    let out = out.trim_end();
+    info!("\n{}", out);
+    out.to_string()
 }
-pub fn clone_dashmap(original: &UpstreamsDashMap) -> UpstreamsDashMap {
-    let new_map: UpstreamsDashMap = DashMap::new();
-
-    for outer_entry in original.iter() {
-        let hostname = outer_entry.key();
-        let inner_map = outer_entry.value();
-
-        let new_inner_map = DashMap::new();
-
-        for inner_entry in inner_map.iter() {
-            let path = inner_entry.key();
-            let (vec, _) = inner_entry.value();
-            let new_vec = vec.clone();
-            let new_counter = AtomicUsize::new(0);
-            new_inner_map.insert(path.clone(), (new_vec, new_counter));
-        }
-        new_map.insert(hostname.clone(), new_inner_map);
-    }
-    new_map
+pub fn clone_upstreams(original: &UpstreamsDashMap) -> UpstreamsDashMap {
+    original
+        .iter()
+        .map(|(host, inner_map)| {
+            let new_inner = inner_map.iter().map(|(path, (vec, _))| (path.clone(), (vec.clone(), AtomicUsize::new(0)))).collect();
+            (host.clone(), new_inner)
+        })
+        .collect()
 }
 
-pub fn clone_dashmap_into(original: &UpstreamsDashMap, cloned: &UpstreamsDashMap) {
+pub fn clone_dashmap_into(original: &UpstreamsDashMap, cloned: &mut UpstreamsDashMap) {
     cloned.clear();
-    for outer_entry in original.iter() {
-        let hostname = outer_entry.key();
-        let inner_map = outer_entry.value();
-        let new_inner_map = DashMap::new();
-        for inner_entry in inner_map.iter() {
-            let path = inner_entry.key();
-            let (vec, _) = inner_entry.value();
-            let new_vec = vec.clone();
-            let new_counter = AtomicUsize::new(0);
-            new_inner_map.insert(path.clone(), (new_vec, new_counter));
+    for (key, value) in original.iter() {
+        let mut new_inner_map = HashMap::new();
+        for (inner_key, inner_value) in value.iter() {
+            let (vec, _) = inner_value;
+            new_inner_map.insert(inner_key.clone(), (vec.clone(), AtomicUsize::new(0)));
         }
-        cloned.insert(hostname.clone(), new_inner_map);
+        cloned.insert(key.clone(), new_inner_map);
     }
 }
 
@@ -87,26 +73,19 @@ pub fn compare_dashmaps(map1: &UpstreamsDashMap, map2: &UpstreamsDashMap) -> boo
     if map1.len() != map2.len() {
         return false;
     }
-    for entry1 in map1.iter() {
-        let Some(inner_map2) = map2.get(entry1.key()) else {
+    for (host, inner_map1) in map1 {
+        let Some(inner_map2) = map2.get(host) else {
             return false;
         };
-        let inner_map1 = entry1.value();
+
         if inner_map1.len() != inner_map2.len() {
             return false;
         }
-        for path_entry in inner_map1.iter() {
-            let Some(entry2) = inner_map2.get(path_entry.key()) else {
+        for (path, (vec1, _)) in inner_map1 {
+            let Some((vec2, _)) = inner_map2.get(path) else {
                 return false;
             };
-            let (vec1, _) = path_entry.value();
-            let (vec2, _) = entry2.value();
-            if vec1.len() != vec2.len() {
-                return false;
-            }
-            let set1: HashSet<_> = vec1.iter().collect();
-            let set2: HashSet<_> = vec2.iter().collect();
-            if set1 != set2 {
+            if vec1 != vec2 {
                 return false;
             }
         }
@@ -114,45 +93,31 @@ pub fn compare_dashmaps(map1: &UpstreamsDashMap, map2: &UpstreamsDashMap) -> boo
     true
 }
 
-pub fn merge_headers(target: &DashMap<Arc<str>, Vec<(String, Arc<str>)>>, source: &DashMap<Arc<str>, Vec<(String, Arc<str>)>>) {
-    for entry in source.iter() {
-        let global_key = entry.key().clone();
-        let global_values = entry.value().clone();
-        let mut target_entry = target.entry(global_key).or_default();
-        target_entry.extend(global_values);
+pub fn merge_headers(target: &mut HashMap<Arc<str>, Vec<(String, Arc<str>)>>, source: &HashMap<Arc<str>, Vec<(String, Arc<str>)>>) {
+    for (global_key, global_values) in source.iter() {
+        let target_entry = target.entry(global_key.clone()).or_default();
+        target_entry.extend(global_values.iter().cloned());
     }
 }
 
-pub fn clone_idmap_into(original: &UpstreamsDashMap, cloned: &UpstreamsIdMap) {
+pub fn clone_idmap_into(original: &UpstreamsDashMap, cloned: &mut UpstreamsIdMap) {
     cloned.clear();
-    for outer_entry in original.iter() {
-        let inner_map = outer_entry.value();
-        for inner_entry in inner_map.iter() {
-            let (vec, _) = inner_entry.value();
-            for x in vec.iter() {
-                let mut id = String::new();
-                write!(
-                    &mut id,
+    let mut id_buf = String::with_capacity(128);
+    for (okey, inner_map) in original.iter() {
+        for (_, (vec, _)) in inner_map.iter() {
+            for x in vec {
+                id_buf.clear();
+                let _ = write!(
+                    &mut id_buf,
                     "{}:{}:{}:{}:{}:{}:{}:{}:{:?}",
-                    outer_entry.key(),
-                    x.address,
-                    x.port,
-                    x.is_http2,
-                    x.to_https,
-                    x.x4xx_limit,
-                    x.rate_limit,
-                    x.healthcheck,
-                    x.authorization
-                )
-                .unwrap_or(());
+                    okey, x.address, x.port, x.is_http2, x.to_https, x.x4xx_limit, x.rate_limit, x.healthcheck, x.authorization
+                );
                 let mut hasher = Sha256::new();
-                // address: "127.0.0.3", port: 8000, is_ssl: false, is_http2: false, to_https: false, rate_limit: Some(200), healthcheck: None, authorization: None } }
-
-                hasher.update(id.clone().into_bytes());
+                hasher.update(id_buf.as_bytes());
                 let hash = hasher.finalize();
                 let hex_hash = base16ct::lower::encode_string(&hash);
-                let hh = hex_hash[0..50].to_string();
-                cloned.insert(hh, x.to_owned());
+                let hh = hex_hash[..50].to_string();
+                cloned.insert(hh, x.clone());
             }
         }
     }
@@ -227,14 +192,14 @@ pub fn check_priv(addr: &str) {
 pub fn upstreams_to_json(upstreams: &UpstreamsDashMap) -> serde_json::Result<String> {
     let mut outer = HashMap::new();
 
-    for outer_entry in upstreams.iter() {
+    for (okey, ovalue) in upstreams.iter() {
         let mut inner_map = HashMap::new();
 
-        for inner_entry in outer_entry.value().iter() {
-            let (backends, counter) = inner_entry.value();
+        for (ikey, ivalue) in ovalue.iter() {
+            let (backends, counter) = ivalue;
 
             inner_map.insert(
-                inner_entry.key().to_string(),
+                ikey,
                 UpstreamSnapshotForJson {
                     backends: backends
                         .iter()
@@ -253,57 +218,60 @@ pub fn upstreams_to_json(upstreams: &UpstreamsDashMap) -> serde_json::Result<Str
                 },
             );
         }
-
-        outer.insert(outer_entry.key().to_string(), inner_map);
+        outer.insert(okey.to_string(), inner_map);
     }
-
-    // serde_json::to_string_pretty(&outer)
     serde_json::to_string(&outer)
 }
 
 pub fn upstreams_liveness_json(configured: &UpstreamsDashMap, current: &UpstreamsDashMap) -> Value {
     let mut result = serde_json::Map::new();
 
-    for host_entry in configured.iter() {
-        let hostname = host_entry.key().to_string();
-        let configured_paths = host_entry.value();
-
+    for (hostname, configured_paths) in configured.iter() {
         let mut paths_json = serde_json::Map::new();
 
-        for path_entry in configured_paths.iter() {
-            let path = path_entry.key().clone();
-            let (configured_backends, _) = path_entry.value();
+        for (key, value) in configured_paths.iter() {
+            let (configured_backends, _) = value;
+
+            // Filter to keep ONLY backends that exist in the current live set
             let backends_json: Vec<Value> = configured_backends
                 .iter()
-                .map(|backend| {
-                    let alive = if let Some(host_map) = current.get(&*hostname) {
-                        if let Some(path_entry) = host_map.get(&*path) {
-                            let list = &path_entry.value().0; // Vec<Arc<InnerMap>>
-                            list.iter().any(|b| b.address == backend.address && b.port == backend.port)
-                        } else {
-                            false
-                        }
+                .filter_map(|backend| {
+                    let is_alive = current
+                        .get(hostname.as_ref())
+                        .and_then(|host_map| host_map.get(key.as_ref()))
+                        .map_or(false, |(current_backends, _)| {
+                            current_backends.iter().any(|b| b.address == backend.address && b.port == backend.port)
+                        });
+
+                    if is_alive {
+                        Some(json!({
+                            "address": &*backend.address,
+                            "port": backend.port,
+                            "alive": true
+                        }))
                     } else {
-                        false
-                    };
-                    json!({
-                        "address": &*backend.address,
-                        "port": backend.port,
-                        "alive": alive
-                    })
+                        None // Drop dead backends
+                    }
                 })
                 .collect();
 
-            paths_json.insert(
-                path.to_string(),
-                json!({
-                    "backends": backends_json
-                }),
-            );
+            // Only include the path if it has at least one live backend
+            if !backends_json.is_empty() {
+                paths_json.insert(
+                    key.to_string(),
+                    json!({
+                        "backends": backends_json
+                    }),
+                );
+            }
         }
 
-        result.insert(hostname, Value::Object(paths_json));
+        // Only include the hostname if it has at least one live path
+        if !paths_json.is_empty() {
+            result.insert(hostname.deref().to_string(), Value::Object(paths_json));
+        }
     }
+
     Value::Object(result)
 }
 

@@ -2,13 +2,12 @@ use crate::ingress::consul::ConsulService;
 use crate::ingress::kuberconsul::match_path;
 use crate::ingress::kubernetes::KubeEndpointSliceList;
 use crate::utils::types::{GlobalServiceMapping, InnerMap};
-use ahash::HashMap;
-use dashmap::DashMap;
 use pingora_core::connectors::http::Connector;
 use pingora_core::listeners::ALPN;
 use pingora_core::prelude::HttpPeer;
 use pingora_http::RequestHeader;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::sync::atomic::AtomicUsize;
 use std::sync::{Arc, LazyLock};
 use std::time::Duration;
@@ -78,11 +77,12 @@ fn parse_services(json: Vec<u8>) -> Result<ConsulServices, serde_json::Error> {
         .collect())
 }
 
-pub async fn for_consul(url: &str, token: Option<String>, conf: &GlobalServiceMapping) -> Option<DashMap<Arc<str>, (Vec<Arc<InnerMap>>, AtomicUsize)>> {
+pub async fn for_consul(url: &str, token: Option<String>, conf: &GlobalServiceMapping) -> Option<HashMap<Arc<str>, (Vec<Arc<InnerMap>>, AtomicUsize)>> {
     if let Some(data) = getfromapi(url, token, "consul").await {
         let endpoints: Vec<ConsulService> = serde_json::from_slice(&data).ok()?;
         let mut inner_vec = Vec::new();
-        let upstreams: DashMap<Arc<str>, (Vec<Arc<InnerMap>>, AtomicUsize)> = DashMap::new();
+        let mut upstreams: HashMap<Arc<str>, (Vec<Arc<InnerMap>>, AtomicUsize)> = HashMap::new();
+
         for subsets in endpoints {
             let to_add = Arc::from(InnerMap {
                 address: Arc::from(&*subsets.address),
@@ -98,16 +98,17 @@ pub async fn for_consul(url: &str, token: Option<String>, conf: &GlobalServiceMa
             });
             inner_vec.push(to_add);
         }
-        match_path(conf, &upstreams, inner_vec);
+
+        match_path(conf, &mut upstreams, inner_vec);
         return Some(upstreams);
-    };
+    }
     None
 }
 
-pub async fn for_kuber(url: &str, token: &str, conf: &GlobalServiceMapping) -> Option<DashMap<Arc<str>, (Vec<Arc<InnerMap>>, AtomicUsize)>> {
+pub async fn for_kuber(url: &str, token: &str, conf: &GlobalServiceMapping) -> Option<HashMap<Arc<str>, (Vec<Arc<InnerMap>>, AtomicUsize)>> {
     if let Some(data) = getfromapi(url, Some(token.to_string()), "kubernetes").await {
         let slice_list: KubeEndpointSliceList = serde_json::from_slice(&data).ok()?;
-        let upstreams: DashMap<Arc<str>, (Vec<Arc<InnerMap>>, AtomicUsize)> = DashMap::new();
+        let mut upstreams: HashMap<Arc<str>, (Vec<Arc<InnerMap>>, AtomicUsize)> = HashMap::new();
         let mut inner_vec = Vec::new();
 
         for slice in slice_list.items {
@@ -146,7 +147,7 @@ pub async fn for_kuber(url: &str, token: &str, conf: &GlobalServiceMapping) -> O
         }
 
         if !inner_vec.is_empty() {
-            match_path(conf, &upstreams, inner_vec);
+            match_path(conf, &mut upstreams, inner_vec);
             return Some(upstreams);
         }
     }

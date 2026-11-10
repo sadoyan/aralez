@@ -27,11 +27,11 @@ use tokio::time::Instant;
 thread_local! {static IP_BUFFER: RefCell<String> = RefCell::new(String::with_capacity(50));}
 #[derive(Clone)]
 pub struct LB {
-    pub ump_upst: Arc<UpstreamsDashMap>,
-    pub ump_full: Arc<UpstreamsDashMap>,
-    pub ump_byid: Arc<UpstreamsIdMap>,
-    pub client_headers: Arc<Headers>,
-    pub server_headers: Arc<Headers>,
+    pub ump_upst: Arc<ArcSwap<UpstreamsDashMap>>,
+    pub ump_full: Arc<ArcSwap<UpstreamsDashMap>>,
+    pub ump_byid: Arc<ArcSwap<UpstreamsIdMap>>,
+    pub client_headers: Arc<ArcSwap<Headers>>,
+    pub server_headers: Arc<ArcSwap<Headers>>,
     pub config: Arc<AppConfig>,
     pub extraparams: Arc<ArcSwap<Extraparams>>,
     pub cache_enabled: bool,
@@ -371,13 +371,13 @@ impl ProxyHttp for LB {
     }
 }
 
-fn return_header_host_from_upstream(session: &Session, ump_upst: &UpstreamsDashMap) -> Option<Arc<str>> {
+fn return_header_host_from_upstream(session: &Session, ump_upst: &Arc<ArcSwap<UpstreamsDashMap>>) -> Option<Arc<str>> {
     let host_str = if session.is_http2() {
         session.req_header().uri.host()?
     } else {
         let h = session.req_header().headers.get("host")?.to_str().ok()?;
         h.split_once(':').map_or(h, |(host, _)| host)
     };
-
-    ump_upst.get(host_str).or_else(|| ump_upst.get("DEFAULT")).map(|entry| entry.key().clone())
+    let map = ump_upst.load();
+    map.get_key_value(host_str).or_else(|| map.get_key_value("DEFAULT")).map(|(k, _)| k.clone())
 }

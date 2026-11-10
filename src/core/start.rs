@@ -4,9 +4,8 @@ use crate::tls::load;
 use crate::tls::load::CertificateConfig;
 use crate::utils::folder_watch;
 use crate::utils::tools::*;
-use crate::utils::types::Extraparams;
+use crate::utils::types::{Extraparams, Headers, UpstreamsDashMap, UpstreamsIdMap};
 use arc_swap::ArcSwap;
-use dashmap::DashMap;
 use log::info;
 use pingora::tls::ssl::{SslAlert, SslRef};
 use pingora_core::listeners::TcpSocketOptions;
@@ -21,6 +20,7 @@ use signal_hook::{
     consts::{SIGINT, SIGTERM},
     iterator::Signals,
 };
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::mpsc::{Receiver, Sender, channel};
 use std::time::Duration;
@@ -53,11 +53,11 @@ pub fn run() {
     let mut server = Server::new(parameters).die("Failed to start the server:");
     server.bootstrap();
 
-    let uf_config = Arc::new(DashMap::new());
-    let ff_config = Arc::new(DashMap::new());
-    let im_config = Arc::new(DashMap::new());
-    let ch_config = Arc::new(DashMap::new());
-    let sh_config = Arc::new(DashMap::new());
+    let uf_config: Arc<ArcSwap<UpstreamsDashMap>> = Arc::new(ArcSwap::new(Arc::new(HashMap::new())));
+    let ff_config: Arc<ArcSwap<UpstreamsDashMap>> = Arc::new(ArcSwap::new(Arc::new(HashMap::new())));
+    let im_config: Arc<ArcSwap<UpstreamsIdMap>> = Arc::new(ArcSwap::new(Arc::new(HashMap::new())));
+    let ch_config: Arc<ArcSwap<Headers>> = Arc::new(ArcSwap::new(Arc::new(HashMap::new())));
+    let sh_config: Arc<ArcSwap<Headers>> = Arc::new(ArcSwap::new(Arc::new(HashMap::new())));
 
     let ec_config = Arc::new(ArcSwap::from_pointee(Extraparams {
         to_https: false,

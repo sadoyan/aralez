@@ -1,17 +1,17 @@
 use crate::utils::httpclient;
 use crate::utils::parceyaml::build_headers;
-use crate::utils::types::{Configuration, GlobalServiceMapping, UpstreamsDashMap};
+use crate::utils::types::{Configuration, GlobalServiceMapping, Headers, UpstreamsDashMap};
 use async_trait::async_trait;
-use dashmap::DashMap;
 use log::error;
 use rand::RngExt;
+use std::collections::HashMap;
 use std::env;
 use std::sync::Arc;
 
 use crate::ingress::kuberconsul;
-use crate::ingress::kuberconsul::{ServiceDiscovery, clone_compare, list_to_upstreams};
+use crate::ingress::kuberconsul::{ServiceDiscovery, list_to_upstreams};
 use crate::ingress::kubewatcher::{AralezRouteUpdate, start_ingress_watcher_with_config};
-use crate::utils::tools::Die;
+use crate::utils::tools::{Die, compare_dashmaps, print_upstreams};
 use rustls::crypto::CryptoProvider;
 use rustls::crypto::ring::default_provider;
 use tokio::sync::mpsc::Sender;
@@ -78,20 +78,30 @@ impl ServiceDiscovery for KubernetesDiscovery {
             let (tx, mut rx) = tokio::sync::mpsc::channel::<AralezRouteUpdate>(100);
             let srv = server.clone();
             let tok = token.clone();
-            tokio::spawn(async move {
+            let _watcher_handle = tokio::spawn(async move {
                 if let Err(e) = start_ingress_watcher_with_config(srv.as_str(), tok.as_str(), tx, "aralez").await {
                     error!("Fatal watcher error: {:?}", e);
                 }
             });
-
-            let upstreams = UpstreamsDashMap::new();
+            let mut upstreams = HashMap::new();
+            for (host_key, inner_map) in &config.upstreams {
+                let mut cloned_inner = HashMap::new();
+                for (path_key, (servers, atomic_val)) in inner_map {
+                    let current_val = atomic_val.load(std::sync::atomic::Ordering::Relaxed);
+                    cloned_inner.insert(path_key.clone(), (servers.clone(), std::sync::atomic::AtomicUsize::new(current_val)));
+                }
+                upstreams.insert(host_key.clone(), cloned_inner);
+            }
+            let mut local_client_headers = config.client_headers.clone();
+            let mut local_server_headers = config.server_headers.clone();
 
             while let Some(update) = rx.recv().await {
                 let host_key: Arc<str> = Arc::from(update.host.as_str());
 
                 if update.is_deleted {
                     upstreams.remove(&host_key);
-                    config.client_headers.remove(&host_key);
+                    local_client_headers.remove(&host_key);
+                    local_server_headers.remove(&host_key);
                 } else {
                     let service = GlobalServiceMapping {
                         upstream: update.service_name.clone(),
@@ -105,12 +115,6 @@ impl ServiceDiscovery for KubernetesDiscovery {
                         client_headers: None,
                         server_headers: None,
                     };
-
-                    let cheader_list: DashMap<Arc<str>, Vec<(String, Arc<str>)>> = DashMap::new();
-                    let sheader_list: DashMap<Arc<str>, Vec<(String, Arc<str>)>> = DashMap::new();
-
-                    let mut client_headers_list = Vec::new();
-                    let mut server_headers_list = Vec::new();
 
                     let mut chl: Option<Vec<String>> = None;
                     let mut shl: Option<Vec<String>> = None;
@@ -129,18 +133,24 @@ impl ServiceDiscovery for KubernetesDiscovery {
                         shl.get_or_insert_with(Vec::new).extend(hdr.iter().cloned());
                     }
 
+                    let mut client_headers_list = Vec::new();
                     build_headers(&chl, config.as_ref(), &mut client_headers_list);
                     if !client_headers_list.is_empty() {
                         let path_key = service.path.as_deref().unwrap_or("/");
-                        cheader_list.insert(Arc::from(path_key), client_headers_list);
-                        config.client_headers.insert(host_key.clone(), cheader_list);
+                        local_client_headers
+                            .entry(host_key.clone())
+                            .or_insert_with(HashMap::new)
+                            .insert(Arc::from(path_key), client_headers_list);
                     }
 
+                    let mut server_headers_list = Vec::new();
                     build_headers(&shl, config.as_ref(), &mut server_headers_list);
                     if !server_headers_list.is_empty() {
                         let path_key = service.path.as_deref().unwrap_or("/");
-                        sheader_list.insert(Arc::from(path_key), server_headers_list);
-                        config.server_headers.insert(host_key.clone(), sheader_list);
+                        local_server_headers
+                            .entry(host_key.clone())
+                            .or_insert_with(HashMap::new)
+                            .insert(Arc::from(path_key), server_headers_list);
                     }
 
                     let url = format!(
@@ -154,12 +164,47 @@ impl ServiceDiscovery for KubernetesDiscovery {
                         error!("Endpoint URL: {} returned empty/invalid response", url);
                     }
 
-                    list_to_upstreams(list, &upstreams, &service);
+                    list_to_upstreams(list, &mut upstreams, &service);
                 }
-                if let Some(lt) = clone_compare(&upstreams, &config).await {
+
+                // 2. Pass current scratch state into clone_compare to check differences and produce new snapshot
+                if let Some(lt) = clone_compare_with_headers(&upstreams, &local_client_headers, &local_server_headers, &config).await {
                     let _ = toreturn.send(lt).await;
                 }
             }
         }
     }
+}
+
+pub async fn clone_compare_with_headers(
+    new_upstreams: &UpstreamsDashMap,
+    new_client_headers: &Headers,
+    new_server_headers: &Headers,
+    config: &Configuration,
+) -> Option<Configuration> {
+    if !compare_dashmaps(&new_upstreams, &config.upstreams) || new_client_headers != &config.client_headers || new_server_headers != &config.server_headers {
+        let mut cloned_upstreams = HashMap::new();
+        for (host_key, inner_map) in new_upstreams {
+            let mut cloned_inner = HashMap::new();
+            for (path_key, (servers, atomic_val)) in inner_map {
+                let current_val = atomic_val.load(std::sync::atomic::Ordering::Relaxed);
+                cloned_inner.insert(path_key.clone(), (servers.clone(), std::sync::atomic::AtomicUsize::new(current_val)));
+            }
+            cloned_upstreams.insert(host_key.clone(), cloned_inner);
+        }
+
+        let tosend = Configuration {
+            upstreams: cloned_upstreams,
+            client_headers: new_client_headers.clone(),
+            server_headers: new_server_headers.clone(),
+            consul: config.consul.clone(),
+            kubernetes: config.kubernetes.clone(),
+            typecfg: config.typecfg.clone(),
+            extraparams: config.extraparams.clone(),
+        };
+
+        print_upstreams(&tosend.upstreams, &tosend.extraparams);
+        return Some(tosend);
+    }
+    None
 }

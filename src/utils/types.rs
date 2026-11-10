@@ -1,13 +1,12 @@
-use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
 
-pub type UpstreamsDashMap = DashMap<Arc<str>, DashMap<Arc<str>, (Vec<Arc<InnerMap>>, AtomicUsize)>>;
+pub type UpstreamsDashMap = HashMap<Arc<str>, HashMap<Arc<str>, (Vec<Arc<InnerMap>>, AtomicUsize)>>;
 
-pub type UpstreamsIdMap = DashMap<String, Arc<InnerMap>>;
-pub type Headers = DashMap<Arc<str>, DashMap<Arc<str>, Vec<(String, Arc<str>)>>>;
+pub type UpstreamsIdMap = HashMap<String, Arc<InnerMap>>;
+pub type Headers = HashMap<Arc<str>, HashMap<Arc<str>, Vec<(String, Arc<str>)>>>;
 
 #[derive(Clone, Debug, Default, Serialize)]
 pub struct Extraparams {
@@ -163,7 +162,7 @@ pub struct InnerAuth {
     pub auth_cred: Arc<str>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
 pub struct InnerMap {
     pub address: Arc<str>,
     pub port: u16,

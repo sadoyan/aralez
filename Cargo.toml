@@ -1,6 +1,6 @@
 [package]
 name = "aralez"
-version = "0.95.4"
+version = "0.95.5"
 edition = "2024"
 license = "Apache-2.0"
 description = "Reverse proxy built on top of Cloudflare's Pingora"
@@ -74,3 +74,4 @@ aws-config = { version = "1.13.0", features = ["behavior-version-latest"] }
 redis = { version = "1.7.1", features = ["tokio-comp", "connection-manager"] }
 tikv-client = "0.4.0"
 xxhash-rust = "0.8.19"
+cpu-time = "1.0"

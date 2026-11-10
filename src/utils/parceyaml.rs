@@ -4,7 +4,6 @@ use crate::utils::lazylock::{DOMAINS, GLOBAL_PARAMS, IM_A_MASTER, MASTER_KEY, NO
 use crate::utils::state::{is_first_run, mark_not_first_run};
 use crate::utils::tools::{Die, clone_dashmap_into};
 use crate::utils::types::*;
-use dashmap::DashMap;
 use log::{error, info, warn};
 use std::collections::HashMap;
 use std::path::Path;
@@ -156,7 +155,7 @@ async fn populate_headers_and_auth(config: &mut Configuration, parsed: &Config) 
         }
     }
 
-    let global_headers: DashMap<Arc<str>, Vec<(String, Arc<str>)>> = DashMap::new();
+    let mut global_headers: HashMap<Arc<str>, Vec<(String, Arc<str>)>> = HashMap::new();
     global_headers.insert(Arc::from("/"), ch);
     config.client_headers.insert(Arc::from("GLOBAL_CLIENT_HEADERS"), global_headers);
 
@@ -168,7 +167,7 @@ async fn populate_headers_and_auth(config: &mut Configuration, parsed: &Config) 
             }
         }
     }
-    let server_global_headers: DashMap<Arc<str>, Vec<(String, Arc<str>)>> = DashMap::new();
+    let mut server_global_headers: HashMap<Arc<str>, Vec<(String, Arc<str>)>> = HashMap::new();
     server_global_headers.insert(Arc::from("/"), sh);
     config.server_headers.insert(Arc::from("GLOBAL_SERVER_HEADERS"), server_global_headers);
     config.extraparams.to_https = parsed.to_https.unwrap_or(false);
@@ -190,12 +189,12 @@ async fn populate_headers_and_auth(config: &mut Configuration, parsed: &Config) 
 }
 
 async fn populate_file_upstreams(config: &mut Configuration, parsed: &Config) {
-    let imtdashmap = UpstreamsDashMap::new();
+    let mut imtdashmap = UpstreamsDashMap::new();
     if let Some(upstreams) = &parsed.upstreams {
         for (hostname, host_config) in upstreams {
-            let path_map = DashMap::new();
-            let client_header_list = DashMap::new();
-            let server_header_list = DashMap::new();
+            let mut path_map = HashMap::new();
+            let mut client_header_list = HashMap::new();
+            let mut server_header_list = HashMap::new();
             for (path, path_config) in &host_config.paths {
                 if let Some(rate) = &path_config.rate_limit {
                     info!("Applied Rate Limit for {} : {} request per second", hostname, rate);
@@ -255,11 +254,11 @@ async fn populate_file_upstreams(config: &mut Configuration, parsed: &Config) {
         }
 
         if is_first_run() {
-            clone_dashmap_into(&imtdashmap, &config.upstreams);
+            clone_dashmap_into(&imtdashmap, &mut config.upstreams);
             mark_not_first_run();
         } else {
             let r = healthcheck::initiate_upstreams(&imtdashmap, "HEAD").await;
-            clone_dashmap_into(&r, &config.upstreams);
+            clone_dashmap_into(&r, &mut config.upstreams);
         }
         info!("Upstream Config:");
         REVERSE_STORE.clear();

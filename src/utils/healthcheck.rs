@@ -3,9 +3,10 @@ use crate::utils::hcclient::{HttpClientRequest, httpclient};
 use crate::utils::lazylock::{IM_A_MASTER, NODE_STATUS, REVERSE_STORE};
 use crate::utils::tools::*;
 use crate::utils::types::{InnerMap, UpstreamsDashMap, UpstreamsIdMap};
+use arc_swap::ArcSwap;
 use bytes::Bytes;
-use dashmap::DashMap;
 use log::info;
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
 use std::time::Duration;
@@ -15,8 +16,9 @@ use tokio_native_tls::native_tls::TlsConnector;
 
 const EMPTY_PAYLOAD: Bytes = Bytes::from_static(b"");
 
-pub async fn hc2(upslist: Arc<UpstreamsDashMap>, fullist: Arc<UpstreamsDashMap>, idlist: Arc<UpstreamsIdMap>, params: (&str, u64)) {
+pub async fn hc2(upslist: Arc<ArcSwap<UpstreamsDashMap>>, fullist: Arc<ArcSwap<UpstreamsDashMap>>, idlist: Arc<ArcSwap<UpstreamsIdMap>>, params: (&str, u64)) {
     let mut period = interval(Duration::from_secs(params.1));
+
     if let Some(member) = NODE_STATUS.get() {
         if let Some(mbr) = member.as_ref() {
             match mbr.as_ref() {
@@ -31,37 +33,66 @@ pub async fn hc2(upslist: Arc<UpstreamsDashMap>, fullist: Arc<UpstreamsDashMap>,
             }
         }
     }
+
     loop {
         tokio::select! {
             _ = period.tick() => {
-                let totest = initiate_upstreams(&fullist, params.0).await;
-                if !compare_dashmaps(&totest, &upslist) {
-                    clone_dashmap_into(&totest, &upslist);
-                    clone_idmap_into(&totest, &idlist);
-                    if let Some(true) = IM_A_MASTER.get(){
-                        let binary_output = serialize_config(&totest);
+                let fullist_guard = fullist.load();
+                let totest = initiate_upstreams(&fullist_guard, params.0).await;
+                let current_ups = upslist.load();
+                if !compare_dashmaps(&totest, &current_ups) {
+                    let current_guard = idlist.load();
+                    let mut new_idmap = (**current_guard).clone();
+                    clone_idmap_into(&totest, &mut new_idmap);
+                    idlist.store(Arc::new(new_idmap));
+                    upslist.store(Arc::new(totest));
+
+                    if let Some(true) = IM_A_MASTER.get() {
+                        let updated_guard = upslist.load();
+                        let binary_output = serialize_config(&updated_guard);
                         let _ = send_to_worker(binary_output).await;
                     }
+
                     REVERSE_STORE.clear();
                 }
             }
         }
     }
+    /*
+     loop {
+         tokio::select! {
+             _ = period.tick() => {
+
+                 let fullist_guard = fullist.load();
+                 let totest = initiate_upstreams(&fullist_guard, params.0).await;
+                 let current_ups = upslist.load();
+                 if !compare_dashmaps(&totest, &current_ups) {
+                     upslist.store(Arc::new(totest));
+
+                     if let Some(true) = IM_A_MASTER.get() {
+                         let updated_guard = upslist.load();
+                         let binary_output = serialize_config(&updated_guard);
+                         let _ = send_to_worker(binary_output).await;
+                     }
+                     REVERSE_STORE.clear();
+                 }
+             }
+         }
+     }
+    */
 }
 pub(crate) async fn initiate_upstreams(fullist: &UpstreamsDashMap, method: &str) -> UpstreamsDashMap {
-    let totest: UpstreamsDashMap = DashMap::new();
-    let fclone = clone_dashmap(fullist);
-    for val in fclone.iter() {
-        let host = val.key();
-        let inner = DashMap::new();
+    let mut totest: UpstreamsDashMap = HashMap::new();
+    let fclone = clone_upstreams(fullist);
+    for (key, val) in fclone.iter() {
+        let mut inner = HashMap::new();
 
-        for path_entry in val.value().iter() {
-            let path = path_entry.key();
+        for (pkey, pval) in val.iter() {
             let mut innervec = Vec::new();
 
-            for upstream in path_entry.value().0.iter() {
+            for upstream in pval.0.iter() {
                 let tls = if upstream.healthcheck {
-                    detect_tls(upstream.address.as_ref(), &upstream.port, host).await
+                    detect_tls(upstream.address.as_ref(), &upstream.port, key).await
                 } else {
                     upstream.is_ssl
                 };
@@ -80,15 +111,15 @@ pub(crate) async fn initiate_upstreams(fullist: &UpstreamsDashMap, method: &str)
 
                 if scheme.healthcheck {
                     let link = if tls {
-                        format!("https://{}:{}{}", upstream.address, upstream.port, path)
+                        format!("https://{}:{}{}", upstream.address, upstream.port, pkey)
                     } else {
-                        format!("http://{}:{}{}", upstream.address, upstream.port, path)
+                        format!("http://{}:{}{}", upstream.address, upstream.port, pkey)
                     };
                     let resp = httpclient(HttpClientRequest {
                         method,
                         tls,
-                        host,
-                        path,
+                        host: key,
+                        path: pkey,
                         address: upstream.address.as_ref(),
                         port: upstream.port,
                         url: link.as_str(),
@@ -106,9 +137,9 @@ pub(crate) async fn initiate_upstreams(fullist: &UpstreamsDashMap, method: &str)
                     innervec.push(Arc::from(scheme));
                 }
             }
-            inner.insert(path.clone(), (innervec, AtomicUsize::new(0)));
+            inner.insert(pkey.clone(), (innervec, AtomicUsize::new(0)));
         }
-        totest.insert(host.clone(), inner);
+        totest.insert(key.clone(), inner);
     }
     totest
 }

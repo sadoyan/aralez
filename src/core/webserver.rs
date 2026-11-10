@@ -5,6 +5,7 @@ use crate::utils::lazylock::NODE_STATUS;
 use crate::utils::metrics::{MEMORY_USAGE, OPEN_FILES, get_memory_usage, get_open_files};
 use crate::utils::tools::{Die, upstreams_liveness_json, upstreams_to_json};
 use crate::utils::types::{Config, Configuration, UpstreamsDashMap};
+use arc_swap::ArcSwap;
 use axum::body::Body;
 use axum::extract::ConnectInfo;
 use axum::extract::{Query, State};
@@ -20,6 +21,7 @@ use serde::Serialize;
 use signal_hook::{consts::SIGQUIT, iterator::Signals};
 use std::collections::HashMap;
 use std::net::SocketAddr;
+use std::ops::Deref;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -41,12 +43,17 @@ pub struct AppState {
     upstreams_file: String,
     config_sender: mpsc::Sender<Configuration>,
     config_api_enabled: bool,
-    current_upstreams: Arc<UpstreamsDashMap>,
-    full_upstreams: Arc<UpstreamsDashMap>,
+    pub full_upstreams: Arc<ArcSwap<UpstreamsDashMap>>,
+    pub current_upstreams: Arc<ArcSwap<UpstreamsDashMap>>,
 }
 
 #[allow(unused_mut)]
-pub async fn run_server(config: &APIUpstreamProvider, mut to_return: mpsc::Sender<Configuration>, upstreams_curr: Arc<UpstreamsDashMap>, upstreams_full: Arc<UpstreamsDashMap>) {
+pub async fn run_server(
+    config: &APIUpstreamProvider,
+    mut to_return: mpsc::Sender<Configuration>,
+    upstreams_curr: Arc<ArcSwap<UpstreamsDashMap>>,
+    upstreams_full: Arc<ArcSwap<UpstreamsDashMap>>,
+) {
     let credsfile = config.config_dir.clone() + "/acme_credentials.json";
     let app_state = AppState {
         master_key: config.masterkey.clone(),
@@ -254,7 +261,10 @@ async fn metrics() -> impl IntoResponse {
 #[allow(clippy::needless_return)]
 async fn status(State(st): State<AppState>, Query(params): Query<HashMap<String, String>>) -> impl IntoResponse {
     if params.contains_key("live") {
-        let r = upstreams_liveness_json(&st.full_upstreams, &st.current_upstreams);
+        // Load guards from the ArcSwap containers
+        let full_guard = st.full_upstreams.load();
+        let current_guard = st.current_upstreams.load();
+        let r = upstreams_liveness_json(&full_guard, current_guard.as_ref());
         return Response::builder()
             .status(StatusCode::OK)
             .header("Content-Type", "application/json")
@@ -262,7 +272,10 @@ async fn status(State(st): State<AppState>, Query(params): Query<HashMap<String,
             .unwrap_or_else(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error\n").into_response());
     }
     if params.contains_key("all") {
-        let resp = upstreams_to_json(&st.current_upstreams);
+        // Load the current guard for the all/upstreams JSON view
+        let current_guard = st.current_upstreams.load();
+
+        let resp = upstreams_to_json(current_guard.deref());
         match resp {
             Ok(j) => {
                 return Response::builder()
