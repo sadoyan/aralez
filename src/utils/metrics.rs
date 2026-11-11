@@ -1,3 +1,4 @@
+use crate::cache::hybrid::MOKA_CACHE;
 use crate::utils::lazylock::EVICTION;
 use crate::utils::tools::Die;
 use pingora_cache::CachePhase;
@@ -42,6 +43,19 @@ pub static CACHE_EVICTED_ITEMS: LazyLock<IntGauge> =
 
 pub static CACHE_PHASE: LazyLock<IntCounterVec> =
     LazyLock::new(|| register_int_counter_vec!("aralez_cache_status", "Phases of cached responses", &["phase"]).die("Failed to register CACHE_PHASE metric"));
+
+pub static CACHE_DISK_WRITTEN: LazyLock<IntGauge> =
+    LazyLock::new(|| register_int_gauge!("aralez_cache_disk_written", "Total cache items written to disk").die("Failed to register CACHE_DISK_WRITTEN metric"));
+
+pub static CACHE_DISK_BYTES_FLUSH: LazyLock<IntGauge> = LazyLock::new(|| {
+    register_int_gauge!("aralez_cache_disk_bytes_flush", "Total bytes flushed to disk at previous iteration").die("Failed to register CACHE_DISK_BYTES_FLUSH metric")
+});
+
+pub static CACHE_DISK_DELETED: LazyLock<IntGauge> =
+    LazyLock::new(|| register_int_gauge!("aralez_cache_disk_deleted", "Total cache items deleted from disk").die("Failed to register CACHE_DISK_DELETED metric"));
+
+pub static CACHE_DISK_WRITE_ERRORS: LazyLock<IntGauge> =
+    LazyLock::new(|| register_int_gauge!("aralez_cache_disk_write_errors", "Total failures on cache disk writes").die("Failed to register CACHE_DISK_WRITE_ERRORS metric"));
 
 pub static RESPONSE_CODES: LazyLock<IntCounterVec> =
     LazyLock::new(|| register_int_counter_vec!("aralez_responses_total", "Responses grouped by status code", &["status"]).die("Failed to register RESPONSE_CODES metric"));
@@ -178,6 +192,15 @@ pub async fn calc_cache_metrics() {
             CACHE_EVICTED_BYTES.set(eviction.evicted_size() as i64);
             CACHE_EVICTED_ITEMS.set(eviction.evicted_items() as i64);
         }
+        if let Some(moka) = MOKA_CACHE.get() {
+            CACHE_SIZE_BYTES.set(moka.weighted_size() as i64);
+            CACHE_ITEMS.set(moka.entry_count() as i64);
+        }
         tokio::time::sleep(std::time::Duration::from_secs(5)).await;
     }
 }
+
+// let Some(cache) = MOKA_CACHE.get() else { return Ok(None) };
+// let cache_items = cache.entry_count();
+// let cache_size_bytes = cache.weighted_size();
+// println!("============> Size: {} => {}", cache_items, cache_size_bytes);

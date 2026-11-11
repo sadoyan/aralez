@@ -1,4 +1,5 @@
 // This file is written with heavy utilization of AI .
+use crate::utils::metrics::{CACHE_DISK_BYTES_FLUSH, CACHE_DISK_DELETED, CACHE_DISK_WRITE_ERRORS, CACHE_DISK_WRITTEN};
 use async_trait::async_trait;
 use bytes::Bytes;
 use log::{error, info, warn};
@@ -149,8 +150,12 @@ fn write_item(dir: &Path, h: u128, key: &str, item: &CacheItem) -> io::Result<()
         w.write_all(&item.body_bytes)?; // large writes bypass the buffer, no extra copy
         w.flush()
     })()
-    .and_then(|_| fs::rename(&tmp, path_for(dir, h))); // atomic: readers never see partial files
+    .and_then(|_| {
+        CACHE_DISK_WRITTEN.inc();
+        fs::rename(&tmp, path_for(dir, h))
+    });
     if res.is_err() {
+        CACHE_DISK_WRITE_ERRORS.inc();
         let _ = fs::remove_file(&tmp);
     }
     res
@@ -209,6 +214,7 @@ fn scan_blocking(dir: &Path) -> io::Result<Vec<(u128, DiskEntry)>> {
             match entry {
                 Some(x) => out.push(x),
                 None => {
+                    CACHE_DISK_DELETED.inc();
                     let _ = fs::remove_file(&p);
                 }
             }
@@ -235,6 +241,7 @@ pub async fn moka_init(mem_mb: usize, disk_mb: usize, dir: PathBuf, flush: u64) 
     let d = dir.clone();
     tokio::spawn(async move {
         while let Some(h) = del_rx.recv().await {
+            CACHE_DISK_DELETED.inc();
             let _ = tokio::fs::remove_file(path_for(&d, h)).await;
         }
     });
@@ -266,7 +273,8 @@ pub async fn moka_init(mem_mb: usize, disk_mb: usize, dir: PathBuf, flush: u64) 
             while let Some((key, item)) = spill_rx.recv().await {
                 let h = hash(&key);
                 if index.contains_key(&h) {
-                    continue; // an identical copy is already on disk
+                    SPILL_SKIPPED.fetch_add(1, Ordering::Relaxed);
+                    continue;
                 }
                 let Ok(permit) = writers.clone().acquire_owned().await else { break };
                 let (dir, index) = (dir.clone(), index.clone());
@@ -275,9 +283,19 @@ pub async fn moka_init(mem_mb: usize, disk_mb: usize, dir: PathBuf, flush: u64) 
                     let expires_at = item.expires_at;
                     let d = dir.clone();
                     match tokio::task::spawn_blocking(move || write_item(&d, h, &key, &item)).await {
-                        Ok(Ok(())) => index.insert(h, DiskEntry { size, expires_at }).await,
-                        Ok(Err(e)) => warn!("disk spill failed: {e}"),
-                        Err(e) => warn!("disk spill task failed: {e}"),
+                        Ok(Ok(())) => {
+                            index.insert(h, DiskEntry { size, expires_at }).await;
+                            SPILLED_FILES.fetch_add(1, Ordering::Relaxed);
+                            SPILLED_BYTES.fetch_add(size as u64, Ordering::Relaxed);
+                        }
+                        Ok(Err(e)) => {
+                            SPILL_FAILED.fetch_add(1, Ordering::Relaxed);
+                            warn!("disk spill failed: {e}");
+                        }
+                        Err(e) => {
+                            SPILL_FAILED.fetch_add(1, Ordering::Relaxed);
+                            warn!("disk spill task failed: {e}");
+                        }
                     }
                     drop(permit);
                 });
@@ -335,7 +353,7 @@ pub async fn persist_l1() {
     );
 
     while disk.spill_tx.capacity() < disk.spill_tx.max_capacity() {
-        tokio::time::sleep(Duration::from_millis(20)).await;
+        tokio::time::sleep(Duration::from_millis(10)).await;
     }
     let _ = disk.writers.acquire_many(WRITERS as u32).await;
 
@@ -343,6 +361,7 @@ pub async fn persist_l1() {
     let bytes = SPILLED_BYTES.load(Ordering::Relaxed) - bytes0;
     let skipped = SPILL_SKIPPED.load(Ordering::Relaxed) - skipped0;
     let failed = SPILL_FAILED.load(Ordering::Relaxed) - failed0;
+    CACHE_DISK_BYTES_FLUSH.set(bytes as i64);
     info!(
         "Cache: Flushed {files} entries, {:.1} MB to disk in {:.2?} ({skipped} already on disk, {failed} failed)",
         bytes as f64 / 1e6,
