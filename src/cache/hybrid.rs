@@ -1,5 +1,5 @@
 // This file is written with heavy utilization of AI .
-use crate::utils::metrics::{CACHE_DISK_BYTES_FLUSH, CACHE_DISK_DELETED, CACHE_DISK_WRITE_ERRORS, CACHE_DISK_WRITTEN};
+use crate::utils::metrics::{CACHE_DISK_BYTES_FLUSH, CACHE_DISK_DELETED, CACHE_DISK_FILES_FLUSH, CACHE_DISK_WRITE_ERRORS, CACHE_DISK_WRITTEN};
 use async_trait::async_trait;
 use bytes::Bytes;
 use log::{error, info, warn};
@@ -362,6 +362,7 @@ pub async fn persist_l1() {
     let skipped = SPILL_SKIPPED.load(Ordering::Relaxed) - skipped0;
     let failed = SPILL_FAILED.load(Ordering::Relaxed) - failed0;
     CACHE_DISK_BYTES_FLUSH.set(bytes as i64);
+    CACHE_DISK_FILES_FLUSH.set(files as i64);
     info!(
         "Cache: Flushed {files} entries, {:.1} MB to disk in {:.2?} ({skipped} already on disk, {failed} failed)",
         bytes as f64 / 1e6,

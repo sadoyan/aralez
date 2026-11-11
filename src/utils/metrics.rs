@@ -47,9 +47,11 @@ pub static CACHE_PHASE: LazyLock<IntCounterVec> =
 pub static CACHE_DISK_WRITTEN: LazyLock<IntGauge> =
     LazyLock::new(|| register_int_gauge!("aralez_cache_disk_written", "Total cache items written to disk").die("Failed to register CACHE_DISK_WRITTEN metric"));
 
-pub static CACHE_DISK_BYTES_FLUSH: LazyLock<IntGauge> = LazyLock::new(|| {
-    register_int_gauge!("aralez_cache_disk_bytes_flush", "Total bytes flushed to disk at previous iteration").die("Failed to register CACHE_DISK_BYTES_FLUSH metric")
-});
+pub static CACHE_DISK_BYTES_FLUSH: LazyLock<IntGauge> =
+    LazyLock::new(|| register_int_gauge!("aralez_cache_disk_bytes_flush", "Bytes flushed to disk at previous iteration").die("Failed to register CACHE_DISK_BYTES_FLUSH metric"));
+
+pub static CACHE_DISK_FILES_FLUSH: LazyLock<IntGauge> =
+    LazyLock::new(|| register_int_gauge!("aralez_cache_disk_files_flush", "Files flushed to disk at previous iteration").die("Failed to register CACHE_DISK_FILES_FLUSH metric"));
 
 pub static CACHE_DISK_DELETED: LazyLock<IntGauge> =
     LazyLock::new(|| register_int_gauge!("aralez_cache_disk_deleted", "Total cache items deleted from disk").die("Failed to register CACHE_DISK_DELETED metric"));
