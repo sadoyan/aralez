@@ -32,10 +32,14 @@ Built on Rust, on top of **Cloudflare’s Pingora engine**, **Aralez** delivers 
 
 - **Dynamic Config Reloads** — Upstreams can be updated live via API, no restart required.
 - **Autoload of certificates** — Automatically loads new/changed certificates from a folder, without a restart.
-- **Let’s Encrypt Certificates** — Ordering and renewal of SSL/TLS certificates via the HTTP-01 challenge.
+- **Let’s Encrypt Certificates** — Certificates management via the HTTP-01 and DNS-01 challenges.
 - **Upstreams TLS detection** — Aralez will automatically detect if upstreams uses secure connection.
 - **Built in rate limiter** — Globar or route limit requests to upstreams.
-- **Caching Proxy** — In memory cache with configurable TTL, without external dependencies.
+- **Caching Proxy** — Pluggable cache with configurable TTL, without external dependencies.
+    - **memory** Content is stored entirely in local RAM
+    - **hybrid** Content is tiered between local RAM and the local file system.
+    - **redis** Uses external RESP-compatible servers (e.g., Redis, Valkey, Dragonfly, KeyDB) as a centralized cache storage layer.
+    - **tikv** Uses a distributed transactional and raw key-value store (TiKV) a centralized, highly scalable cache storage layer.
 - **Authentication** — Supports Basic Auth, API tokens, and JWT verification.
     - **Basic Auth**
     - **API Key** via `x-api-key` header
@@ -51,6 +55,7 @@ Built on Rust, on top of **Cloudflare’s Pingora engine**, **Aralez** delivers 
 - **Auto gRPC Support:** gRPC detected and handled automatically.
 - **Header Injection:** Global and per-route server/client headers injection.
 - **Remote Config Push:** Lightweight HTTP API to update configs from CI/CD or other systems.
+- **Structured remote logging:** Async logging to ElasticSearch cluster directly. Via effective bulk api.
 - **Memory Safe** — 100% Rust.
 - **High Performance** — Built with [Pingora](https://github.com/cloudflare/pingora) and tokio for async I/O.
 
