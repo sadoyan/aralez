@@ -123,15 +123,22 @@ pub struct LinuxTCP {
     pub tcp_keepalive_count: Option<usize>,
     pub so_reuseport: Option<bool>,
 }
+
+#[derive(Debug, Default, Serialize, Deserialize, Clone)]
+pub struct Log {
+    pub level: Option<String>,
+    pub access: Option<String>,
+    pub pattern: Option<String>,
+    pub file: Option<String>,
+    pub remote: Option<String>,
+}
+
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct AppConfig {
     pub hc_interval: u16,
     pub hc_method: String,
     pub upstreams_conf: String,
-    pub log_level: String,
-    pub cache: Option<CacheConfig>,
     pub cache_item_max_size: Option<usize>,
-    pub access_log: Option<String>,
     pub pid_file: Option<String>,
     pub master_key: Option<String>,
     pub config_address: String,
@@ -147,13 +154,12 @@ pub struct AppConfig {
     pub file_server_folder: Option<String>,
     pub runuser: Option<String>,
     pub rungroup: Option<String>,
-    pub log_file: Option<String>,
-    pub log_pattern: Option<String>,
-    pub log_structured: Option<String>,
     pub acme_dns_provider: Option<String>,
     pub cluster_member: Option<String>,
     pub worker_nodes: Option<String>,
+    pub cache: Option<CacheConfig>,
     pub tcp: Option<LinuxTCP>,
+    pub log: Option<Log>,
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash, Serialize)]

@@ -96,68 +96,66 @@ impl Append for StructuredChannelAppender {
     fn flush(&self) {}
 }
 pub async fn log_builder(conf: &AppConfig, location: &Option<String>) {
-    let log_level = match conf.log_level.as_str() {
-        "info" => LevelFilter::Info,
-        "error" => LevelFilter::Error,
-        "warn" => LevelFilter::Warn,
-        "debug" => LevelFilter::Debug,
-        "trace" => LevelFilter::Trace,
-        "off" => LevelFilter::Off,
-        _ => {
-            println!("Error reading log level, defaulting to: INFO");
-            LevelFilter::Info
+    let mut log_level = LevelFilter::Info;
+    let mut pattern = "{d(%Y-%m-%d %H:%M:%S)} {l} - {m} {n}";
+
+    if let Some(log) = &conf.log {
+        pattern = log.pattern.as_deref().unwrap_or("{d(%Y-%m-%d %H:%M:%S)} {l} - {m} {n}");
+        log_level = match log.level.as_deref().unwrap_or("info").to_ascii_lowercase().as_str() {
+            "info" => LevelFilter::Info,
+            "error" => LevelFilter::Error,
+            "warn" => LevelFilter::Warn,
+            "debug" => LevelFilter::Debug,
+            "trace" => LevelFilter::Trace,
+            "off" => LevelFilter::Off,
+            _ => {
+                println!("Error reading log level, defaulting to: INFO");
+                LevelFilter::Info
+            }
+        };
+        if let Some(backend) = log.remote.as_deref() {
+            if let Some(backend_name) = backend.split_whitespace().next() {
+                let _ = set_backend(backend_name.to_string());
+                init_structured_log().await;
+            }
+            let syslog_appender: Option<Box<dyn Append>> = SYSTEM_LOG_SENDER
+                .get()
+                .cloned()
+                .map(|sender| Box::new(StructuredChannelAppender::new(sender)) as Box<dyn Append>);
+
+            let stdout = ConsoleAppender::builder().encoder(Box::new(PatternEncoder::new(pattern))).build();
+
+            let mut config_builder = Log4rsConfig::builder().appender(Appender::builder().build("stdout", Box::new(stdout)));
+
+            if let Some(appender) = syslog_appender {
+                config_builder = config_builder
+                    .appender(Appender::builder().build("syslog_appender", appender))
+                    .logger(Logger::builder().appender("syslog_appender").additive(false).build("pingora_proxy", log_level))
+                    .logger(Logger::builder().appender("syslog_appender").additive(false).build("pingora_core", log_level))
+                    .logger(Logger::builder().appender("syslog_appender").additive(false).build("pingora_pool", log_level))
+                    .logger(Logger::builder().appender("syslog_appender").additive(false).build("pingora_cache", log_level))
+                    .logger(Logger::builder().appender("syslog_appender").additive(false).build("hyper_util", log_level))
+                    .logger(Logger::builder().appender("syslog_appender").additive(false).build("aralez", log_level))
+                    .logger(Logger::builder().appender("syslog_appender").additive(false).build("h2", log_level));
+            } else {
+                config_builder = config_builder
+                    .logger(Logger::builder().build("pingora_core", LevelFilter::Off))
+                    .logger(Logger::builder().build("pingora_pool", LevelFilter::Off))
+                    .logger(Logger::builder().build("pingora_cache", LevelFilter::Off))
+                    .logger(Logger::builder().build("hyper_util", LevelFilter::Off))
+                    .logger(Logger::builder().build("aralez", LevelFilter::Off))
+                    .logger(Logger::builder().build("h2", LevelFilter::Off));
+            }
+
+            let config = config_builder.build(Root::builder().appender("stdout").build(log_level)).die("Logging config builder");
+
+            if let Err(e) = log4rs::init_config(config) {
+                eprintln!("Warning: log4rs logger already initialized: {:?}", e);
+            }
+            info!("Enabling structured logging with backend : {}", backend);
+            let _ = IS_STRUCTURED.set(true);
+            return;
         }
-    };
-
-    let mut pat: String = "{d(%Y-%m-%d %H:%M:%S)} {l} - {m} {n}".to_string();
-
-    if let Some(ptrn) = conf.log_pattern.clone() {
-        pat = ptrn;
-    }
-    let pattern = pat.as_str();
-
-    if let Some(backend) = conf.log_structured.as_deref() {
-        if let Some(backend_name) = backend.split_whitespace().next() {
-            let _ = set_backend(backend_name.to_string());
-            init_structured_log().await;
-        }
-        let syslog_appender: Option<Box<dyn Append>> = SYSTEM_LOG_SENDER
-            .get()
-            .cloned()
-            .map(|sender| Box::new(StructuredChannelAppender::new(sender)) as Box<dyn Append>);
-
-        let stdout = ConsoleAppender::builder().encoder(Box::new(PatternEncoder::new(pattern))).build();
-
-        let mut config_builder = Log4rsConfig::builder().appender(Appender::builder().build("stdout", Box::new(stdout)));
-
-        if let Some(appender) = syslog_appender {
-            config_builder = config_builder
-                .appender(Appender::builder().build("syslog_appender", appender))
-                .logger(Logger::builder().appender("syslog_appender").additive(false).build("pingora_proxy", log_level))
-                .logger(Logger::builder().appender("syslog_appender").additive(false).build("pingora_core", log_level))
-                .logger(Logger::builder().appender("syslog_appender").additive(false).build("pingora_pool", log_level))
-                .logger(Logger::builder().appender("syslog_appender").additive(false).build("pingora_cache", log_level))
-                .logger(Logger::builder().appender("syslog_appender").additive(false).build("hyper_util", log_level))
-                .logger(Logger::builder().appender("syslog_appender").additive(false).build("aralez", log_level))
-                .logger(Logger::builder().appender("syslog_appender").additive(false).build("h2", log_level));
-        } else {
-            config_builder = config_builder
-                .logger(Logger::builder().build("pingora_core", LevelFilter::Off))
-                .logger(Logger::builder().build("pingora_pool", LevelFilter::Off))
-                .logger(Logger::builder().build("pingora_cache", LevelFilter::Off))
-                .logger(Logger::builder().build("hyper_util", LevelFilter::Off))
-                .logger(Logger::builder().build("aralez", LevelFilter::Off))
-                .logger(Logger::builder().build("h2", LevelFilter::Off));
-        }
-
-        let config = config_builder.build(Root::builder().appender("stdout").build(log_level)).die("Logging config builder");
-
-        if let Err(e) = log4rs::init_config(config) {
-            eprintln!("Warning: log4rs logger already initialized: {:?}", e);
-        }
-        info!("Enabling structured logging with backend : {}", backend);
-        let _ = IS_STRUCTURED.set(true);
-        return;
     }
     if let Some(location) = location {
         let parts: Vec<&str> = location.split(',').map(|s| s.trim()).collect();

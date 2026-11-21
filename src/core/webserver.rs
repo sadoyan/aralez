@@ -213,7 +213,15 @@ async fn jwt_gen(State(state): State<AppState>, Json(payload): Json<Claims>) -> 
                 exp: expire,
                 random: payload.random,
             };
-            match encode(&Header::default(), &claim, &EncodingKey::from_secret(payload.master_key.as_ref())) {
+            let encoding_key = match EncodingKey::from_secret(payload.master_key.as_ref()) {
+                Ok(k) => k,
+                Err(e) => {
+                    error!("Failed to create encoding key: {:?}", e);
+                    return (StatusCode::INTERNAL_SERVER_ERROR, Json(OutToken { token: "ERROR".to_string() }));
+                }
+            };
+
+            match encode(&Header::default(), &claim, &encoding_key) {
                 Ok(t) => {
                     let tok = OutToken { token: t };
                     debug!("Generating token: {:?}", tok.token);

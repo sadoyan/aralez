@@ -20,11 +20,12 @@ use tokio::sync::mpsc;
 #[async_trait]
 impl BackgroundService for LB {
     async fn start(&self, mut shutdown: ShutdownWatch) {
-        log_builder(&self.config, &self.config.log_file).await;
-
-        let al = &self.config.access_log.clone().unwrap_or("none".to_string());
-        let _ = init_access_log(al.as_str()).await;
-
+        if let Some(enabled) = self.config.log.clone() {
+            log_builder(&self.config, &enabled.file).await;
+            let al = &enabled.access.clone().unwrap_or("none".to_string());
+            let _ = init_access_log(al.as_str()).await;
+            init_access_logging(enabled.access).await;
+        }
         info!("Starting background service");
         let (tx, mut rx) = mpsc::channel::<Configuration>(1);
         let tx_api = tx.clone();
@@ -103,7 +104,15 @@ impl BackgroundService for LB {
         tokio::spawn(async move { refresh_order(certdir, confdir, acme_provider).await });
 
         init_cache(self.config.clone()).await;
-        init_access_logging(self.config.access_log.clone()).await;
+
+        // let al = &self.config.access_log.clone().unwrap_or("none".to_string());
+        // let _ = init_access_log(al.as_str()).await;
+
+        // if let Some(enabled) = self.config.log.clone() {
+        //     let al = &enabled.access.clone().unwrap_or("none".to_string());
+        //     let _ = init_access_log(al.as_str()).await;
+        //     init_access_logging(enabled.access).await;
+        // }
 
         loop {
             tokio::select! {

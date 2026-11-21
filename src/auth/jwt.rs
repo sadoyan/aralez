@@ -1,10 +1,11 @@
 use crate::auth::types::AuthValidator;
 use ahash::AHasher;
-use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine;
+use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use jsonwebtoken::{Algorithm, DecodingKey, Validation};
-use moka::sync::Cache;
+use log::error;
 use moka::Expiry;
+use moka::sync::Cache;
 use pingora_proxy::Session;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -39,11 +40,7 @@ struct JwtExpiry;
 impl Expiry<u64, u64> for JwtExpiry {
     fn expire_after_create(&self, _key: &u64, value: &u64, _current_time: Instant) -> Option<Duration> {
         let now = SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs();
-        if *value > now {
-            Some(Duration::from_secs(value - now))
-        } else {
-            Some(Duration::ZERO)
-        }
+        if *value > now { Some(Duration::from_secs(value - now)) } else { Some(Duration::ZERO) }
     }
 }
 pub struct JwtAuth();
@@ -98,7 +95,15 @@ pub fn check_jwt(token: &str, secret: &str) -> bool {
         Err(_) => return false,
     }
 
-    match jsonwebtoken::decode::<Claims>(token, &DecodingKey::from_secret(secret.as_ref()), &JWT_VALIDATION) {
+    let decoding_key = match DecodingKey::from_secret(secret.as_ref()) {
+        Ok(k) => k,
+        Err(e) => {
+            error!("Failed to create decoding key: {:?}", e);
+            return false;
+        }
+    };
+
+    match jsonwebtoken::decode::<Claims>(token, &decoding_key, &JWT_VALIDATION) {
         Ok(data) => {
             let now = SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs();
             if data.claims.exp > now {
@@ -119,11 +124,7 @@ fn is_expired(token: &str, now: u64) -> Result<bool, Box<dyn std::error::Error>>
     }
     let decoded = URL_SAFE_NO_PAD.decode(parts[1])?;
     let claims: Expired = serde_json::from_slice(&decoded)?;
-    if let Some(exp) = claims.exp {
-        Ok(exp < now)
-    } else {
-        Ok(true)
-    }
+    if let Some(exp) = claims.exp { Ok(exp < now) } else { Ok(true) }
 }
 
 fn hash_token(token: &str, secret: &str) -> u64 {
