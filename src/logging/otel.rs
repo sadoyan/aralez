@@ -86,11 +86,11 @@ fn build_exporter(cfg: &OtelLogConfig) -> Result<LogExporter, Box<dyn std::error
 }
 impl OtelLogConfig {
     pub fn from_env() -> Self {
-        let protocol = match env::var("LOG_OTEL_GRPC_PROTOCOL").unwrap_or_default().trim().to_ascii_lowercase().as_str() {
+        let protocol = match env::var("LOG_OTEL_PROTOCOL").unwrap_or_default().trim().to_ascii_lowercase().as_str() {
             "http" => OtelProtocol::Http,
             "grpc" | "" => OtelProtocol::Grpc,
             other => {
-                eprintln!("Unknown LOG_OTEL_GRPC_PROTOCOL '{other}', defaulting to grpc");
+                eprintln!("Unknown LOG_OTEL_PROTOCOL '{other}', defaulting to grpc");
                 OtelProtocol::Grpc
             }
         };
