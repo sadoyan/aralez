@@ -7,7 +7,7 @@ use pingora_core::listeners::ALPN;
 use pingora_core::prelude::HttpPeer;
 use pingora_http::RequestHeader;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use rustc_hash::FxHashMap;
 use std::sync::atomic::AtomicUsize;
 use std::sync::{Arc, LazyLock};
 use std::time::Duration;
@@ -36,7 +36,7 @@ pub struct ConsulServicesInternal {
     pub to_https: Option<bool>,
 }
 
-pub type ConsulServices = HashMap<String, ConsulServicesInternal>;
+pub type ConsulServices = FxHashMap<String, ConsulServicesInternal>;
 
 pub async fn for_consul_list(url: &str, token: Option<String>) -> Option<ConsulServices> {
     if let Some(data) = getfromapi(url, token, "consul").await {
@@ -50,7 +50,7 @@ pub async fn for_consul_list(url: &str, token: Option<String>) -> Option<ConsulS
 }
 
 fn parse_services(json: Vec<u8>) -> Result<ConsulServices, serde_json::Error> {
-    let raw: HashMap<String, Vec<String>> = serde_json::from_slice(&json)?;
+    let raw: FxHashMap<String, Vec<String>> = serde_json::from_slice(&json)?;
     Ok(raw
         .into_iter()
         .map(|(service, tags)| {
@@ -77,11 +77,11 @@ fn parse_services(json: Vec<u8>) -> Result<ConsulServices, serde_json::Error> {
         .collect())
 }
 
-pub async fn for_consul(url: &str, token: Option<String>, conf: &GlobalServiceMapping) -> Option<HashMap<Arc<str>, (Vec<Arc<InnerMap>>, AtomicUsize)>> {
+pub async fn for_consul(url: &str, token: Option<String>, conf: &GlobalServiceMapping) -> Option<FxHashMap<Arc<str>, (Vec<Arc<InnerMap>>, AtomicUsize)>> {
     if let Some(data) = getfromapi(url, token, "consul").await {
         let endpoints: Vec<ConsulService> = serde_json::from_slice(&data).ok()?;
         let mut inner_vec = Vec::new();
-        let mut upstreams: HashMap<Arc<str>, (Vec<Arc<InnerMap>>, AtomicUsize)> = HashMap::new();
+        let mut upstreams: FxHashMap<Arc<str>, (Vec<Arc<InnerMap>>, AtomicUsize)> = FxHashMap::default();
 
         for subsets in endpoints {
             let to_add = Arc::from(InnerMap {
@@ -105,10 +105,10 @@ pub async fn for_consul(url: &str, token: Option<String>, conf: &GlobalServiceMa
     None
 }
 
-pub async fn for_kuber(url: &str, token: &str, conf: &GlobalServiceMapping) -> Option<HashMap<Arc<str>, (Vec<Arc<InnerMap>>, AtomicUsize)>> {
+pub async fn for_kuber(url: &str, token: &str, conf: &GlobalServiceMapping) -> Option<FxHashMap<Arc<str>, (Vec<Arc<InnerMap>>, AtomicUsize)>> {
     if let Some(data) = getfromapi(url, Some(token.to_string()), "kubernetes").await {
         let slice_list: KubeEndpointSliceList = serde_json::from_slice(&data).ok()?;
-        let mut upstreams: HashMap<Arc<str>, (Vec<Arc<InnerMap>>, AtomicUsize)> = HashMap::new();
+        let mut upstreams: FxHashMap<Arc<str>, (Vec<Arc<InnerMap>>, AtomicUsize)> = FxHashMap::default();
         let mut inner_vec = Vec::new();
 
         for slice in slice_list.items {

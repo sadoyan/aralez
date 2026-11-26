@@ -5,7 +5,7 @@ use log::{error, info};
 use privdrop::PrivDrop;
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
-use std::collections::HashMap;
+use rustc_hash::FxHashMap;
 use std::fmt::{Debug, Write};
 use std::fs::OpenOptions;
 use std::io::Write as IoWrite;
@@ -60,7 +60,7 @@ pub fn clone_upstreams(original: &UpstreamsDashMap) -> UpstreamsDashMap {
 pub fn clone_dashmap_into(original: &UpstreamsDashMap, cloned: &mut UpstreamsDashMap) {
     cloned.clear();
     for (key, value) in original.iter() {
-        let mut new_inner_map = HashMap::new();
+        let mut new_inner_map = FxHashMap::default();
         for (inner_key, inner_value) in value.iter() {
             let (vec, _) = inner_value;
             new_inner_map.insert(inner_key.clone(), (vec.clone(), AtomicUsize::new(0)));
@@ -93,7 +93,7 @@ pub fn compare_dashmaps(map1: &UpstreamsDashMap, map2: &UpstreamsDashMap) -> boo
     true
 }
 
-pub fn merge_headers(target: &mut HashMap<Arc<str>, Vec<(String, Arc<str>)>>, source: &HashMap<Arc<str>, Vec<(String, Arc<str>)>>) {
+pub fn merge_headers(target: &mut FxHashMap<Arc<str>, Vec<(String, Arc<str>)>>, source: &FxHashMap<Arc<str>, Vec<(String, Arc<str>)>>) {
     for (global_key, global_values) in source.iter() {
         let target_entry = target.entry(global_key.clone()).or_default();
         target_entry.extend(global_values.iter().cloned());
@@ -125,7 +125,7 @@ pub fn clone_idmap_into(original: &UpstreamsDashMap, cloned: &mut UpstreamsIdMap
 }
 
 pub fn listdir(dir: String) -> Vec<load::CertificateConfig> {
-    let mut f = HashMap::new();
+    let mut f = FxHashMap::default();
     let mut certificate_configs: Vec<load::CertificateConfig> = vec![];
     let paths = fs::read_dir(dir).die("listing certificates directory failed");
     for path in paths {
@@ -190,10 +190,10 @@ pub fn check_priv(addr: &str) {
 
 #[allow(dead_code)]
 pub fn upstreams_to_json(upstreams: &UpstreamsDashMap) -> serde_json::Result<String> {
-    let mut outer = HashMap::new();
+    let mut outer = FxHashMap::default();
 
     for (okey, ovalue) in upstreams.iter() {
-        let mut inner_map = HashMap::new();
+        let mut inner_map = FxHashMap::default();
 
         for (ikey, ivalue) in ovalue.iter() {
             let (backends, counter) = ivalue;

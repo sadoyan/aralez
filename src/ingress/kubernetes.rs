@@ -4,7 +4,7 @@ use crate::utils::types::{Configuration, GlobalServiceMapping, Headers, Upstream
 use async_trait::async_trait;
 use log::error;
 use rand::RngExt;
-use std::collections::HashMap;
+use rustc_hash::FxHashMap;
 use std::env;
 use std::sync::Arc;
 
@@ -83,9 +83,9 @@ impl ServiceDiscovery for KubernetesDiscovery {
                     error!("Fatal watcher error: {:?}", e);
                 }
             });
-            let mut upstreams = HashMap::new();
+            let mut upstreams = FxHashMap::default();
             for (host_key, inner_map) in &config.upstreams {
-                let mut cloned_inner = HashMap::new();
+                let mut cloned_inner = FxHashMap::default();
                 for (path_key, (servers, atomic_val)) in inner_map {
                     let current_val = atomic_val.load(std::sync::atomic::Ordering::Relaxed);
                     cloned_inner.insert(path_key.clone(), (servers.clone(), std::sync::atomic::AtomicUsize::new(current_val)));
@@ -139,7 +139,7 @@ impl ServiceDiscovery for KubernetesDiscovery {
                         let path_key = service.path.as_deref().unwrap_or("/");
                         local_client_headers
                             .entry(host_key.clone())
-                            .or_insert_with(HashMap::new)
+                            .or_insert_with(FxHashMap::default)
                             .insert(Arc::from(path_key), client_headers_list);
                     }
 
@@ -149,7 +149,7 @@ impl ServiceDiscovery for KubernetesDiscovery {
                         let path_key = service.path.as_deref().unwrap_or("/");
                         local_server_headers
                             .entry(host_key.clone())
-                            .or_insert_with(HashMap::new)
+                            .or_insert_with(FxHashMap::default)
                             .insert(Arc::from(path_key), server_headers_list);
                     }
 
@@ -183,9 +183,9 @@ pub async fn clone_compare_with_headers(
     config: &Configuration,
 ) -> Option<Configuration> {
     if !compare_dashmaps(&new_upstreams, &config.upstreams) || new_client_headers != &config.client_headers || new_server_headers != &config.server_headers {
-        let mut cloned_upstreams = HashMap::new();
+        let mut cloned_upstreams = FxHashMap::default();
         for (host_key, inner_map) in new_upstreams {
-            let mut cloned_inner = HashMap::new();
+            let mut cloned_inner = FxHashMap::default();
             for (path_key, (servers, atomic_val)) in inner_map {
                 let current_val = atomic_val.load(std::sync::atomic::Ordering::Relaxed);
                 cloned_inner.insert(path_key.clone(), (servers.clone(), std::sync::atomic::AtomicUsize::new(current_val)));

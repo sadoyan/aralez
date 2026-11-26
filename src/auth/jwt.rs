@@ -8,7 +8,7 @@ use moka::Expiry;
 use moka::sync::Cache;
 use pingora_proxy::Session;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use rustc_hash::FxHashMap;
 use std::env;
 use std::hash::{Hash, Hasher};
 use std::sync::{Arc, LazyLock};
@@ -68,7 +68,7 @@ impl AuthValidator for JwtAuth {
 fn get_query_param(session: &mut Session, key: &str) -> Option<String> {
     let query = session.req_header().uri.query()?;
 
-    let params: HashMap<_, _> = query
+    let params: FxHashMap<_, _> = query
         .split('&')
         .filter_map(|pair| {
             let mut parts = pair.splitn(2, '=');

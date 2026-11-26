@@ -75,9 +75,7 @@ redis = { version = "1.7.1", features = ["tokio-comp", "connection-manager"] }
 tikv-client = "0.4.0"
 xxhash-rust = "0.8.21"
 opentelemetry = "0.33.1"
-#opentelemetry-appender-tracing = "0.33.1"
 opentelemetry_sdk = "0.33.1"
-#opentelemetry-stdout = "0.33.1"
-#opentelemetry-otlp = { version = "0.33.1", features = ["grpc-tonic"] }
 opentelemetry-otlp = { version = "0.33.1", features = ["grpc-tonic", "http-proto", "tls-ring", "tls-roots", ], }
 tonic = "0.14.9"
+rustc-hash = "2.1.3"

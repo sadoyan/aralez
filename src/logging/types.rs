@@ -1,6 +1,6 @@
 use crate::logging::core::StructuredSystemLog;
 use async_trait::async_trait;
-use std::collections::HashMap;
+use rustc_hash::FxHashMap;
 use std::sync::LazyLock;
 use tokio::sync::mpsc;
 
@@ -16,8 +16,8 @@ pub struct LogBackendPlugin {
 
 inventory::collect!(LogBackendPlugin);
 
-static BACKENDS: LazyLock<HashMap<&'static str, Box<dyn WriteLog>>> = LazyLock::new(|| {
-    let mut map = HashMap::new();
+static BACKENDS: LazyLock<FxHashMap<&'static str, Box<dyn WriteLog>>> = LazyLock::new(|| {
+    let mut map = FxHashMap::default();
     for plugin in inventory::iter::<LogBackendPlugin> {
         map.insert(plugin.name, (plugin.factory)());
     }

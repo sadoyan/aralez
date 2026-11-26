@@ -7,8 +7,8 @@ use crate::utils::types::{Configuration, GlobalServiceMapping, Headers, Upstream
 use async_trait::async_trait;
 use pingora::prelude::sleep;
 use rand::RngExt;
+use rustc_hash::FxHashMap;
 use serde::Deserialize;
-use std::collections::HashMap;
 use std::env;
 use std::sync::Arc;
 use std::time::Duration;
@@ -27,7 +27,7 @@ pub struct ConsulDiscovery;
 impl ServiceDiscovery for ConsulDiscovery {
     async fn fetch_upstreams(&self, config: Arc<Configuration>, toreturn: Sender<Configuration>) {
         loop {
-            let mut upstreams = UpstreamsDashMap::new();
+            let mut upstreams = UpstreamsDashMap::default();
 
             if let Some(consul) = config.consul.clone() {
                 let servers = consul.servers.unwrap_or_else(|| {
@@ -43,8 +43,8 @@ impl ServiceDiscovery for ConsulDiscovery {
                 let ss = format!("{}/v1/catalog/service/", consul_data);
                 let dc = format!("{}/v1/catalog/services?filter=%22aralez.service=yes%22+in+ServiceTags", consul_data);
 
-                let mut local_client_headers: Headers = HashMap::new();
-                let mut local_server_headers: Headers = HashMap::new();
+                let mut local_client_headers: Headers = FxHashMap::default();
+                let mut local_server_headers: Headers = FxHashMap::default();
 
                 if let Some(infolist) = httpclient::for_consul_list(dc.as_str(), consul.token.clone()).await {
                     for (k, v) in infolist {
@@ -61,13 +61,13 @@ impl ServiceDiscovery for ConsulDiscovery {
                         if !client_header_list.is_empty() {
                             local_client_headers
                                 .entry(host_key.clone())
-                                .or_insert_with(HashMap::new)
+                                .or_insert_with(FxHashMap::default)
                                 .insert(path_key.clone(), client_header_list);
                         }
                         if !server_header_list.is_empty() {
                             local_server_headers
                                 .entry(host_key.clone())
-                                .or_insert_with(HashMap::new)
+                                .or_insert_with(FxHashMap::default)
                                 .insert(path_key.clone(), server_header_list);
                         }
 

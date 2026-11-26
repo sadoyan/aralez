@@ -12,7 +12,7 @@ use async_trait::async_trait;
 use log::{error, info};
 use pingora_core::server::ShutdownWatch;
 use pingora_core::services::background::BackgroundService;
-use std::collections::HashMap;
+use rustc_hash::FxHashMap;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::mpsc;
@@ -122,9 +122,9 @@ impl BackgroundService for LB {
                 val = rx.recv() => {
                     let start = SystemTime::now().duration_since(UNIX_EPOCH).die(format!("ON {} {}", file!(), line!()).as_str());
                     if let Some(ss) = val {
-                        let mut new_ump_full = HashMap::new();
-                        let mut new_ump_upst = HashMap::new();
-                        let mut new_ump_byid = HashMap::new();
+                        let mut new_ump_full = FxHashMap::default();
+                        let mut new_ump_upst = FxHashMap::default();
+                        let mut new_ump_byid = FxHashMap::default();
                         clone_dashmap_into(&ss.upstreams, &mut new_ump_full);
                         clone_dashmap_into(&ss.upstreams, &mut new_ump_upst);
                         clone_idmap_into(&ss.upstreams, &mut new_ump_byid);
@@ -141,7 +141,7 @@ impl BackgroundService for LB {
                         new.rate_limit = ss.extraparams.rate_limit;
                         new.x4xx_limit = ss.extraparams.x4xx_limit;
                         self.extraparams.store(Arc::new(new));
-                        let mut new_client_headers = HashMap::new();
+                        let mut new_client_headers = FxHashMap::default();
                         for (path_key, path_headers) in &ss.client_headers {
                             new_client_headers.insert(path_key.clone(), path_headers.clone());
                         }
@@ -151,7 +151,7 @@ impl BackgroundService for LB {
                             }
                         }
                         self.client_headers.store(Arc::new(new_client_headers));
-                        let mut new_server_headers = HashMap::new();
+                        let mut new_server_headers = FxHashMap::default();
                         for (path_key, path_headers) in &ss.server_headers {
                             new_server_headers.insert(path_key.clone(), path_headers.clone());
                         }
@@ -174,10 +174,10 @@ impl BackgroundService for LB {
 use std::sync::atomic::Ordering;
 
 fn deep_clone_upstreams(original: &UpstreamsDashMap) -> UpstreamsDashMap {
-    let mut new_map = HashMap::new();
+    let mut new_map = FxHashMap::default();
 
     for (domain, paths) in original {
-        let mut new_paths = HashMap::new();
+        let mut new_paths = FxHashMap::default();
         for (path, (backends, atomic_counter)) in paths {
             // Load the current value from the old atomic counter
             let current_val = atomic_counter.load(Ordering::Relaxed);

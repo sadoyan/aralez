@@ -5,7 +5,7 @@ use crate::utils::state::{is_first_run, mark_not_first_run};
 use crate::utils::tools::{Die, clone_dashmap_into};
 use crate::utils::types::*;
 use log::{error, info, warn};
-use std::collections::HashMap;
+use rustc_hash::FxHashMap;
 use std::path::Path;
 use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
@@ -110,7 +110,7 @@ pub async fn load_configuration(d: &str, kind: &str) -> (Option<Configuration>, 
 
     if let Some(ref mut upstreams) = parsed.upstreams {
         for uconf in conf_files {
-            let p: HashMap<String, HostConfig> = match noyalib::from_str(&uconf) {
+            let p: FxHashMap<String, HostConfig> = match noyalib::from_str(&uconf) {
                 Ok(ucfg) => ucfg,
                 Err(e) => {
                     error!("Failed to parse upstreams file: {}", e);
@@ -155,7 +155,7 @@ async fn populate_headers_and_auth(config: &mut Configuration, parsed: &Config) 
         }
     }
 
-    let mut global_headers: HashMap<Arc<str>, Vec<(String, Arc<str>)>> = HashMap::new();
+    let mut global_headers: FxHashMap<Arc<str>, Vec<(String, Arc<str>)>> = FxHashMap::default();
     global_headers.insert(Arc::from("/"), ch);
     config.client_headers.insert(Arc::from("GLOBAL_CLIENT_HEADERS"), global_headers);
 
@@ -167,7 +167,7 @@ async fn populate_headers_and_auth(config: &mut Configuration, parsed: &Config) 
             }
         }
     }
-    let mut server_global_headers: HashMap<Arc<str>, Vec<(String, Arc<str>)>> = HashMap::new();
+    let mut server_global_headers: FxHashMap<Arc<str>, Vec<(String, Arc<str>)>> = FxHashMap::default();
     server_global_headers.insert(Arc::from("/"), sh);
     config.server_headers.insert(Arc::from("GLOBAL_SERVER_HEADERS"), server_global_headers);
     config.extraparams.to_https = parsed.to_https.unwrap_or(false);
@@ -189,12 +189,12 @@ async fn populate_headers_and_auth(config: &mut Configuration, parsed: &Config) 
 }
 
 async fn populate_file_upstreams(config: &mut Configuration, parsed: &Config) {
-    let mut imtdashmap = UpstreamsDashMap::new();
+    let mut imtdashmap = UpstreamsDashMap::default();
     if let Some(upstreams) = &parsed.upstreams {
         for (hostname, host_config) in upstreams {
-            let mut path_map = HashMap::new();
-            let mut client_header_list = HashMap::new();
-            let mut server_header_list = HashMap::new();
+            let mut path_map = FxHashMap::default();
+            let mut client_header_list = FxHashMap::default();
+            let mut server_header_list = FxHashMap::default();
             for (path, path_config) in &host_config.paths {
                 if let Some(rate) = &path_config.rate_limit {
                     info!("Applied Rate Limit for {} : {} request per second", hostname, rate);

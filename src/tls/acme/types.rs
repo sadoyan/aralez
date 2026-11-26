@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use std::collections::HashMap;
+use rustc_hash::FxHashMap;
 use std::sync::LazyLock;
 
 pub struct DnsBackendPlugin {
@@ -9,8 +9,8 @@ pub struct DnsBackendPlugin {
 
 inventory::collect!(DnsBackendPlugin);
 
-static FACTORIES: LazyLock<HashMap<&'static str, fn() -> Box<dyn DnsProvider>>> = LazyLock::new(|| {
-    let mut map = HashMap::new();
+static FACTORIES: LazyLock<FxHashMap<&'static str, fn() -> Box<dyn DnsProvider>>> = LazyLock::new(|| {
+    let mut map = FxHashMap::default();
     for plugin in inventory::iter::<DnsBackendPlugin> {
         map.insert(plugin.name, plugin.factory);
     }

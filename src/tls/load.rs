@@ -2,9 +2,9 @@ use crate::tls::grades;
 use crate::utils::tools::Die;
 use log::error;
 use pingora::tls::ssl::{NameType, SniError, SslAlert, SslContext, SslFiletype, SslMethod, SslRef};
+use rustc_hash::{FxHashMap, FxHashSet};
 use rustls_pemfile::{Item, read_one};
 use serde::Deserialize;
-use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io::BufReader;
 use x509_parser::extensions::GeneralName;
@@ -31,7 +31,7 @@ pub struct CertificateInfo {
 #[derive(Debug)]
 pub struct Certificates {
     configs: Vec<CertificateInfo>,
-    name_map: HashMap<String, SslContext>,
+    name_map: FxHashMap<String, SslContext>,
     pub default_cert_path: String,
     pub default_key_path: String,
 }
@@ -40,7 +40,7 @@ impl Certificates {
     pub fn new(configs: &Vec<CertificateConfig>, _grade: &str) -> Option<Self> {
         let default_cert = configs.first().die("At least one TLS certificate required");
         let mut cert_infos = Vec::new();
-        let mut name_map: HashMap<String, SslContext> = HashMap::new();
+        let mut name_map: FxHashMap<String, SslContext> = FxHashMap::default();
         for config in configs {
             let cert_info = load_cert_info(&config.cert_path, &config.key_path, _grade);
             match cert_info {
@@ -107,8 +107,8 @@ impl Certificates {
 }
 
 pub fn load_cert_info(cert_path: &str, key_path: &str, _grade: &str) -> Option<CertificateInfo> {
-    let mut common_names = HashSet::new();
-    let mut alt_names = HashSet::new();
+    let mut common_names = FxHashSet::default();
+    let mut alt_names = FxHashSet::default();
 
     let file = File::open(cert_path);
     match file {

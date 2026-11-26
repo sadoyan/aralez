@@ -20,7 +20,7 @@ use signal_hook::{
     consts::{SIGINT, SIGTERM},
     iterator::Signals,
 };
-use std::collections::HashMap;
+use rustc_hash::FxHashMap;
 use std::sync::Arc;
 use std::sync::mpsc::{Receiver, Sender, channel};
 use std::time::Duration;
@@ -35,29 +35,14 @@ pub fn run() {
     let master_server = maincfg.cluster_member.as_deref() == Some("master");
     let cache_enabled = maincfg.cache.is_some();
 
-    // ========================================================================== //
-    // let mut cache_enabled = false;
-    // if let Some(cache) = maincfg.cache.clone() {
-    //     CACHE_TTL.set(cache.ttl.unwrap_or(60)).die("Failed to set cache TTL");
-    //     let cache_size = cache.mem_size_mb.unwrap_or(64);
-    //     let _ = EVICTION.set(Manager::new(cache_size * 1024 * 1024));
-    //     cache_enabled = true;
-    // }
-    // CACHE_TTL.set(maincfg.cache_ttl.unwrap_or(60)).die("Failed to set cache TTL");
-    // if cache_enabled {
-    //     let cache_size = maincfg.cache_size_mb.unwrap_or(50);
-    //     let _ = EVICTION.set(Manager::new(cache_size * 1024 * 1024));
-    // }
-    // ========================================================================== //
-
     let mut server = Server::new(parameters).die("Failed to start the server:");
     server.bootstrap();
 
-    let uf_config: Arc<ArcSwap<UpstreamsDashMap>> = Arc::new(ArcSwap::new(Arc::new(HashMap::new())));
-    let ff_config: Arc<ArcSwap<UpstreamsDashMap>> = Arc::new(ArcSwap::new(Arc::new(HashMap::new())));
-    let im_config: Arc<ArcSwap<UpstreamsIdMap>> = Arc::new(ArcSwap::new(Arc::new(HashMap::new())));
-    let ch_config: Arc<ArcSwap<Headers>> = Arc::new(ArcSwap::new(Arc::new(HashMap::new())));
-    let sh_config: Arc<ArcSwap<Headers>> = Arc::new(ArcSwap::new(Arc::new(HashMap::new())));
+    let uf_config: Arc<ArcSwap<UpstreamsDashMap>> = Arc::new(ArcSwap::new(Arc::new(FxHashMap::default())));
+    let ff_config: Arc<ArcSwap<UpstreamsDashMap>> = Arc::new(ArcSwap::new(Arc::new(FxHashMap::default())));
+    let im_config: Arc<ArcSwap<UpstreamsIdMap>> = Arc::new(ArcSwap::new(Arc::new(FxHashMap::default())));
+    let ch_config: Arc<ArcSwap<Headers>> = Arc::new(ArcSwap::new(Arc::new(FxHashMap::default())));
+    let sh_config: Arc<ArcSwap<Headers>> = Arc::new(ArcSwap::new(Arc::new(FxHashMap::default())));
 
     let ec_config = Arc::new(ArcSwap::from_pointee(Extraparams {
         to_https: false,

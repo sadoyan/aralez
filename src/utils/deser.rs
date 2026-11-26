@@ -6,12 +6,12 @@ use bytes::Bytes;
 use log::{error, info, warn};
 use noyalib::to_string;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use rustc_hash::FxHashMap;
 use std::ops::Deref;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct UpstreamConfigDto {
-    pub paths: HashMap<String, PathConfigDto>,
+    pub paths: FxHashMap<String, PathConfigDto>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -25,7 +25,7 @@ pub struct PathConfigDto {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub redirect_to: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub authorization: Option<HashMap<String, String>>,
+    pub authorization: Option<FxHashMap<String, String>>,
     pub servers: Vec<String>,
     // #[serde(skip_serializing_if = "Option::is_none")]
     // pub client_headers: Option<Vec<String>>,
@@ -35,7 +35,7 @@ pub struct PathConfigDto {
 
 #[derive(Clone, Debug)]
 pub struct SendConfigDto {
-    pub upstreams: HashMap<String, UpstreamConfigDto>,
+    pub upstreams: FxHashMap<String, UpstreamConfigDto>,
     pub client_headers: Headers,
     pub server_headers: Headers,
     pub consul: Option<Consul>,
@@ -46,11 +46,11 @@ pub struct SendConfigDto {
 
 pub fn serialize_config(data: &UpstreamsDashMap) -> String {
     let config = GLOBAL_PARAMS.read().die("Failed to read config");
-    let mut snapshot: HashMap<String, UpstreamConfigDto> = HashMap::new();
+    let mut snapshot: FxHashMap<String, UpstreamConfigDto> = FxHashMap::default();
 
     for (okey, ovalue) in data.iter() {
         let domain = okey.to_string();
-        let mut paths: HashMap<String, PathConfigDto> = HashMap::new();
+        let mut paths: FxHashMap<String, PathConfigDto> = FxHashMap::default();
 
         for (ikey, ivalue) in ovalue.iter() {
             let path = ikey.to_string();
@@ -60,7 +60,7 @@ pub fn serialize_config(data: &UpstreamsDashMap) -> String {
                 let servers = vec_inner.iter().map(|item| format!("{}:{}", item.address, item.port)).collect();
                 let mut auth = None;
                 if let Some(ath) = first.authorization.clone() {
-                    let mut a = HashMap::new();
+                    let mut a = FxHashMap::default();
                     a.insert("type".to_string(), ath.auth_type.clone().to_string());
                     a.insert("data".to_string(), ath.auth_cred.clone().to_string());
                     auth = Some(a);
@@ -130,7 +130,7 @@ struct YamlPath {
 
 #[derive(Serialize)]
 struct YamlUpstream {
-    paths: HashMap<String, YamlPath>,
+    paths: FxHashMap<String, YamlPath>,
 }
 
 #[derive(Serialize)]
@@ -146,7 +146,7 @@ struct YamlConfig {
     client_headers: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     authorization: Option<YamlAuth>,
-    upstreams: HashMap<String, YamlUpstream>,
+    upstreams: FxHashMap<String, YamlUpstream>,
 }
 
 fn is_false(v: &bool) -> bool {
@@ -190,7 +190,7 @@ pub fn to_yaml(config: &SendConfigDto) -> String {
         data: auth.auth_cred.to_string(),
     });
 
-    let upstreams: HashMap<String, YamlUpstream> = config
+    let upstreams: FxHashMap<String, YamlUpstream> = config
         .upstreams
         .iter()
         .map(|(domain, upstream)| {

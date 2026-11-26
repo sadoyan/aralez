@@ -38,6 +38,7 @@ impl GetHost for LB {
         let mut end = path.len();
         loop {
             let slice = &path[..end];
+            // println!("{}", slice);
             if let Some(entry) = host_entry.get(slice) {
                 let (servers, index) = entry;
                 if let Some(backend) = self.pick_backend(servers, index, backend_id) {

@@ -6,7 +6,7 @@ use crate::utils::types::{InnerMap, UpstreamsDashMap, UpstreamsIdMap};
 use arc_swap::ArcSwap;
 use bytes::Bytes;
 use log::info;
-use std::collections::HashMap;
+use rustc_hash::FxHashMap;
 use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
 use std::time::Duration;
@@ -82,10 +82,10 @@ pub async fn hc2(upslist: Arc<ArcSwap<UpstreamsDashMap>>, fullist: Arc<ArcSwap<U
     */
 }
 pub(crate) async fn initiate_upstreams(fullist: &UpstreamsDashMap, method: &str) -> UpstreamsDashMap {
-    let mut totest: UpstreamsDashMap = HashMap::new();
+    let mut totest: UpstreamsDashMap = FxHashMap::default();
     let fclone = clone_upstreams(fullist);
     for (key, val) in fclone.iter() {
-        let mut inner = HashMap::new();
+        let mut inner = FxHashMap::default();
 
         for (pkey, pval) in val.iter() {
             let mut innervec = Vec::new();

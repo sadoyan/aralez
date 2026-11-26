@@ -1,12 +1,13 @@
+use rustc_hash::FxHashMap;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
 
-pub type UpstreamsDashMap = HashMap<Arc<str>, HashMap<Arc<str>, (Vec<Arc<InnerMap>>, AtomicUsize)>>;
+// pub type UpstreamsDashMap = FxHashMap<Arc<str>, FxHashMap<Arc<str>, (Vec<Arc<InnerMap>>, AtomicUsize)>>;
+pub type UpstreamsDashMap = FxHashMap<Arc<str>, FxHashMap<Arc<str>, (Vec<Arc<InnerMap>>, AtomicUsize)>>;
 
-pub type UpstreamsIdMap = HashMap<String, Arc<InnerMap>>;
-pub type Headers = HashMap<Arc<str>, HashMap<Arc<str>, Vec<(String, Arc<str>)>>>;
+pub type UpstreamsIdMap = FxHashMap<String, Arc<InnerMap>>;
+pub type Headers = FxHashMap<Arc<str>, FxHashMap<Arc<str>, Vec<(String, Arc<str>)>>>;
 
 #[derive(Clone, Debug, Default, Serialize)]
 pub struct Extraparams {
@@ -49,9 +50,9 @@ pub struct Config {
     pub to_https: Option<bool>,
     pub sticky_sessions: Option<u64>,
     #[serde(default)]
-    pub upstreams: Option<HashMap<String, HostConfig>>,
+    pub upstreams: Option<FxHashMap<String, HostConfig>>,
     #[serde(default)]
-    pub globals: Option<HashMap<String, Vec<String>>>,
+    pub globals: Option<FxHashMap<String, Vec<String>>>,
     #[serde(default)]
     pub client_headers: Option<Vec<String>>,
     #[serde(default)]
@@ -69,7 +70,7 @@ pub struct Config {
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct HostConfig {
-    pub paths: HashMap<String, PathConfig>,
+    pub paths: FxHashMap<String, PathConfig>,
     pub rate_limit: Option<isize>,
     pub x4xx_limit: Option<u32>,
 }

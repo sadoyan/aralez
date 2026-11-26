@@ -7,6 +7,7 @@ use opentelemetry_otlp::WithTonicConfig;
 use opentelemetry_otlp::{LogExporter, WithExportConfig, WithHttpConfig};
 use opentelemetry_sdk::Resource;
 use opentelemetry_sdk::logs::{BatchConfigBuilder, BatchLogProcessor, SdkLoggerProvider};
+use rustc_hash::FxHashMap;
 use std::collections::HashMap;
 use std::env;
 use std::sync::LazyLock;
@@ -24,7 +25,7 @@ pub struct OtelLogConfig {
     pub service_name: String,
     pub batch_delay_ms: u64,
     pub batch_max_size: usize,
-    pub headers: HashMap<String, String>,
+    pub headers: FxHashMap<String, String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -35,7 +36,7 @@ pub enum OtelProtocol {
 
 static OTEL: LazyLock<OtelLogConfig> = LazyLock::new(OtelLogConfig::from_env);
 
-fn parse_headers_env(var_name: &str) -> HashMap<String, String> {
+fn parse_headers_env(var_name: &str) -> FxHashMap<String, String> {
     env::var(var_name)
         .unwrap_or_default()
         .split(',')
@@ -77,7 +78,8 @@ fn build_exporter(cfg: &OtelLogConfig) -> Result<LogExporter, Box<dyn std::error
             let mut builder = LogExporter::builder().with_http().with_endpoint(cfg.http_endpoint.clone());
 
             if !cfg.headers.is_empty() {
-                builder = builder.with_headers(cfg.headers.clone());
+                let headers: HashMap<String, String> = cfg.headers.iter().map(|(k, v)| (k.clone(), v.clone())).collect();
+                builder = builder.with_headers(headers);
             }
 
             Ok(builder.build()?)

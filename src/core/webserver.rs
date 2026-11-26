@@ -19,7 +19,7 @@ use log::{debug, error, info, warn};
 use prometheus::{Encoder, TextEncoder, gather};
 use serde::Serialize;
 use signal_hook::{consts::SIGQUIT, iterator::Signals};
-use std::collections::HashMap;
+use rustc_hash::FxHashMap;
 use std::net::SocketAddr;
 use std::ops::Deref;
 use std::str::FromStr;
@@ -118,7 +118,7 @@ pub async fn run_server(
 async fn conf(
     State(st): State<AppState>,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
-    Query(params): Query<HashMap<String, String>>,
+    Query(params): Query<FxHashMap<String, String>>,
     headers: HeaderMap,
     content: String,
 ) -> impl IntoResponse {
@@ -267,7 +267,7 @@ async fn metrics() -> impl IntoResponse {
 }
 
 #[allow(clippy::needless_return)]
-async fn status(State(st): State<AppState>, Query(params): Query<HashMap<String, String>>) -> impl IntoResponse {
+async fn status(State(st): State<AppState>, Query(params): Query<FxHashMap<String, String>>) -> impl IntoResponse {
     if params.contains_key("live") {
         // Load guards from the ArcSwap containers
         let full_guard = st.full_upstreams.load();
