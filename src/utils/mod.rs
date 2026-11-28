@@ -4,6 +4,7 @@ pub mod hcclient;
 pub mod healthcheck;
 pub mod httpclient;
 // pub mod ingress;
+pub mod buildroutes;
 pub mod deser;
 pub mod lazylock;
 pub mod metrics;

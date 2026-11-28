@@ -1,8 +1,9 @@
+use crate::utils::buildroutes::{build_header_routers, build_router};
 use crate::utils::deser::{send_to_worker, serialize_config};
 use crate::utils::healthcheck;
 use crate::utils::lazylock::{DOMAINS, GLOBAL_PARAMS, IM_A_MASTER, MASTER_KEY, NODE_STATUS, REVERSE_STORE, WORKERS};
 use crate::utils::state::{is_first_run, mark_not_first_run};
-use crate::utils::tools::{Die, clone_dashmap_into};
+use crate::utils::tools::{Die, clone_dashmap_into, clone_upstreams};
 use crate::utils::types::*;
 use log::{error, info, warn};
 use rustc_hash::FxHashMap;
@@ -189,58 +190,72 @@ async fn populate_headers_and_auth(config: &mut Configuration, parsed: &Config) 
 }
 
 async fn populate_file_upstreams(config: &mut Configuration, parsed: &Config) {
-    let mut imtdashmap = UpstreamsDashMap::default();
+    let mut imtdashmap = UpstreamsMap::default();
     if let Some(upstreams) = &parsed.upstreams {
         for (hostname, host_config) in upstreams {
+            let host_key: Arc<str> = Arc::from(hostname.as_str());
             let mut path_map = FxHashMap::default();
             let mut client_header_list = FxHashMap::default();
             let mut server_header_list = FxHashMap::default();
+
             for (path, path_config) in &host_config.paths {
+                let path_key: Arc<str> = Arc::from(path.as_str());
                 if let Some(rate) = &path_config.rate_limit {
                     info!("Applied Rate Limit for {} : {} request per second", hostname, rate);
                 }
+
                 let mut hl: Vec<(String, Arc<str>)> = Vec::new();
                 let mut sl: Vec<(String, Arc<str>)> = Vec::new();
                 build_headers(&path_config.client_headers, config, &mut hl);
                 build_headers(&path_config.server_headers, config, &mut sl);
-                client_header_list.insert(Arc::from(path.as_str()), hl);
-                server_header_list.insert(Arc::from(path.as_str()), sl);
-                let mut server_list = Vec::new();
+
+                client_header_list.insert(path_key.clone(), hl);
+                server_header_list.insert(path_key.clone(), sl);
+
+                let path_auth: Option<Arc<InnerAuth>> = path_config.authorization.as_ref().map(|pa| {
+                    Arc::from(InnerAuth {
+                        auth_type: Arc::from(pa.auth_type.as_str()),
+                        auth_cred: Arc::from(pa.auth_cred.as_deref().unwrap_or("")),
+                    })
+                });
+                let redirect_link: Option<Arc<str>> = path_config.redirect_to.as_deref().map(Arc::from);
+
+                let is_ssl = path_config.is_ssl.unwrap_or(false);
+                let is_http2 = path_config.is_http2.unwrap_or(false);
+                let to_https = path_config.to_https.unwrap_or(false);
+                let rate_limit = path_config.rate_limit.unwrap_or(0);
+                let x4xx_limit = path_config.x4xx_limit.unwrap_or(0);
+                let healthcheck = path_config.healthcheck.unwrap_or(true);
+
+                let mut server_list = Vec::with_capacity(path_config.servers.len());
                 for server in &path_config.servers {
-                    let mut path_auth: Option<Arc<InnerAuth>> = None;
-                    if let Some(pa) = &path_config.authorization {
-                        let y: InnerAuth = InnerAuth {
-                            auth_type: Arc::from(pa.auth_type.clone()),
-                            auth_cred: Arc::from(pa.auth_cred.clone().unwrap_or_default()),
-                        };
-                        path_auth = Some(Arc::from(y));
-                    }
-
-                    let redirect_link = path_config.redirect_to.as_ref().map(|www| Arc::from(www.as_str()));
-
                     if let Some((ip, port_str)) = server.rsplit_once(':') {
                         if let Ok(port) = port_str.parse::<u16>() {
                             server_list.push(Arc::from(InnerMap {
                                 address: Arc::from(ip),
                                 port,
-                                is_ssl: path_config.is_ssl.unwrap_or(false),
-                                is_http2: path_config.is_http2.unwrap_or(false),
-                                to_https: path_config.to_https.unwrap_or(false),
-                                rate_limit: path_config.rate_limit.unwrap_or(0),
-                                x4xx_limit: path_config.x4xx_limit.unwrap_or(0),
-                                healthcheck: path_config.healthcheck.unwrap_or(true),
-                                redirect_to: redirect_link,
-                                authorization: path_auth,
+                                is_ssl,
+                                is_http2,
+                                to_https,
+                                rate_limit,
+                                x4xx_limit,
+                                healthcheck,
+                                redirect_to: redirect_link.clone(),
+                                authorization: path_auth.clone(),
                             }));
                         }
                     }
                 }
-                path_map.insert(Arc::from(path.clone()), (server_list, AtomicUsize::new(0)));
+                path_map.insert(path_key, (server_list, AtomicUsize::new(0)));
             }
-            config.client_headers.insert(Arc::from(hostname.clone()), client_header_list);
-            config.server_headers.insert(Arc::from(hostname.clone()), server_header_list);
 
-            imtdashmap.insert(Arc::from(hostname.clone()), path_map);
+            config.client_headers.insert(host_key.clone(), client_header_list);
+            config.server_headers.insert(host_key.clone(), server_header_list);
+            imtdashmap.insert(host_key, path_map);
+        }
+
+        if let Err(e) = build_header_routers(config.client_headers.clone(), config.server_headers.clone()) {
+            log::error!("build_header_routers failed: {e:?}");
         }
 
         {
@@ -255,10 +270,12 @@ async fn populate_file_upstreams(config: &mut Configuration, parsed: &Config) {
 
         if is_first_run() {
             clone_dashmap_into(&imtdashmap, &mut config.upstreams);
+            let _ = build_router(clone_upstreams(&config.upstreams));
             mark_not_first_run();
         } else {
             let r = healthcheck::initiate_upstreams(&imtdashmap, "HEAD").await;
             clone_dashmap_into(&r, &mut config.upstreams);
+            let _ = build_router(clone_upstreams(&r));
         }
         info!("Upstream Config:");
         REVERSE_STORE.clear();
@@ -269,7 +286,6 @@ async fn populate_file_upstreams(config: &mut Configuration, parsed: &Config) {
                 let _ = send_to_worker(binary_output).await;
             }
         }
-        // print_upstreams(&config.upstreams, &config.extraparams);
     }
 }
 pub fn parce_main_config(path: &str) -> AppConfig {
@@ -326,13 +342,6 @@ pub fn parce_main_config(path: &str) -> AppConfig {
                     key: cfo.master_key.clone().map(|s| Arc::from(s)),
                 };
                 wks.push(wk);
-                // println!("{:?}", wk);
-                // if let Some((host, port_str)) = worker.trim().split_once(':') {
-                //     let port = port_str.parse::<u16>().die("Invalid worker port number");
-                //     wks.push((host.to_string(), port));
-                // } else {
-                //     panic!("Invalid worker format, expected host:port");
-                // }
             }
             WORKERS.set(wks).die("Workers list can only be initialized once");
         }

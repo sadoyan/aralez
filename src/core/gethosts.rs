@@ -1,5 +1,7 @@
 use crate::core::proxyhttp::LB;
-use crate::utils::types::InnerMap;
+use crate::utils::buildroutes::{collapse_slashes, find, norm_path};
+use crate::utils::lazylock::{CLIENT_HEADERS, SERVER_HEADERS, UPSTREAMS};
+use crate::utils::types::{HeaderEntries, InnerMap, Pool};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -33,103 +35,53 @@ impl GetHost for LB {
         Some(servers[idx].clone())
     }
     fn get_host(&self, peer: &str, path: &str, backend_id: Option<&str>) -> Option<Arc<InnerMap>> {
-        let guard = self.ump_upst.load();
-        let host_entry = guard.get(peer)?;
-        let mut end = path.len();
-        loop {
-            let slice = &path[..end];
-            // println!("{}", slice);
-            if let Some(entry) = host_entry.get(slice) {
-                let (servers, index) = entry;
-                if let Some(backend) = self.pick_backend(servers, index, backend_id) {
-                    return Some(backend);
-                }
+        let guard = UPSTREAMS.load();
+
+        let router = guard.get(peer)?;
+        let path = path.trim_end_matches('/');
+        let path = if path.is_empty() { "/" } else { path };
+        let p = collapse_slashes(path);
+        let mut cur: Option<&Pool> = Some(router.at(p.as_ref()).ok()?.value);
+
+        while let Some(pool) = cur {
+            if let Some(b) = self.pick_backend(&pool.servers, &pool.index, backend_id) {
+                return Some(b);
             }
-            if let Some(pos) = slice.rfind('/') {
-                end = pos;
-            } else {
-                break;
-            }
-        }
-        if let Some(entry) = host_entry.get("/") {
-            let (servers, index) = entry;
-            if let Some(backend) = self.pick_backend(servers, index, backend_id) {
-                return Some(backend);
-            }
+            cur = pool.parent.as_deref();
         }
         None
     }
-
     fn get_header(&self, peer: &str, path: &str) -> Option<GetHostsReturHeaders> {
-        let ce = self.client_headers.load();
-        let client_entry = ce.get(peer);
+        let ce = CLIENT_HEADERS.load();
+        let se = SERVER_HEADERS.load();
+        let path = norm_path(path);
 
-        let se = self.server_headers.load();
-        let server_entry = se.get(peer);
+        let global_client = ce.get("GLOBAL_CLIENT_HEADERS").and_then(|r| find(r, path, |e: &HeaderEntries| !e.is_empty()));
+        let host_client = ce.get(peer).and_then(|r| find(r, path, |e: &HeaderEntries| !e.is_empty()));
 
-        if client_entry.is_none() && server_entry.is_none() {
-            return None;
-        }
+        let global_server = se.get("GLOBAL_SERVER_HEADERS").and_then(|r| find(r, path, |e: &HeaderEntries| !e.is_empty()));
+        let host_server = se.get(peer).and_then(|r| find(r, path, |e: &HeaderEntries| !e.is_empty()));
 
-        let mut current_path = path;
-        let mut clnt_match = None;
-
-        if let Some(client_map) = client_entry {
-            loop {
-                if let Some(entry) = client_map.get(current_path) {
-                    if !entry.is_empty() {
-                        clnt_match = Some(entry.clone());
-                        break;
-                    }
-                }
-                if current_path == "/" {
-                    break;
-                }
-                if let Some(pos) = current_path.rfind('/') {
-                    current_path = if pos == 0 { "/" } else { &current_path[..pos] };
-                } else {
-                    break;
-                }
-            }
-        }
-
-        current_path = path;
-        let mut serv_match = None;
-
-        if let Some(server_map) = server_entry {
-            loop {
-                if let Some(entry) = server_map.get(current_path) {
-                    if !entry.is_empty() {
-                        serv_match = Some(entry.clone());
-                        break;
-                    }
-                }
-                if current_path == "/" {
-                    if let Some(entry) = server_map.get("/") {
-                        if !entry.is_empty() {
-                            serv_match = Some(entry.clone());
-                            break;
-                        }
-                    }
-                    break;
-                }
-                if let Some(pos) = current_path.rfind('/') {
-                    current_path = if pos == 0 { "/" } else { &current_path[..pos] };
-                } else {
-                    break;
-                }
-            }
-        }
-
-        let result = GetHostsReturHeaders {
-            client_headers: clnt_match,
-            server_headers: serv_match,
+        let client = match (global_client, host_client) {
+            (None, None) => None,
+            (Some(g), None) => Some(g.clone()),
+            (None, Some(h)) => Some(h.clone()),
+            (Some(g), Some(h)) => Some(g.iter().chain(h.iter()).cloned().collect()),
         };
 
-        if result.client_headers.is_some() || result.server_headers.is_some() {
-            Some(result)
-        } else {
-            None
+        let server = match (global_server, host_server) {
+            (None, None) => None,
+            (Some(g), None) => Some(g.clone()),
+            (None, Some(h)) => Some(h.clone()),
+            (Some(g), Some(h)) => Some(g.iter().chain(h.iter()).cloned().collect()),
+        };
+
+        if client.is_none() && server.is_none() {
+            return None;
         }
+        Some(GetHostsReturHeaders {
+            client_headers: client,
+            server_headers: server,
+        })
     }
 }

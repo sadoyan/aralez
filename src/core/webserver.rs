@@ -4,7 +4,7 @@ use crate::tls::acme::http01::{acme_create, acme_order, http01_challenge};
 use crate::utils::lazylock::NODE_STATUS;
 use crate::utils::metrics::{MEMORY_USAGE, OPEN_FILES, get_memory_usage, get_open_files};
 use crate::utils::tools::{Die, upstreams_liveness_json, upstreams_to_json};
-use crate::utils::types::{Config, Configuration, UpstreamsDashMap};
+use crate::utils::types::{Config, Configuration, UpstreamsMap};
 use arc_swap::ArcSwap;
 use axum::body::Body;
 use axum::extract::ConnectInfo;
@@ -43,16 +43,16 @@ pub struct AppState {
     upstreams_file: String,
     config_sender: mpsc::Sender<Configuration>,
     config_api_enabled: bool,
-    pub full_upstreams: Arc<ArcSwap<UpstreamsDashMap>>,
-    pub current_upstreams: Arc<ArcSwap<UpstreamsDashMap>>,
+    pub full_upstreams: Arc<ArcSwap<UpstreamsMap>>,
+    pub current_upstreams: Arc<ArcSwap<UpstreamsMap>>,
 }
 
 #[allow(unused_mut)]
 pub async fn run_server(
     config: &APIUpstreamProvider,
     mut to_return: mpsc::Sender<Configuration>,
-    upstreams_curr: Arc<ArcSwap<UpstreamsDashMap>>,
-    upstreams_full: Arc<ArcSwap<UpstreamsDashMap>>,
+    upstreams_curr: Arc<ArcSwap<UpstreamsMap>>,
+    upstreams_full: Arc<ArcSwap<UpstreamsMap>>,
 ) {
     let credsfile = config.config_dir.clone() + "/acme_credentials.json";
     let app_state = AppState {

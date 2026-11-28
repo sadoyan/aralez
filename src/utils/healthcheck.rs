@@ -1,8 +1,9 @@
+use crate::utils::buildroutes::build_router;
 use crate::utils::deser::{send_to_worker, serialize_config};
 use crate::utils::hcclient::{HttpClientRequest, httpclient};
 use crate::utils::lazylock::{IM_A_MASTER, NODE_STATUS, REVERSE_STORE};
 use crate::utils::tools::*;
-use crate::utils::types::{InnerMap, UpstreamsDashMap, UpstreamsIdMap};
+use crate::utils::types::{InnerMap, UpstreamsIdMap, UpstreamsMap};
 use arc_swap::ArcSwap;
 use bytes::Bytes;
 use log::info;
@@ -16,7 +17,7 @@ use tokio_native_tls::native_tls::TlsConnector;
 
 const EMPTY_PAYLOAD: Bytes = Bytes::from_static(b"");
 
-pub async fn hc2(upslist: Arc<ArcSwap<UpstreamsDashMap>>, fullist: Arc<ArcSwap<UpstreamsDashMap>>, idlist: Arc<ArcSwap<UpstreamsIdMap>>, params: (&str, u64)) {
+pub async fn hc2(upslist: Arc<ArcSwap<UpstreamsMap>>, fullist: Arc<ArcSwap<UpstreamsMap>>, idlist: Arc<ArcSwap<UpstreamsIdMap>>, params: (&str, u64)) {
     let mut period = interval(Duration::from_secs(params.1));
 
     if let Some(member) = NODE_STATUS.get() {
@@ -45,6 +46,7 @@ pub async fn hc2(upslist: Arc<ArcSwap<UpstreamsDashMap>>, fullist: Arc<ArcSwap<U
                     let mut new_idmap = (**current_guard).clone();
                     clone_idmap_into(&totest, &mut new_idmap);
                     idlist.store(Arc::new(new_idmap));
+                    let _= build_router(clone_upstreams(&totest));
                     upslist.store(Arc::new(totest));
 
                     if let Some(true) = IM_A_MASTER.get() {
@@ -81,8 +83,8 @@ pub async fn hc2(upslist: Arc<ArcSwap<UpstreamsDashMap>>, fullist: Arc<ArcSwap<U
      }
     */
 }
-pub(crate) async fn initiate_upstreams(fullist: &UpstreamsDashMap, method: &str) -> UpstreamsDashMap {
-    let mut totest: UpstreamsDashMap = FxHashMap::default();
+pub(crate) async fn initiate_upstreams(fullist: &UpstreamsMap, method: &str) -> UpstreamsMap {
+    let mut totest: UpstreamsMap = FxHashMap::default();
     let fclone = clone_upstreams(fullist);
     for (key, val) in fclone.iter() {
         let mut inner = FxHashMap::default();

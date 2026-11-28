@@ -1,6 +1,6 @@
 use crate::utils::httpclient;
 use crate::utils::parceyaml::build_headers;
-use crate::utils::types::{Configuration, GlobalServiceMapping, Headers, UpstreamsDashMap};
+use crate::utils::types::{Configuration, GlobalServiceMapping, Headers, UpstreamsMap};
 use async_trait::async_trait;
 use log::error;
 use rand::RngExt;
@@ -176,12 +176,7 @@ impl ServiceDiscovery for KubernetesDiscovery {
     }
 }
 
-pub async fn clone_compare_with_headers(
-    new_upstreams: &UpstreamsDashMap,
-    new_client_headers: &Headers,
-    new_server_headers: &Headers,
-    config: &Configuration,
-) -> Option<Configuration> {
+pub async fn clone_compare_with_headers(new_upstreams: &UpstreamsMap, new_client_headers: &Headers, new_server_headers: &Headers, config: &Configuration) -> Option<Configuration> {
     if !compare_dashmaps(&new_upstreams, &config.upstreams) || new_client_headers != &config.client_headers || new_server_headers != &config.server_headers {
         let mut cloned_upstreams = FxHashMap::default();
         for (host_key, inner_map) in new_upstreams {

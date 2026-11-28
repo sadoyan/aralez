@@ -1,5 +1,5 @@
 use crate::utils::tools::{Die, compare_dashmaps, print_upstreams};
-use crate::utils::types::{Configuration, GlobalServiceMapping, InnerMap, UpstreamsDashMap};
+use crate::utils::types::{Configuration, GlobalServiceMapping, InnerMap, UpstreamsMap};
 use async_trait::async_trait;
 use rustc_hash::FxHashMap;
 use std::sync::Arc;
@@ -9,7 +9,7 @@ use tokio::io::AsyncReadExt;
 use tokio::sync::mpsc::Sender;
 
 #[allow(clippy::type_complexity)]
-pub fn list_to_upstreams(lt: Option<FxHashMap<Arc<str>, (Vec<Arc<InnerMap>>, AtomicUsize)>>, upstreams: &mut UpstreamsDashMap, i: &GlobalServiceMapping) {
+pub fn list_to_upstreams(lt: Option<FxHashMap<Arc<str>, (Vec<Arc<InnerMap>>, AtomicUsize)>>, upstreams: &mut UpstreamsMap, i: &GlobalServiceMapping) {
     if let Some(list) = lt {
         let key: Arc<str> = Arc::from(i.hostname.as_str());
         let entry = upstreams.entry(key).or_insert_with(FxHashMap::default);
@@ -36,7 +36,7 @@ pub trait ServiceDiscovery {
     async fn fetch_upstreams(&self, config: Arc<Configuration>, toreturn: Sender<Configuration>);
 }
 
-pub async fn clone_compare(new_upstreams: &UpstreamsDashMap, config: &Configuration) -> Option<Configuration> {
+pub async fn clone_compare(new_upstreams: &UpstreamsMap, config: &Configuration) -> Option<Configuration> {
     if !compare_dashmaps(&new_upstreams, &config.upstreams) {
         let mut cloned_upstreams = FxHashMap::default();
         for (host_key, inner_map) in new_upstreams {

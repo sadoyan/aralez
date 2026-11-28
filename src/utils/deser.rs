@@ -1,7 +1,7 @@
 use crate::utils::hcclient::{HttpClientRequest, httpclient};
 use crate::utils::lazylock::{GLOBAL_PARAMS, MASTER_KEY, WORKERS};
 use crate::utils::tools::Die;
-use crate::utils::types::{Consul, Extraparams, Headers, Kubernetes, UpstreamsDashMap};
+use crate::utils::types::{Consul, Extraparams, Headers, Kubernetes, UpstreamsMap};
 use bytes::Bytes;
 use log::{error, info, warn};
 use noyalib::to_string;
@@ -44,7 +44,7 @@ pub struct SendConfigDto {
     pub extraparams: Extraparams,
 }
 
-pub fn serialize_config(data: &UpstreamsDashMap) -> String {
+pub fn serialize_config(data: &UpstreamsMap) -> String {
     let config = GLOBAL_PARAMS.read().die("Failed to read config");
     let mut snapshot: FxHashMap<String, UpstreamConfigDto> = FxHashMap::default();
 

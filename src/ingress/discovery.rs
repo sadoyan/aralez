@@ -2,7 +2,7 @@ use crate::core::webserver;
 use crate::ingress::consul::ConsulDiscovery;
 use crate::ingress::kuberconsul::ServiceDiscovery;
 use crate::ingress::kubernetes::KubernetesDiscovery;
-use crate::utils::types::{Configuration, UpstreamsDashMap};
+use crate::utils::types::{Configuration, UpstreamsMap};
 use crate::utils::watch;
 use arc_swap::ArcSwap;
 use async_trait::async_trait;
@@ -19,8 +19,8 @@ pub struct APIUpstreamProvider {
     pub upstreams_file: String,
     pub file_server_address: Option<String>,
     pub file_server_folder: Option<String>,
-    pub current_upstreams: Arc<ArcSwap<UpstreamsDashMap>>,
-    pub full_upstreams: Arc<ArcSwap<UpstreamsDashMap>>,
+    pub current_upstreams: Arc<ArcSwap<UpstreamsMap>>,
+    pub full_upstreams: Arc<ArcSwap<UpstreamsMap>>,
 }
 
 pub struct FromFileProvider {

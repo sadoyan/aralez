@@ -1,4 +1,5 @@
-use crate::utils::types::{Configuration, WorkerNodes};
+use crate::utils::types::{Configuration, HeaderEntries, HostPaths, HostRouters, WorkerNodes};
+use arc_swap::ArcSwap;
 use dashmap::DashMap;
 use moka::sync::Cache;
 use pingora_cache::MemCache;
@@ -26,3 +27,6 @@ pub static MASTER_KEY: OnceLock<Option<Arc<str>>> = OnceLock::new();
 pub static GLOBAL_PARAMS: LazyLock<RwLock<Configuration>> = LazyLock::new(|| RwLock::new(Configuration::default()));
 pub static IM_A_MASTER: OnceLock<bool> = OnceLock::new();
 pub static WORKERS: OnceLock<Vec<WorkerNodes>> = OnceLock::new();
+pub static UPSTREAMS: LazyLock<ArcSwap<HostRouters>> = LazyLock::new(|| ArcSwap::from_pointee(FxHashMap::default()));
+pub static CLIENT_HEADERS: LazyLock<ArcSwap<HostPaths<HeaderEntries>>> = LazyLock::new(|| ArcSwap::from_pointee(FxHashMap::default()));
+pub static SERVER_HEADERS: LazyLock<ArcSwap<HostPaths<HeaderEntries>>> = LazyLock::new(|| ArcSwap::from_pointee(FxHashMap::default()));

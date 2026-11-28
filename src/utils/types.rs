@@ -1,13 +1,36 @@
+use matchit::{InsertError, Router};
 use rustc_hash::FxHashMap;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
 
-// pub type UpstreamsDashMap = FxHashMap<Arc<str>, FxHashMap<Arc<str>, (Vec<Arc<InnerMap>>, AtomicUsize)>>;
-pub type UpstreamsDashMap = FxHashMap<Arc<str>, FxHashMap<Arc<str>, (Vec<Arc<InnerMap>>, AtomicUsize)>>;
+#[derive(Debug)]
+pub struct Pool {
+    pub servers: Vec<Arc<InnerMap>>,
+    pub index: AtomicUsize,
+    pub parent: Option<Arc<Pool>>,
+}
+
+pub type HostRouters = FxHashMap<Arc<str>, Router<Arc<Pool>>>;
+
+#[derive(Debug)]
+pub enum BuildError {
+    Route { host: Arc<str>, path: String, source: InsertError },
+}
+
+#[derive(Debug)]
+pub struct Node<T> {
+    pub value: T,
+    pub parent: Option<Arc<Node<T>>>,
+}
+
+pub type PathRouter<T> = Router<Arc<Node<T>>>;
+pub type HostPaths<T> = FxHashMap<Arc<str>, PathRouter<T>>;
+pub type HeaderEntries = Vec<(String, Arc<str>)>;
+pub type Headers = FxHashMap<Arc<str>, FxHashMap<Arc<str>, HeaderEntries>>;
+pub type UpstreamsMap = FxHashMap<Arc<str>, FxHashMap<Arc<str>, (Vec<Arc<InnerMap>>, AtomicUsize)>>;
 
 pub type UpstreamsIdMap = FxHashMap<String, Arc<InnerMap>>;
-pub type Headers = FxHashMap<Arc<str>, FxHashMap<Arc<str>, Vec<(String, Arc<str>)>>>;
 
 #[derive(Clone, Debug, Default, Serialize)]
 pub struct Extraparams {
@@ -97,7 +120,7 @@ pub struct PathConfig {
 }
 #[derive(Debug, Default)]
 pub struct Configuration {
-    pub upstreams: UpstreamsDashMap,
+    pub upstreams: UpstreamsMap,
     pub client_headers: Headers,
     pub server_headers: Headers,
     pub consul: Option<Consul>,

@@ -6,7 +6,7 @@ use crate::tls::acme::order::refresh_order;
 use crate::utils::metrics::calc_cache_metrics;
 use crate::utils::parceyaml::load_configuration;
 use crate::utils::tools::*;
-use crate::utils::types::{Configuration, UpstreamsDashMap};
+use crate::utils::types::{Configuration, UpstreamsMap};
 use crate::utils::*;
 use async_trait::async_trait;
 use log::{error, info};
@@ -173,7 +173,7 @@ impl BackgroundService for LB {
 
 use std::sync::atomic::Ordering;
 
-fn deep_clone_upstreams(original: &UpstreamsDashMap) -> UpstreamsDashMap {
+fn deep_clone_upstreams(original: &UpstreamsMap) -> UpstreamsMap {
     let mut new_map = FxHashMap::default();
 
     for (domain, paths) in original {

@@ -79,3 +79,4 @@ opentelemetry_sdk = "0.33.1"
 opentelemetry-otlp = { version = "0.33.1", features = ["grpc-tonic", "http-proto", "tls-ring", "tls-roots", ], }
 tonic = "0.14.9"
 rustc-hash = "2.1.3"
+matchit = "0.8.4"

@@ -4,7 +4,7 @@ use crate::core::gethosts::{GetHost, GetHostsReturHeaders};
 use crate::logging::core::access_log;
 use crate::utils::lazylock::{CACHE_LOCK, CACHE_TTL, EVICTION, LOCALHOST, RATE_LIMITER, REQUESTS_4XX, REVERSE_STORE};
 use crate::utils::metrics::*;
-use crate::utils::types::{AppConfig, Extraparams, Headers, InnerMap, UpstreamsDashMap, UpstreamsIdMap};
+use crate::utils::types::{AppConfig, Extraparams, Headers, InnerMap, UpstreamsIdMap, UpstreamsMap};
 use arc_swap::ArcSwap;
 use async_trait::async_trait;
 use axum::body::Bytes;
@@ -27,8 +27,8 @@ use tokio::time::Instant;
 thread_local! {static IP_BUFFER: RefCell<String> = RefCell::new(String::with_capacity(50));}
 #[derive(Clone)]
 pub struct LB {
-    pub ump_upst: Arc<ArcSwap<UpstreamsDashMap>>,
-    pub ump_full: Arc<ArcSwap<UpstreamsDashMap>>,
+    pub ump_upst: Arc<ArcSwap<UpstreamsMap>>,
+    pub ump_full: Arc<ArcSwap<UpstreamsMap>>,
     pub ump_byid: Arc<ArcSwap<UpstreamsIdMap>>,
     pub client_headers: Arc<ArcSwap<Headers>>,
     pub server_headers: Arc<ArcSwap<Headers>>,
@@ -147,7 +147,9 @@ impl ProxyHttp for LB {
         match _ctx.hostname.as_ref() {
             None => return Ok(false),
             Some(host) => {
+                // let wow = Instant::now();
                 let optioninnermap = self.get_host(host, session.req_header().uri.path(), backend_id);
+                // println!(" => {:?}", wow.elapsed());
                 match optioninnermap {
                     None => return Ok(false),
                     Some(ref innermap) => {
@@ -371,7 +373,7 @@ impl ProxyHttp for LB {
     }
 }
 
-fn return_header_host_from_upstream(session: &Session, ump_upst: &Arc<ArcSwap<UpstreamsDashMap>>) -> Option<Arc<str>> {
+fn return_header_host_from_upstream(session: &Session, ump_upst: &Arc<ArcSwap<UpstreamsMap>>) -> Option<Arc<str>> {
     let host_str = if session.is_http2() {
         session.req_header().uri.host()?
     } else {

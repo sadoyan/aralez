@@ -1,11 +1,11 @@
 use crate::tls::load;
 use crate::tls::load::CertificateConfig;
-use crate::utils::types::{Extraparams, InnerMapForJson, UpstreamSnapshotForJson, UpstreamsDashMap, UpstreamsIdMap};
+use crate::utils::types::{Extraparams, InnerMapForJson, UpstreamSnapshotForJson, UpstreamsIdMap, UpstreamsMap};
 use log::{error, info};
 use privdrop::PrivDrop;
+use rustc_hash::FxHashMap;
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
-use rustc_hash::FxHashMap;
 use std::fmt::{Debug, Write};
 use std::fs::OpenOptions;
 use std::io::Write as IoWrite;
@@ -21,7 +21,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::{env, fs, process, thread, time};
 
-pub fn print_upstreams(upstreams: &UpstreamsDashMap, extraparams: &Extraparams) -> String {
+pub fn print_upstreams(upstreams: &UpstreamsMap, extraparams: &Extraparams) -> String {
     let mut out = String::new();
     for (host, paths) in upstreams.iter() {
         writeln!(out, "Hostname: {}", host).unwrap_or_default();
@@ -47,7 +47,7 @@ pub fn print_upstreams(upstreams: &UpstreamsDashMap, extraparams: &Extraparams) 
     info!("\n{}", out);
     out.to_string()
 }
-pub fn clone_upstreams(original: &UpstreamsDashMap) -> UpstreamsDashMap {
+pub fn clone_upstreams(original: &UpstreamsMap) -> UpstreamsMap {
     original
         .iter()
         .map(|(host, inner_map)| {
@@ -57,7 +57,7 @@ pub fn clone_upstreams(original: &UpstreamsDashMap) -> UpstreamsDashMap {
         .collect()
 }
 
-pub fn clone_dashmap_into(original: &UpstreamsDashMap, cloned: &mut UpstreamsDashMap) {
+pub fn clone_dashmap_into(original: &UpstreamsMap, cloned: &mut UpstreamsMap) {
     cloned.clear();
     for (key, value) in original.iter() {
         let mut new_inner_map = FxHashMap::default();
@@ -69,7 +69,7 @@ pub fn clone_dashmap_into(original: &UpstreamsDashMap, cloned: &mut UpstreamsDas
     }
 }
 
-pub fn compare_dashmaps(map1: &UpstreamsDashMap, map2: &UpstreamsDashMap) -> bool {
+pub fn compare_dashmaps(map1: &UpstreamsMap, map2: &UpstreamsMap) -> bool {
     if map1.len() != map2.len() {
         return false;
     }
@@ -100,7 +100,7 @@ pub fn merge_headers(target: &mut FxHashMap<Arc<str>, Vec<(String, Arc<str>)>>, 
     }
 }
 
-pub fn clone_idmap_into(original: &UpstreamsDashMap, cloned: &mut UpstreamsIdMap) {
+pub fn clone_idmap_into(original: &UpstreamsMap, cloned: &mut UpstreamsIdMap) {
     cloned.clear();
     let mut id_buf = String::with_capacity(128);
     for (okey, inner_map) in original.iter() {
@@ -189,7 +189,7 @@ pub fn check_priv(addr: &str) {
 }
 
 #[allow(dead_code)]
-pub fn upstreams_to_json(upstreams: &UpstreamsDashMap) -> serde_json::Result<String> {
+pub fn upstreams_to_json(upstreams: &UpstreamsMap) -> serde_json::Result<String> {
     let mut outer = FxHashMap::default();
 
     for (okey, ovalue) in upstreams.iter() {
@@ -223,7 +223,7 @@ pub fn upstreams_to_json(upstreams: &UpstreamsDashMap) -> serde_json::Result<Str
     serde_json::to_string(&outer)
 }
 
-pub fn upstreams_liveness_json(configured: &UpstreamsDashMap, current: &UpstreamsDashMap) -> Value {
+pub fn upstreams_liveness_json(configured: &UpstreamsMap, current: &UpstreamsMap) -> Value {
     let mut result = serde_json::Map::new();
 
     for (hostname, configured_paths) in configured.iter() {

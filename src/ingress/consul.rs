@@ -3,7 +3,7 @@ use crate::ingress::kuberconsul::{ServiceDiscovery, list_to_upstreams};
 use crate::utils::httpclient;
 use crate::utils::parceyaml::build_headers;
 use crate::utils::tools::Die;
-use crate::utils::types::{Configuration, GlobalServiceMapping, Headers, UpstreamsDashMap};
+use crate::utils::types::{Configuration, GlobalServiceMapping, Headers, UpstreamsMap};
 use async_trait::async_trait;
 use pingora::prelude::sleep;
 use rand::RngExt;
@@ -27,7 +27,7 @@ pub struct ConsulDiscovery;
 impl ServiceDiscovery for ConsulDiscovery {
     async fn fetch_upstreams(&self, config: Arc<Configuration>, toreturn: Sender<Configuration>) {
         loop {
-            let mut upstreams = UpstreamsDashMap::default();
+            let mut upstreams = UpstreamsMap::default();
 
             if let Some(consul) = config.consul.clone() {
                 let servers = consul.servers.unwrap_or_else(|| {

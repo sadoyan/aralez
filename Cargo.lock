@@ -159,6 +159,7 @@ dependencies = [
  "libc",
  "log",
  "log4rs",
+ "matchit 0.8.4",
  "mimalloc",
  "moka",
  "notify",

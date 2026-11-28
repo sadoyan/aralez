@@ -4,7 +4,7 @@ use crate::tls::load;
 use crate::tls::load::CertificateConfig;
 use crate::utils::folder_watch;
 use crate::utils::tools::*;
-use crate::utils::types::{Extraparams, Headers, UpstreamsDashMap, UpstreamsIdMap};
+use crate::utils::types::{Extraparams, Headers, UpstreamsMap, UpstreamsIdMap};
 use arc_swap::ArcSwap;
 use log::info;
 use pingora::tls::ssl::{SslAlert, SslRef};
@@ -38,8 +38,8 @@ pub fn run() {
     let mut server = Server::new(parameters).die("Failed to start the server:");
     server.bootstrap();
 
-    let uf_config: Arc<ArcSwap<UpstreamsDashMap>> = Arc::new(ArcSwap::new(Arc::new(FxHashMap::default())));
-    let ff_config: Arc<ArcSwap<UpstreamsDashMap>> = Arc::new(ArcSwap::new(Arc::new(FxHashMap::default())));
+    let uf_config: Arc<ArcSwap<UpstreamsMap>> = Arc::new(ArcSwap::new(Arc::new(FxHashMap::default())));
+    let ff_config: Arc<ArcSwap<UpstreamsMap>> = Arc::new(ArcSwap::new(Arc::new(FxHashMap::default())));
     let im_config: Arc<ArcSwap<UpstreamsIdMap>> = Arc::new(ArcSwap::new(Arc::new(FxHashMap::default())));
     let ch_config: Arc<ArcSwap<Headers>> = Arc::new(ArcSwap::new(Arc::new(FxHashMap::default())));
     let sh_config: Arc<ArcSwap<Headers>> = Arc::new(ArcSwap::new(Arc::new(FxHashMap::default())));
